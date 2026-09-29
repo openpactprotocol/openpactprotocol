@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
 
 jobs:
@@ -21,5 +21,6 @@ jobs:
       - run: pnpm lint
       - run: pnpm typecheck
       - run: pnpm test
+      - run: pnpm format:check
       - run: pnpm --filter @pap/provider build
       - run: pnpm --filter @pap/personal-agent-client build

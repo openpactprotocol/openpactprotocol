@@ -79,7 +79,7 @@ pnpm --filter @pap/personal-agent-client build
 pnpm e2e
 ```
 
-The E2E suite expects a running provider and JWKS server. Configure `PROVIDER_URL`, `CUSTOMER_SLUG`, `DISABLED_CUSTOMER_SLUG`, `PA_ISSUER`, `PA_PRIVATE_JWK`, `ADMIN_USER`, and `ADMIN_PASSWORD`. If `PA_PRIVATE_JWK` is not exported, the suite reads `apps/personal-agent/client/.env.local`. E2E burst testing runs last because it intentionally exercises the global per-platform rate limit. Re-running the suite within the same minute can also encounter the configured limit.
+The E2E suite expects a running provider and JWKS server. Configure `PROVIDER_URL`, `CUSTOMER_SLUG`, `DISABLED_CUSTOMER_SLUG`, `PA_ISSUER`, `PA_PRIVATE_JWK`, `ADMIN_USER`, and `ADMIN_PASSWORD`; the suite fails if required customer slugs or admin credentials are missing. If `PA_PRIVATE_JWK` is not exported, the suite reads `apps/personal-agent/client/.env.local`. E2E burst testing runs last because it intentionally exercises the global per-platform rate limit. Re-running the suite within the same minute can also encounter the configured limit.
 
 The provider's `build` does not touch the database. `vercel-build` applies migrations before running `next build`.
 
@@ -87,12 +87,21 @@ The provider's `build` does not touch the database. `vercel-build` applies migra
 
 Create two Vercel projects:
 
-1. **Provider** — Root Directory `apps/provider`; use the `vercel-build` build command. Attach a Neon database through the Vercel Marketplace so `DATABASE_URL` is injected. Deploy in a region close to the database (`apps/provider/vercel.json` defaults to `iad1`).
+1. **Provider** — Root Directory `apps/provider`; `apps/provider/vercel.json` sets the build command to `pnpm run vercel-build`, which runs migrations before `next build`. Attach a Neon database through the Vercel Marketplace so `DATABASE_URL` is injected. Deploy in a region close to the database (`apps/provider/vercel.json` defaults to `iad1`).
 2. **Personal-agent server** — Root Directory `apps/personal-agent/server`; it is a static public directory with no build step. Commit the PA owner's public `jwks.json` before deployment.
 
-Set provider environment variables `DATABASE_URL`, `ADMIN_USER`, `ADMIN_PASSWORD`, and `PA_ISSUER`; optionally set `PROVIDER_URL` and `A2A_SEND_MESSAGE_LIMIT_PER_MINUTE` (default 20). After `vercel env pull`, run the provider seed against the intended database and production `PA_ISSUER`. Keep Standard Deployment Protection enabled. The JWKS endpoint includes JSON content type, CORS, and a five-minute public cache.
+Vercel must use pnpm 11.21.0, matching the root `packageManager` field. If Vercel detects a different pnpm version, set the project environment variable `ENABLE_EXPERIMENTAL_COREPACK=1` so Corepack honors the pinned version.
 
-For production E2E, set the same E2E environment variables to the deployed provider, PA server, and seeded customer slugs. Do not add the private key to the provider project.
+Set provider environment variables `DATABASE_URL`, `ADMIN_USER`, `ADMIN_PASSWORD`, and `PA_ISSUER`; optionally set `PROVIDER_URL` and `A2A_SEND_MESSAGE_LIMIT_PER_MINUTE` (default 20). After `vercel env pull`, run the provider seed against the intended database and production `PA_ISSUER`. The seed output prints the `CUSTOMER_SLUG` for Acme Health and `DISABLED_CUSTOMER_SLUG` for Globex Clinic. Keep Standard Deployment Protection enabled. The JWKS endpoint includes JSON content type, CORS, and a five-minute public cache.
+
+For production E2E, configure these variables on the E2E runner:
+
+- `PROVIDER_URL`: the deployed provider project's URL.
+- `CUSTOMER_SLUG`: Acme Health's slug printed by the provider seed.
+- `DISABLED_CUSTOMER_SLUG`: Globex Clinic's slug printed by the provider seed.
+- `PA_ISSUER`: the deployed PA server URL; it must match the issuer used when seeding the provider.
+- `PA_PRIVATE_JWK`: the private JWK from the PA owner's local `pnpm gen-keys` output; keep it only on the trusted E2E runner and never add it to the provider project.
+- `ADMIN_USER` and `ADMIN_PASSWORD`: the provider's Basic-auth credentials.
 
 ## Open deployment questions
 
