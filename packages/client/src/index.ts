@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
-import { importJWK, jwtVerify, SignJWT, type JWTPayload } from "jose";
+import { importJWK, SignJWT, type JWTPayload } from "jose";
 import { AgentCardSchema, type AgentCard } from "@pap/protocol";
+import type { ListTasksResponse, Task } from "@pap/protocol";
 
 type PrivateJwk = Parameters<typeof importJWK>[0];
 
@@ -130,7 +131,7 @@ export class A2AClient {
   async sendMessage(
     text: string,
     options: { taskId?: string; contextId?: string; historyLength?: number } = {},
-  ): Promise<{ task: import("@pap/protocol").Task }> {
+  ): Promise<{ task: Task }> {
     return this.rpc("SendMessage", {
       message: {
         messageId: randomUUID(),
@@ -145,7 +146,7 @@ export class A2AClient {
     });
   }
 
-  getTask(id: string, historyLength?: number): Promise<import("@pap/protocol").Task> {
+  getTask(id: string, historyLength?: number): Promise<Task> {
     return this.rpc("GetTask", { id, ...(historyLength === undefined ? {} : { historyLength }) });
   }
 
@@ -159,20 +160,11 @@ export class A2AClient {
       statusTimestampAfter?: string;
       includeArtifacts?: boolean;
     } = {},
-  ): Promise<import("@pap/protocol").ListTasksResponse> {
+  ): Promise<ListTasksResponse> {
     return this.rpc("ListTasks", options);
   }
 
   cancelTask(id: string): Promise<unknown> {
     return this.rpc("CancelTask", { id });
   }
-}
-
-export async function verifySignedToken(
-  token: string,
-  jwk: Record<string, unknown>,
-): Promise<JWTPayload> {
-  const key = await importJWK(jwk as Parameters<typeof importJWK>[0], "ES256");
-  const { payload } = await jwtVerify(token, key, { algorithms: ["ES256"] });
-  return payload;
 }
