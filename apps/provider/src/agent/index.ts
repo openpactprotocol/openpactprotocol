@@ -3,7 +3,7 @@ import type { Db } from "../db/client.js";
 import { appointments, aops, customerUsers } from "../db/schema.js";
 
 export type FlowState = {
-  aopId?: string;
+  aopId?: string | null;
   verificationEmail?: string;
   verificationDob?: string;
   verificationFailures?: number;
@@ -23,14 +23,14 @@ export interface AgentTurn {
 const INPUT_REQUIRED = "TASK_STATE_INPUT_REQUIRED";
 const COMPLETED = "TASK_STATE_COMPLETED";
 
-function escalation(name: string, flow: FlowState, aopId: string | null): AgentTurn {
-  const text = `A human will follow up via ${name}'s normal support channel.`;
+function escalation(name: string, flow: FlowState, aopId: string | null, prefix = ""): AgentTurn {
+  const text = `${prefix}A human will follow up via ${name}'s normal support channel.`;
   return {
     state: INPUT_REQUIRED,
     text,
     aopId,
     verifiedCustomerUserId: flow.verifiedUserId ?? null,
-    flow: { ...flow, escalated: true },
+    flow: { ...flow, aopId, escalated: true },
   };
 }
 
@@ -66,10 +66,12 @@ export async function runAgentTurn(input: {
   if (!flow.aopId) {
     if (/\b(dispute|refund|charge|bill|billing)\b/.test(lower)) {
       const billing = visibleAops.find((item) => item.id === "billing_dispute");
+      const aopId = billing?.id ?? null;
       return escalation(
         customerName,
-        billing ? { ...flow, aopId: billing.id } : flow,
-        "billing_dispute",
+        { ...flow, aopId },
+        aopId,
+        billing ? "" : "I can't help with that over this channel. ",
       );
     }
     const route =
@@ -79,11 +81,18 @@ export async function runAgentTurn(input: {
       (/\b(appointment|appt|booking)\b/.test(lower) ? "appointment_lookup" : undefined) ??
       (/\b(hours|open|location|address|parking|insurance|faq)\b/.test(lower) ? "faq" : undefined);
     if (/\b(human|agent|representative|person)\b/.test(lower)) {
-      return escalation(customerName, flow, null);
+      return escalation(customerName, { ...flow, aopId: null }, null);
     }
     if (route) {
       const aop = visibleAops.find((item) => item.id === route);
-      if (!aop) return escalation(customerName, { ...flow, aopId: route }, route);
+      if (!aop) {
+        return escalation(
+          customerName,
+          { ...flow, aopId: null },
+          null,
+          "I can't help with that over this channel. ",
+        );
+      }
       flow.aopId = aop.id;
     } else {
       return {
@@ -97,7 +106,14 @@ export async function runAgentTurn(input: {
   }
 
   const aop = visibleAops.find((item) => item.id === flow.aopId);
-  if (!aop) return escalation(customerName, flow, flow.aopId ?? null);
+  if (!aop) {
+    return escalation(
+      customerName,
+      { ...flow, aopId: null },
+      null,
+      "I can't help with that over this channel. ",
+    );
+  }
 
   if (aop.id === "faq") {
     const answer = /\bhours?\b|\bopen\b/.test(lower)

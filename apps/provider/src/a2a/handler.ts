@@ -17,6 +17,7 @@ import { runAgentTurn, type FlowState } from "../agent/index.js";
 import { verifyPlatformJwt } from "../auth/verifyPlatformJwt.js";
 import type { Db } from "../db/client.js";
 import { conversations, messages, rateLimitWindows } from "../db/schema.js";
+import { getProviderBaseUrl } from "./providerBaseUrl.js";
 
 type RpcId = string | number | null;
 type ErrorPayload = {
@@ -55,15 +56,6 @@ function a2aError(
   };
 }
 
-function providerBaseUrl(request: Request): string {
-  const base =
-    process.env.PROVIDER_URL ??
-    (process.env.VERCEL_PROJECT_PRODUCTION_URL
-      ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-      : new URL(request.url).origin);
-  return base.replace(/\/+$/, "");
-}
-
 function decodePageToken(token: string): { u: string; id: string } | null {
   try {
     const value: unknown = JSON.parse(Buffer.from(token, "base64url").toString("utf8"));
@@ -96,7 +88,7 @@ export function createA2AHandler(
   return async (request, slug) => {
     if (request.method !== "POST")
       return new Response("Method not allowed", { status: 405, headers: { Allow: "POST" } });
-    const baseUrl = providerBaseUrl(request);
+    const baseUrl = getProviderBaseUrl(request);
     const url = new URL(request.url);
     const audience = `${baseUrl}/a2a/${slug}`;
     const auth = await verifyPlatformJwt({
@@ -108,7 +100,7 @@ export function createA2AHandler(
       ...(options.now ? { now: options.now } : {}),
     });
     if (!auth) {
-      return response(a2aError(null, A2A_ERROR_CODES.unauthorized, "Unauthorized"), 401, {
+      return response(a2aError(null, A2A_ERROR_CODES.serverError, "Unauthorized"), 401, {
         "WWW-Authenticate": 'Bearer realm="a2a"',
       });
     }
@@ -190,7 +182,7 @@ export function createA2AHandler(
           1,
           Math.ceil((windowStart.getTime() + 60_000 - now.getTime()) / 1000),
         );
-        return response(a2aError(rpcId, A2A_ERROR_CODES.unauthorized, "Rate limit exceeded"), 429, {
+        return response(a2aError(rpcId, A2A_ERROR_CODES.serverError, "Rate limit exceeded"), 429, {
           "Retry-After": String(retryAfter),
         });
       }

@@ -22,7 +22,7 @@ export const A2A_ERROR_CODES = {
   methodNotFound: -32601,
   invalidParams: -32602,
   internalError: -32603,
-  unauthorized: -32000,
+  serverError: -32000,
   taskNotFound: -32001,
   taskNotCancelable: -32002,
   pushNotificationNotSupported: -32003,

@@ -62,6 +62,25 @@ const aopDefinitions = [
   },
 ];
 
+type AopDefinition = (typeof aopDefinitions)[number];
+
+async function upsertAop(db: Db, customerId: string, definition: AopDefinition): Promise<void> {
+  await db
+    .insert(aops)
+    .values({ customerId, ...definition })
+    .onConflictDoUpdate({
+      target: [aops.customerId, aops.id],
+      set: {
+        name: definition.name,
+        description: definition.description,
+        channels: definition.channels,
+        requiresVerification: definition.requiresVerification,
+        tags: definition.tags,
+        examples: definition.examples,
+      },
+    });
+}
+
 export async function seedDatabase(
   db: Db,
   paIssuer: string,
@@ -95,44 +114,14 @@ export async function seedDatabase(
   }
   const acme = customerRows["Acme Health"]!;
   const globex = customerRows["Globex Clinic"]!;
-  for (const definition of aopDefinitions) {
-    if (
-      definition.id === "billing_dispute" ||
-      definition.id === "appointment_lookup" ||
-      definition.id === "appointment_reschedule" ||
-      definition.id === "faq"
-    ) {
-      await db
-        .insert(aops)
-        .values({ customerId: acme.id, ...definition })
-        .onConflictDoUpdate({
-          target: [aops.customerId, aops.id],
-          set: {
-            name: definition.name,
-            description: definition.description,
-            channels: definition.channels,
-            requiresVerification: definition.requiresVerification,
-            tags: definition.tags,
-            examples: definition.examples,
-          },
-        });
-    }
-    if (definition.id === "faq") {
-      await db
-        .insert(aops)
-        .values({ customerId: globex.id, ...definition })
-        .onConflictDoUpdate({
-          target: [aops.customerId, aops.id],
-          set: {
-            name: definition.name,
-            description: definition.description,
-            channels: definition.channels,
-            requiresVerification: definition.requiresVerification,
-            tags: definition.tags,
-            examples: definition.examples,
-          },
-        });
-    }
+  const faqDefinition = aopDefinitions.find((definition) => definition.id === "faq");
+  if (!faqDefinition) throw new Error("FAQ AOP definition is missing");
+  const customerAops = [
+    { customerId: acme.id, definitions: aopDefinitions },
+    { customerId: globex.id, definitions: [faqDefinition] },
+  ];
+  for (const { customerId, definitions } of customerAops) {
+    for (const definition of definitions) await upsertAop(db, customerId, definition);
   }
 
   for (const [email, fullName, dateOfBirth, day] of [
