@@ -24,14 +24,12 @@ function requiredEnv(name: string): string {
 
 const providerUrl = (process.env.PROVIDER_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 let slug = "";
-let disabledSlug = "";
+let globexSlug = "";
 let issuer = "";
 let jwk: (JWK & { kid: string }) | undefined;
-let username = "";
-let password = "";
 let cardResult: Awaited<ReturnType<typeof discoverAgent>> | undefined;
-let rescheduleClient: A2AClient | undefined;
-let rescheduleTaskId = "";
+let multiTurnClient: A2AClient | undefined;
+let multiTurnTaskId = "";
 
 async function signedToken(input: {
   signKey?: Awaited<ReturnType<typeof importJWK>>;
@@ -60,7 +58,7 @@ async function rawRpc(
   url: string,
   token: string | undefined,
   params: unknown,
-  method = "SendMessage",
+  method = "ListTasks",
 ): Promise<Response> {
   return fetch(url, {
     method: "POST",
@@ -85,33 +83,32 @@ function client(userId: string): A2AClient {
 describe.sequential("Personal Agent Protocol full E2E", () => {
   beforeAll(() => {
     slug = requiredEnv("CUSTOMER_SLUG");
-    disabledSlug = requiredEnv("DISABLED_CUSTOMER_SLUG");
+    globexSlug = requiredEnv("GLOBEX_SLUG");
     issuer = requiredEnv("PA_ISSUER");
     jwk = JSON.parse(requiredEnv("PA_PRIVATE_JWK")) as JWK & { kid: string };
-    username = requiredEnv("ADMIN_USER");
-    password = requiredEnv("ADMIN_PASSWORD");
   });
 
-  it("discovers the Acme agent card and only exposes supported skills", async () => {
+  it("discovers the protocol-core agent card", async () => {
     cardResult = await discoverAgent(providerUrl, slug);
     expect(cardResult.card.securitySchemes?.paPlatformJwt).toHaveProperty(
       "httpAuthSecurityScheme.scheme",
       "Bearer",
     );
-    expect(cardResult.card.skills.map((skill) => skill.id)).toEqual([
-      "faq",
-      "appointment_lookup",
-      "appointment_reschedule",
+    expect(cardResult.card.capabilities).toMatchObject({
+      streaming: false,
+      pushNotifications: false,
+    });
+    expect(cardResult.card.skills).toEqual([
+      {
+        id: "faq",
+        name: "FAQ",
+        description: "Answer questions about hours, location, parking, and insurance.",
+        tags: ["faq"],
+      },
     ]);
-    expect(cardResult.card.skills.some((skill) => skill.id === "billing_dispute")).toBe(false);
-
-    const hiddenCard = await fetch(
-      `${providerUrl}/a2a/${encodeURIComponent(disabledSlug)}/.well-known/agent-card.json`,
-    );
-    expect(hiddenCard.status).toBe(404);
   });
 
-  it("answers a FAQ request", async () => {
+  it("answers a recognized FAQ request", async () => {
     const faq = await client(`e2e-faq-${crypto.randomUUID()}`).sendMessage("What are your hours?");
     expect(faq.task.status.state).toBe("TASK_STATE_COMPLETED");
     expect(faq.task.status.message?.parts[0]).toMatchObject({
@@ -119,60 +116,28 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     });
   });
 
-  it("escalates hidden billing and explicit human requests without assigning an AOP", async () => {
-    const billingClient = client(`e2e-billing-${crypto.randomUUID()}`);
-    const billing = await billingClient.sendMessage("I want to dispute a charge");
-    expect(billing.task.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
-    expect(billing.task.status.message?.parts[0]).toMatchObject({
-      text: expect.stringContaining(
-        "I can't help with that over this channel. A human will follow up via Acme Health's normal support channel.",
-      ),
+  it("continues an unknown question into the same FAQ task", async () => {
+    multiTurnClient = client(`e2e-multiturn-${crypto.randomUUID()}`);
+    const started = await multiTurnClient.sendMessage("Can you help me?");
+    expect(started.task.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
+    expect(started.task.status.message?.parts[0]).toMatchObject({
+      text: "Which would you like to know about: hours, location, parking, or insurance?",
     });
-    expect(billing.task.metadata?.aopId).toBeNull();
-    const persistedBilling = await billingClient.getTask(billing.task.id);
-    expect(persistedBilling.metadata?.aopId).toBeNull();
 
-    const human = await client(`e2e-human-${crypto.randomUUID()}`).sendMessage(
-      "I want to talk to a human",
-    );
-    expect(human.task.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
-    expect(human.task.status.message?.parts[0]).toMatchObject({
-      text: expect.stringContaining(
-        "A human will follow up via Acme Health's normal support channel.",
-      ),
-    });
-    expect(human.task.metadata?.aopId).toBeNull();
+    multiTurnTaskId = started.task.id;
+    const answered = await multiTurnClient.sendMessage("hours", { taskId: multiTurnTaskId });
+    expect(answered.task.id).toBe(multiTurnTaskId);
+    expect(answered.task.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(answered.task.history).toHaveLength(4);
   });
 
-  it("reschedules an appointment after verification", async () => {
-    rescheduleClient = client(`e2e-reschedule-${crypto.randomUUID()}`);
-    let reschedule = await rescheduleClient.sendMessage("Please reschedule my appointment");
-    expect(reschedule.task.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
-    reschedule = await rescheduleClient.sendMessage("jane.doe@example.com 1990-04-12", {
-      taskId: reschedule.task.id,
-    });
-    expect(reschedule.task.status.message?.parts[0]).toMatchObject({
-      text: expect.stringContaining("YYYY-MM-DD HH:MM"),
-    });
-    const futureTime = new Date(Date.now() + 14 * 86_400_000);
-    futureTime.setUTCHours(11, 30, 0, 0);
-    const localTime = `${futureTime.toISOString().slice(0, 10)} 11:30`;
-    reschedule = await rescheduleClient.sendMessage(localTime, { taskId: reschedule.task.id });
-    expect(reschedule.task.status.state).toBe("TASK_STATE_COMPLETED");
-    const fetched = await rescheduleClient.getTask(reschedule.task.id);
-    expect(fetched.status.state).toBe("TASK_STATE_COMPLETED");
-    rescheduleTaskId = reschedule.task.id;
-  });
-
-  it("scopes tasks to their caller and refuses cancellation", async () => {
-    if (!rescheduleClient || !rescheduleTaskId) throw new Error("Reschedule task was not created");
+  it("scopes GetTask and ListTasks to the caller and rejects cancellation", async () => {
+    if (!multiTurnClient || !multiTurnTaskId) throw new Error("Multi-turn task was not created");
     const differentCaller = client(`e2e-other-${crypto.randomUUID()}`);
-    await expect(differentCaller.getTask(rescheduleTaskId)).rejects.toMatchObject({
-      code: -32001,
-    });
+    await expect(differentCaller.getTask(multiTurnTaskId)).rejects.toMatchObject({ code: -32001 });
     const otherTasks = await differentCaller.listTasks();
-    expect(otherTasks.tasks.some((task) => task.id === rescheduleTaskId)).toBe(false);
-    await expect(rescheduleClient.cancelTask(rescheduleTaskId)).rejects.toMatchObject({
+    expect(otherTasks.tasks.some((task) => task.id === multiTurnTaskId)).toBe(false);
+    await expect(multiTurnClient.cancelTask(multiTurnTaskId)).rejects.toMatchObject({
       code: -32002,
     });
   });
@@ -186,11 +151,20 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     });
   });
 
-  it("rejects an incorrect audience", async () => {
+  it("rejects a bad signature", async () => {
+    const { privateKey } = await generateKeyPair("ES256");
     const token = await signedToken({
-      aud: `${providerUrl}/a2a/${disabledSlug}`,
+      aud: cardResult!.url,
+      signKey: privateKey,
+      kid: jwk!.kid,
     });
     expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
+  });
+
+  it("rejects a token with the wrong audience for the Globex slug", async () => {
+    const token = await signedToken({ aud: cardResult!.url });
+    const globexUrl = `${providerUrl}/a2a/${globexSlug}`;
+    expect((await rawRpc(globexUrl, token, {})).status).toBe(401);
   });
 
   it("rejects expired tokens", async () => {
@@ -205,14 +179,6 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
   });
 
-  it("rejects the disabled PA platform", async () => {
-    const token = await signedToken({
-      aud: cardResult!.url,
-      iss: `${issuer}/disabled-pa`,
-    });
-    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
-  });
-
   it("rejects an unknown platform issuer", async () => {
     const token = await signedToken({
       aud: cardResult!.url,
@@ -221,25 +187,17 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
   });
 
-  it("rejects a bad signature", async () => {
-    const { privateKey } = await generateKeyPair("ES256");
-    const token = await signedToken({
-      aud: cardResult!.url,
-      signKey: privateKey,
-      kid: jwk!.kid,
-    });
-    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
-  });
-
-  it("rejects a customer that has A2A disabled", async () => {
-    const url = `${providerUrl}/a2a/${disabledSlug}`;
-    const token = await signedToken({ aud: url });
-    expect((await rawRpc(url, token, {})).status).toBe(401);
-  });
-
   it("rejects replayed JWT IDs", async () => {
     const token = await signedToken({ aud: cardResult!.url });
     expect((await rawRpc(cardResult!.url, token, {})).status).toBe(200);
+    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
+  });
+
+  it("rejects the disabled PA platform", async () => {
+    const token = await signedToken({
+      aud: cardResult!.url,
+      iss: `${issuer}/disabled-pa`,
+    });
     expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
   });
 
@@ -252,47 +210,4 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     });
     expect((await response.json()).error.code).toBe(-32009);
   });
-
-  it("lists the rescheduled task in the admin console", async () => {
-    if (!rescheduleTaskId) throw new Error("Reschedule task was not created");
-    const basic = Buffer.from(`${username}:${password}`).toString("base64");
-    const admin = await fetch(`${providerUrl}/admin/conversations?channel=pa&pa_platform=demo-pa`, {
-      headers: { Authorization: `Basic ${basic}` },
-    });
-    expect(admin.status).toBe(200);
-    expect(await admin.text()).toContain(rescheduleTaskId);
-  });
-
-  it("enforces the SendMessage burst limit", async () => {
-    const acmeUrl = cardResult!.url;
-    const burstClient = client(`e2e-burst-${crypto.randomUUID()}`);
-    const burst = await Promise.all(
-      Array.from({ length: 40 }, async (_, index) =>
-        fetch(acmeUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "A2A-Version": "1.0",
-            Authorization: `Bearer ${await burstClient.options.signer.sign({
-              sub: burstClient.options.userId,
-              aud: acmeUrl,
-            })}`,
-          },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: index,
-            method: "SendMessage",
-            params: {
-              message: {
-                messageId: crypto.randomUUID(),
-                role: "ROLE_USER",
-                parts: [{ text: `burst ${index}` }],
-              },
-            },
-          }),
-        }),
-      ),
-    );
-    expect(burst.some((result) => result.status === 429)).toBe(true);
-  }, 120_000);
 });

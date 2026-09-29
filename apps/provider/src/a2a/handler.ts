@@ -16,7 +16,7 @@ import type { JWTVerifyGetKey } from "jose";
 import { runAgentTurn, type FlowState } from "../agent/index.js";
 import { verifyPlatformJwt } from "../auth/verifyPlatformJwt.js";
 import type { Db } from "../db/client.js";
-import { conversations, messages, rateLimitWindows } from "../db/schema.js";
+import { conversations, messages } from "../db/schema.js";
 import { getProviderBaseUrl } from "./providerBaseUrl.js";
 
 type RpcId = string | number | null;
@@ -79,7 +79,6 @@ type HandlerOptions = {
   db: Db;
   getJwks?: (uri: string) => JWTVerifyGetKey;
   now?: () => Date;
-  config?: { sendMessageLimitPerMinute?: number };
 };
 
 export function createA2AHandler(
@@ -161,31 +160,8 @@ export function createA2AHandler(
     if (!supported.has(method))
       return response(a2aError(rpcId, A2A_ERROR_CODES.methodNotFound, "Method not found"));
     const params = "params" in rawBody ? rawBody.params : undefined;
-    const now = options.now?.() ?? new Date();
 
     if (method === A2A_METHODS.sendMessage) {
-      const windowStart = new Date(now);
-      windowStart.setUTCSeconds(0, 0);
-      const limit =
-        options.config?.sendMessageLimitPerMinute ??
-        Number.parseInt(process.env.A2A_SEND_MESSAGE_LIMIT_PER_MINUTE ?? "20", 10);
-      const [window] = await options.db
-        .insert(rateLimitWindows)
-        .values({ platformId: auth.platform.id, windowStart, count: 1 })
-        .onConflictDoUpdate({
-          target: [rateLimitWindows.platformId, rateLimitWindows.windowStart],
-          set: { count: sql`${rateLimitWindows.count} + 1` },
-        })
-        .returning({ count: rateLimitWindows.count });
-      if ((window?.count ?? 0) > limit) {
-        const retryAfter = Math.max(
-          1,
-          Math.ceil((windowStart.getTime() + 60_000 - now.getTime()) / 1000),
-        );
-        return response(a2aError(rpcId, A2A_ERROR_CODES.serverError, "Rate limit exceeded"), 429, {
-          "Retry-After": String(retryAfter),
-        });
-      }
       const parsed = SendMessageRequestSchema.safeParse(params);
       if (!parsed.success) {
         return response(
@@ -274,11 +250,10 @@ export function createA2AHandler(
                 id,
                 customerId: auth.customer.id,
                 platformId: auth.platform.id,
-                channel: "pa",
                 paUserId: auth.paUserId,
                 contextId: requestMessage.contextId ?? randomUUID(),
                 state: "TASK_STATE_SUBMITTED",
-                metadata: { pa_platform: auth.platform.name, flow: {} },
+                flow: {},
               })
               .returning();
             if (!created) throw new Error("Conversation insert returned no row");
@@ -320,22 +295,14 @@ export function createA2AHandler(
             parts: userMessage.parts,
             createdAt: messageCreatedAt,
           });
-          const metadata = conversation.metadata;
-          const flow = (
-            typeof metadata.flow === "object" && metadata.flow !== null ? metadata.flow : {}
-          ) as FlowState;
+          const flow = conversation.flow as FlowState;
           const inputText = requestMessage.parts
             .map((part) => ("text" in part ? part.text : ""))
             .join("\n");
           const turn = await runAgentTurn({
-            db: transactionDb,
-            customerId: auth.customer.id,
             customerName: auth.customer.name,
             initialText: inputText,
-            previousAopId: conversation.aopId,
-            previousVerifiedUserId: conversation.verifiedCustomerUserId,
             previousFlow: flow,
-            ...(options.now ? { now: options.now } : {}),
           });
           const updatedAt = options.now?.() ?? new Date();
           const agentMessage: Message = {
@@ -356,9 +323,7 @@ export function createA2AHandler(
             .update(conversations)
             .set({
               state: turn.state,
-              aopId: turn.aopId,
-              verifiedCustomerUserId: turn.verifiedCustomerUserId,
-              metadata: { ...metadata, pa_platform: auth.platform.name, flow: turn.flow },
+              flow: turn.flow,
               updatedAt,
             })
             .where(eq(conversations.id, conversation.id))
@@ -394,7 +359,6 @@ export function createA2AHandler(
               timestamp: updated.updatedAt.toISOString(),
             },
             history: boundedHistory,
-            metadata: { channel: "pa", paPlatform: auth.platform.name, aopId: turn.aopId },
           };
           return result;
         });
@@ -615,7 +579,6 @@ async function loadTask(
     parts: message.parts as Message["parts"],
   }));
   const statusMessage = [...history].reverse().find((message) => message.role === "ROLE_AGENT");
-  const metadata = conversation.metadata;
   const result: Task = {
     id: conversation.id,
     contextId: conversation.contextId,
@@ -630,11 +593,6 @@ async function loadTask(
         : historyLength === undefined
           ? history
           : history.slice(-historyLength),
-    metadata: {
-      channel: conversation.channel,
-      paPlatform: metadata.pa_platform,
-      aopId: conversation.aopId,
-    },
   };
   if (includeArtifacts) result.artifacts = [];
   return result;

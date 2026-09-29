@@ -1,7 +1,7 @@
 import { getDb } from "../../../../db/client.js";
 import { buildAgentCard } from "../../../../a2a/agentCard.js";
 import { getProviderBaseUrl } from "../../../../a2a/providerBaseUrl.js";
-import { and, eq } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { customers } from "../../../../db/schema.js";
 
 export const runtime = "nodejs";
@@ -15,10 +15,10 @@ export async function GET(
   const [customer] = await getDb()
     .select()
     .from(customers)
-    .where(and(eq(customers.slug, slug), eq(customers.a2aEnabled, true)))
+    .where(eq(customers.slug, slug))
     .limit(1);
   if (!customer) return Response.json({ error: "Not found" }, { status: 404 });
-  const card = await buildAgentCard(getDb(), customer, getProviderBaseUrl(request));
+  const card = buildAgentCard(customer, getProviderBaseUrl(request));
   return Response.json(card, {
     headers: { "Cache-Control": "public, max-age=60", "Access-Control-Allow-Origin": "*" },
   });

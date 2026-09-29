@@ -1,12 +1,12 @@
 # Personal Agent Protocol · Phase 1 harness
 
-An internal end-to-end test harness for the A2A 1.0 JSON-RPC agent channel. The provider is a deliberately small Decagon-like dummy agent, and the personal-agent (PA) app signs platform JWTs server-side. Nothing in this repository is a public product or a general-purpose service.
+An internal end-to-end test harness for the A2A 1.0 JSON-RPC agent channel. The provider is a deliberately small Decagon-like dummy FAQ agent, and the personal-agent (PA) app signs platform JWTs server-side. Nothing in this repository is a public product or a general-purpose service.
 
 The hand-written protocol dispatcher follows the A2A 1.0.0 proto and specification provided with this repository's initial implementation brief. Proto field names and enum spellings are authoritative; in particular, AgentCard uses `securityRequirements`.
 
 ## Repository layout
 
-- `apps/provider`: Next.js App Router provider, PostgreSQL persistence, A2A dispatcher, agent card, and Basic-auth admin.
+- `apps/provider`: Next.js App Router provider, PostgreSQL persistence, A2A dispatcher, and FAQ agent.
 - `apps/personal-agent/server`: static Vercel site serving the PA platform public JWKS.
 - `apps/personal-agent/client`: local-only Next.js chat UI. Private-key signing happens only in server components/actions.
 - `packages/protocol`: Zod schemas and A2A constants.
@@ -15,6 +15,18 @@ The hand-written protocol dispatcher follows the A2A 1.0.0 proto and specificati
 - `e2e`: Vitest end-to-end suite for an already-running provider and JWKS server.
 
 All workspaces are strict TypeScript/ESM, and the workspace packages export TypeScript source for Next's `transpilePackages`.
+
+## Provider data model
+
+The provider stores only the protocol core in five tables:
+
+- `customers`: `id`, unique `public_id`, unique `slug`, unique `name`.
+- `agent_platforms`: `id`, unique `name`, unique `issuer`, `jwks_uri`, `enabled`.
+- `conversations`: `id` (the A2A task ID), `customer_id`, `platform_id`, `pa_user_id`, `context_id`, `state`, `flow` (JSONB default `{}`), `created_at`, `updated_at`. The ownership index is `(customer_id, platform_id, pa_user_id, updated_at)`.
+- `messages`: `id`, `conversation_id`, `message_id`, `role`, `parts` (JSONB), `created_at`; message IDs are unique within a conversation.
+- `seen_jtis`: `platform_id`, `jti`, and `expires_at`, keyed by `(platform_id, jti)` for replay protection.
+
+The dummy agent has one static FAQ skill. Known hours, location, parking, or insurance topics complete immediately. Unrecognized questions ask the user to pick a topic and can be continued on the same task; requests for a human get an `INPUT_REQUIRED` follow-up response.
 
 ## Local development
 
@@ -56,7 +68,7 @@ PA_ISSUER=http://localhost:3002 pnpm --filter @pap/provider db:seed
 
 The PGlite database is stored at `~/.local/share/pap-provider-db` by default and listens on port 5432. The socket adapter has limited support for concurrent clients, so use one provider connection locally; the default pool size remains five for PostgreSQL.
 
-Set `PROVIDER_URL=http://localhost:3000` and `CUSTOMER_SLUG` to the printed Acme Health slug in `apps/personal-agent/client/.env.local`. The client uses the private key and issuer from that file. Open `http://localhost:3001`.
+The seed creates Acme Health and Globex Clinic customers, plus `demo-pa` (enabled) and `disabled-pa` (disabled) platforms. Seed output prints both customer slugs. Set `PROVIDER_URL=http://localhost:3000` and `CUSTOMER_SLUG` to Acme Health's printed slug in `apps/personal-agent/client/.env.local`, then open `http://localhost:3001`.
 
 To use the CLI, run from the repository root:
 
@@ -64,8 +76,6 @@ To use the CLI, run from the repository root:
 pnpm --filter @pap/client pap card
 pnpm --filter @pap/client pap send "what are your hours?"
 ```
-
-`ADMIN_USER` and `ADMIN_PASSWORD` protect `/admin`; unset credentials intentionally make the admin unavailable (503). The development customer seed includes Acme Health and a disabled Globex Clinic customer for negative cases. Seed output gives the slugs.
 
 ## Tests and checks
 
@@ -79,7 +89,15 @@ pnpm --filter @pap/personal-agent-client build
 pnpm e2e
 ```
 
-The E2E suite expects a running provider and JWKS server. Configure `PROVIDER_URL`, `CUSTOMER_SLUG`, `DISABLED_CUSTOMER_SLUG`, `PA_ISSUER`, `PA_PRIVATE_JWK`, `ADMIN_USER`, and `ADMIN_PASSWORD`; the suite fails if required customer slugs or admin credentials are missing. If `PA_PRIVATE_JWK` is not exported, the suite reads `apps/personal-agent/client/.env.local`. E2E burst testing runs last because it intentionally exercises the global per-platform rate limit. Re-running the suite within the same minute can also encounter the configured limit.
+The E2E suite expects a running provider and JWKS server. Configure:
+
+- `PROVIDER_URL`: provider base URL (defaults to `http://localhost:3000`).
+- `CUSTOMER_SLUG`: Acme Health slug printed by the provider seed.
+- `GLOBEX_SLUG`: Globex Clinic slug printed by the provider seed; used to verify wrong-audience rejection.
+- `PA_ISSUER`: issuer URL used when seeding the provider and registering the PA platform.
+- `PA_PRIVATE_JWK`: local private JWK. If not exported, the suite reads `apps/personal-agent/client/.env.local`.
+
+The suite covers card discovery, FAQ answers and multi-turn clarification, task ownership/pagination, protocol errors, and platform JWT rejection cases.
 
 The provider's `build` does not touch the database. `vercel-build` applies migrations before running `next build`.
 
@@ -87,21 +105,14 @@ The provider's `build` does not touch the database. `vercel-build` applies migra
 
 Create two Vercel projects:
 
-1. **Provider** — Root Directory `apps/provider`; `apps/provider/vercel.json` sets the build command to `pnpm run vercel-build`, which runs migrations before `next build`. Attach a Neon database through the Vercel Marketplace so `DATABASE_URL` is injected. Deploy in a region close to the database (`apps/provider/vercel.json` defaults to `iad1`).
+1. **Provider** — Root Directory `apps/provider`; set the Build Command to `pnpm run vercel-build`, which runs migrations before `next build`. Attach a Neon database through the Vercel Marketplace so `DATABASE_URL` is injected. Deploy in a region close to the database (`apps/provider/vercel.json` defaults to `iad1`).
 2. **Personal-agent server** — Root Directory `apps/personal-agent/server`; it is a static public directory with no build step. Commit the PA owner's public `jwks.json` before deployment.
 
 Vercel must use pnpm 11.21.0, matching the root `packageManager` field. If Vercel detects a different pnpm version, set the project environment variable `ENABLE_EXPERIMENTAL_COREPACK=1` so Corepack honors the pinned version.
 
-Set provider environment variables `DATABASE_URL`, `ADMIN_USER`, `ADMIN_PASSWORD`, and `PA_ISSUER`; optionally set `PROVIDER_URL` and `A2A_SEND_MESSAGE_LIMIT_PER_MINUTE` (default 20). After `vercel env pull`, run the provider seed against the intended database and production `PA_ISSUER`. The seed output prints the `CUSTOMER_SLUG` for Acme Health and `DISABLED_CUSTOMER_SLUG` for Globex Clinic. Keep Standard Deployment Protection enabled. The JWKS endpoint includes JSON content type, CORS, and a five-minute public cache.
+Set provider environment variables `DATABASE_URL` and `PA_ISSUER`; optionally set `PROVIDER_URL`. After `vercel env pull`, run the provider seed against the intended database and production `PA_ISSUER`. The seed output prints the `CUSTOMER_SLUG` for Acme Health and `GLOBEX_SLUG` for Globex Clinic. Keep Standard Deployment Protection enabled. The JWKS endpoint includes JSON content type, CORS, and a five-minute public cache.
 
-For production E2E, configure these variables on the E2E runner:
-
-- `PROVIDER_URL`: the deployed provider project's URL.
-- `CUSTOMER_SLUG`: Acme Health's slug printed by the provider seed.
-- `DISABLED_CUSTOMER_SLUG`: Globex Clinic's slug printed by the provider seed.
-- `PA_ISSUER`: the deployed PA server URL; it must match the issuer used when seeding the provider.
-- `PA_PRIVATE_JWK`: the private JWK from the PA owner's local `pnpm gen-keys` output; keep it only on the trusted E2E runner and never add it to the provider project.
-- `ADMIN_USER` and `ADMIN_PASSWORD`: the provider's Basic-auth credentials.
+For production E2E, configure `PROVIDER_URL`, the two customer slugs from the seed output, `PA_ISSUER`, and `PA_PRIVATE_JWK` on a trusted runner. Keep the private JWK on that runner; never add it to the provider project.
 
 ## Open deployment questions
 

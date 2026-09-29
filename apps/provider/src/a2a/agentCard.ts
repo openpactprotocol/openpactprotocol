@@ -1,17 +1,10 @@
 import { AgentCardSchema, type AgentCard } from "@pap/protocol";
-import { and, eq, sql } from "drizzle-orm";
-import type { Db } from "../db/client.js";
-import { aops, customers } from "../db/schema.js";
+import type { customers } from "../db/schema.js";
 
-export async function buildAgentCard(
-  db: Db,
+export function buildAgentCard(
   customer: typeof customers.$inferSelect,
   baseUrl: string,
-): Promise<AgentCard> {
-  const visibleAops = await db
-    .select()
-    .from(aops)
-    .where(and(eq(aops.customerId, customer.id), sql`${aops.channels} @> ARRAY['a2a']::text[]`));
+): AgentCard {
   const base = baseUrl.replace(/\/+$/, "");
   return AgentCardSchema.parse({
     name: `${customer.name} Support`,
@@ -39,12 +32,13 @@ export async function buildAgentCard(
     securityRequirements: [{ schemes: { paPlatformJwt: { list: [] } } }],
     defaultInputModes: ["text/plain"],
     defaultOutputModes: ["text/plain"],
-    skills: visibleAops.map((aop) => ({
-      id: aop.id,
-      name: aop.name,
-      description: aop.description,
-      tags: aop.tags,
-      examples: aop.examples,
-    })),
+    skills: [
+      {
+        id: "faq",
+        name: "FAQ",
+        description: "Answer questions about hours, location, parking, and insurance.",
+        tags: ["faq"],
+      },
+    ],
   });
 }

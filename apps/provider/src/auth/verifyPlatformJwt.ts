@@ -7,7 +7,7 @@ import {
 } from "jose";
 import { and, eq, lte } from "drizzle-orm";
 import type { Db } from "../db/client.js";
-import { agentPlatforms, customerPlatforms, customers, seenJtis } from "../db/schema.js";
+import { agentPlatforms, customers, seenJtis } from "../db/schema.js";
 
 export interface PlatformAuth {
   platform: { id: string; name: string };
@@ -83,17 +83,9 @@ export async function verifyPlatformJwt(input: {
       .returning({ jti: seenJtis.jti });
     if (inserted.length === 0) return reject("replayed jti");
     const customer = await input.db.query.customers.findFirst({
-      where: and(eq(customers.slug, input.slug), eq(customers.a2aEnabled, true)),
+      where: eq(customers.slug, input.slug),
     });
-    if (!customer) return reject("unknown or disabled customer");
-    const access = await input.db.query.customerPlatforms.findFirst({
-      where: and(
-        eq(customerPlatforms.customerId, customer.id),
-        eq(customerPlatforms.platformId, platform.id),
-        eq(customerPlatforms.allowed, true),
-      ),
-    });
-    if (!access) return reject("platform not allowed for customer");
+    if (!customer) return reject("unknown customer");
     return {
       platform: { id: platform.id, name: platform.name },
       customer,
