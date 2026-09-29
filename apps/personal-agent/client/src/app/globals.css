@@ -1,0 +1,96 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #f4f6f8;
+  color: #18212b;
+  font:
+    16px/1.5 system-ui,
+    sans-serif;
+}
+main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 32px;
+}
+form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  margin: 16px 0;
+}
+label {
+  display: grid;
+  gap: 4px;
+}
+input,
+textarea,
+select,
+button {
+  border: 1px solid #aab4c0;
+  border-radius: 6px;
+  padding: 8px 10px;
+  font: inherit;
+}
+button {
+  background: #193a5a;
+  color: white;
+  cursor: pointer;
+}
+.workspace {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  margin-top: 24px;
+}
+aside,
+.workspace > section {
+  padding: 20px;
+  border-radius: 12px;
+  background: white;
+}
+aside ul {
+  padding-left: 18px;
+}
+a {
+  color: #145a92;
+}
+.thread {
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.thread article {
+  max-width: 80%;
+  padding: 12px;
+  border-radius: 10px;
+}
+.thread p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+}
+.user {
+  align-self: end;
+  background: #e6f1fb;
+}
+.agent {
+  align-self: start;
+  background: #edf1f4;
+}
+.badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #edf1f4;
+}
+@media (max-width: 700px) {
+  main {
+    padding: 16px;
+  }
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}
