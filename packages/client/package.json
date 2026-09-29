@@ -1,0 +1,20 @@
+{
+  "name": "@pap/client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "bin": {
+    "pap": "src/cli.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "pap": "tsx src/cli.ts"
+  },
+  "dependencies": {
+    "@pap/protocol": "workspace:*",
+    "jose": "6.1.0"
+  }
+}
