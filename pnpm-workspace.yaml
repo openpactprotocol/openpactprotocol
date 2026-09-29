@@ -1,0 +1,12 @@
+packages:
+  - apps/*
+  - apps/personal-agent/*
+  - packages/*
+  - e2e
+
+onlyBuiltDependencies:
+  - esbuild
+  - sharp
+allowBuilds:
+  esbuild: true
+  sharp: true
