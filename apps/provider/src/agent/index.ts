@@ -1,3 +1,5 @@
+import { replyWithOpenAI } from "./llmAgent.js";
+
 export type FlowState = {
   awaitingDetail?: boolean;
   escalated?: boolean;
@@ -19,7 +21,9 @@ export type BusinessProfile = {
   };
   followUp: string;
   detail: RegExp;
+  detailHint: string;
   answer: string;
+  facts: string;
 };
 
 export const GENERIC_PROFILE: BusinessProfile = {
@@ -33,7 +37,9 @@ export const GENERIC_PROFILE: BusinessProfile = {
   },
   followUp: "Could you share a reference number so I can look into this?",
   detail: /\b\d{3,}\b/,
+  detailHint: "a reference number",
   answer: "Thanks, I found it and everything is on track.",
+  facts: "Thanks, I found it and everything is on track.",
 };
 
 const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
@@ -58,7 +64,10 @@ const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
     },
     followUp: "I can check that. What's your confirmation code?",
     detail: /\b(?=[A-Z0-9]{6}\b)(?=[A-Z0-9]*[A-Z])(?=[A-Z0-9]*\d)[A-Z0-9]{6}\b/,
+    detailHint: "the six-character booking confirmation code (for example ABC123)",
     answer:
+      "Flight SK 482 on Friday is delayed 4.5 hours. It now leaves SFO at 2:40 PM and lands at O'Hare at 8:50 PM.",
+    facts:
       "Flight SK 482 on Friday is delayed 4.5 hours. It now leaves SFO at 2:40 PM and lands at O'Hare at 8:50 PM.",
   },
   "Loom & Co.": {
@@ -82,7 +91,10 @@ const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
     },
     followUp: "Happy to help with your order. What's the order number?",
     detail: /(?:\bLC-?\d{3,}\b|\b\d{4,}\b)/i,
+    detailHint: "the order number (for example LC-1042)",
     answer:
+      "Order LC-1042 (linen dress) is out for delivery today by 6 PM. I can also hold it for Saturday morning delivery if that's better.",
+    facts:
       "Order LC-1042 (linen dress) is out for delivery today by 6 PM. I can also hold it for Saturday morning delivery if that's better.",
   },
   "Bloom & Stem": {
@@ -106,7 +118,10 @@ const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
     },
     followUp: "Congratulations! What's the order number for the arrangement?",
     detail: /(?:\bBS-?\d{3,}\b|\b\d{4,}\b)/i,
+    detailHint: "the order number (for example BS-3001)",
     answer:
+      "Order BS-3001 (white rose centerpieces) arrives at the Drake Hotel on Saturday at 10 AM.",
+    facts:
       "Order BS-3001 (white rose centerpieces) arrives at the Drake Hotel on Saturday at 10 AM.",
   },
 };
@@ -126,13 +141,33 @@ export async function runAgentTurn(input: {
   customerName: string;
   initialText: string;
   previousFlow: FlowState;
+  history: { role: "customer" | "agent"; text: string }[];
+  openai?: { apiKey: string; model: string; fetchImpl?: typeof fetch };
 }): Promise<AgentTurn> {
   const flow = { ...input.previousFlow };
-  if (flow.escalated || /\b(human|agent|representative|person)\b/i.test(input.initialText)) {
+  if (flow.escalated) {
     return escalation(input.customerName, flow);
   }
 
   const profile = businessProfile(input.customerName);
+  if (input.openai) {
+    try {
+      return await replyWithOpenAI({
+        customerName: input.customerName,
+        profile,
+        history: input.history,
+        text: input.initialText,
+        ...input.openai,
+      });
+    } catch {
+      console.warn("OpenAI business agent reply failed; using deterministic response");
+    }
+  }
+
+  if (/\b(human|agent|representative|person)\b/i.test(input.initialText)) {
+    return escalation(input.customerName, flow);
+  }
+
   if (profile.detail.test(input.initialText)) {
     return {
       text: profile.answer,

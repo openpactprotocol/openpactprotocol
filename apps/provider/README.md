@@ -33,6 +33,14 @@ disabled platform.
 - `PROVIDER_URL`: optional public provider URL used for card URLs and the
   default runtime JWT audience.
 - `DATABASE_POOL_MAX`: use `1` with the local PGlite socket.
+- `OPENAI_API_KEY`: optional; when set, business agents generate replies with
+  OpenAI and fall back to their deterministic canned replies on errors or
+  timeouts.
+- `OPENAI_MODEL`: optional OpenAI model; defaults to `gpt-6-luna`.
+
+For local development, set the OpenAI variables in
+`apps/provider/.env.local`. This file is separate from the PA client's
+`apps/personal-agent/client/.env.local`.
 
 Run `pnpm --filter @pac2/provider db:migrate` and
 `pnpm --filter @pac2/provider db:seed`. Local database and stack setup is in the
