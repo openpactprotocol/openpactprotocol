@@ -1,28 +1,74 @@
 import Link from "next/link";
 import { A2AClient, createPlatformSigner, discoverAgent } from "@pap/client";
-import type { AgentCard, Message, Task } from "@pap/client";
+import type { AgentCard, Message, Task, TaskState } from "@pap/protocol";
+import { cookies } from "next/headers";
 import type { ReactElement } from "react";
-import { sendChatMessage } from "./actions.js";
+import { homePath, USER_ID_COOKIE } from "../lib/session.js";
+import { connect, newUser, sendChatMessage } from "./actions.js";
 
 export const dynamic = "force-dynamic";
+
+const TERMINAL_STATES: TaskState[] = [
+  "TASK_STATE_COMPLETED",
+  "TASK_STATE_FAILED",
+  "TASK_STATE_CANCELED",
+  "TASK_STATE_REJECTED",
+];
+
+function stateLabel(state: TaskState): string {
+  const words = state.replace("TASK_STATE_", "").toLowerCase().replace(/_/g, " ");
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function stateClass(state: TaskState): string {
+  return `pill state-${state.replace("TASK_STATE_", "").toLowerCase().replace(/_/g, "-")}`;
+}
+
+function messageText(message: Message): string {
+  return message.parts.map((part) => ("text" in part ? part.text : "[non-text part]")).join("\n");
+}
+
+function taskPreview(task: Task): string {
+  const first = task.history?.find((message) => message.role === "ROLE_USER");
+  return first ? messageText(first) : "Untitled conversation";
+}
+
+function formatTime(timestamp: string | undefined): string {
+  if (!timestamp) return "";
+  return new Date(timestamp).toLocaleString("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function authLabel(card: AgentCard): string | undefined {
+  for (const scheme of Object.values(card.securitySchemes ?? {})) {
+    if ("httpAuthSecurityScheme" in scheme) {
+      const http = scheme.httpAuthSecurityScheme;
+      return [http.scheme, http.bearerFormat].filter(Boolean).join(" ");
+    }
+  }
+  return undefined;
+}
 
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ providerUrl?: string; slug?: string; userId?: string; task?: string }>;
+  searchParams: Promise<{ providerUrl?: string; slug?: string; task?: string }>;
 }): Promise<ReactElement> {
   const query = await searchParams;
   const providerUrl = query.providerUrl ?? process.env.PROVIDER_URL ?? "http://localhost:3000";
   const slug = query.slug ?? process.env.CUSTOMER_SLUG ?? "";
-  const userId = query.userId ?? process.env.PA_USER_ID ?? "demo-user";
+  const userId = (await cookies()).get(USER_ID_COOKIE)?.value ?? "";
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
   let card: AgentCard | undefined;
   let tasks: Task[] = [];
-  let messages: Message[] = [];
   let selectedTask: Task | undefined;
   let error: string | undefined;
-  if (slug && issuer && privateJwk) {
+  if (slug && userId && issuer && privateJwk) {
     try {
       const discovery = await discoverAgent(providerUrl, slug);
       card = discovery.card;
@@ -32,96 +78,181 @@ export default async function HomePage({
         userId,
       });
       tasks = (await client.listTasks({ pageSize: 100 })).tasks;
-      if (query.task) {
-        selectedTask = await client.getTask(query.task);
-        messages = selectedTask.history ?? [];
-      }
+      if (query.task) selectedTask = await client.getTask(query.task);
     } catch (cause) {
       error = cause instanceof Error ? cause.message : "Could not connect to the provider.";
     }
   }
-  const context = (task?: string) =>
-    `/?providerUrl=${encodeURIComponent(providerUrl)}&slug=${encodeURIComponent(slug)}&userId=${encodeURIComponent(userId)}${task ? `&task=${encodeURIComponent(task)}` : ""}`;
+  const messages = selectedTask?.history ?? [];
+  const closed = selectedTask ? TERMINAL_STATES.includes(selectedTask.status.state) : false;
+  const agentInterface = card?.supportedInterfaces[0];
+  const auth = card ? authLabel(card) : undefined;
+
   return (
-    <main>
-      <h1>Personal Agent Protocol</h1>
-      <form action="/" method="get">
-        <label>
-          Provider URL <input name="providerUrl" defaultValue={providerUrl} />
-        </label>
-        <label>
-          Customer slug <input name="slug" defaultValue={slug} />
-        </label>
-        <label>
-          PA user ID <input name="userId" defaultValue={userId} />
-        </label>
-        <button type="submit">Connect</button>
-      </form>
-      {!issuer || !privateJwk ? (
-        <p>Configure PA_ISSUER and PA_PRIVATE_JWK in the server environment.</p>
-      ) : null}
-      {error ? <p role="alert">{error}</p> : null}
-      {card ? (
-        <section>
-          <h2>{card.name}</h2>
-          <p>{card.description}</p>
-          <h3>Agent skills</h3>
-          <ul>
-            {card.skills.map((skill) => (
-              <li key={skill.id}>
-                {skill.name}: {skill.description}
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
-      <div className="workspace">
-        <aside>
-          <h2>Conversations</h2>
-          <Link href={context()}>＋ New conversation</Link>
-          <ul>
-            {tasks.map((task) => (
-              <li key={task.id}>
-                <Link href={context(task.id)}>
-                  <span>{task.status.state.replace("TASK_STATE_", "")}</span> ·{" "}
-                  {task.id.slice(0, 8)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </aside>
-        <section>
-          <h2>
-            {selectedTask ? `Conversation ${selectedTask.id.slice(0, 8)}` : "New conversation"}
-          </h2>
-          {selectedTask ? <p className="badge">{selectedTask.status.state}</p> : null}
-          <div className="thread">
-            {messages.map((message) => (
-              <article
-                className={message.role === "ROLE_USER" ? "user" : "agent"}
-                key={message.messageId}
-              >
-                <strong>{message.role === "ROLE_USER" ? "You" : "Agent"}</strong>
-                <p>
-                  {message.parts
-                    .map((part) => ("text" in part ? part.text : "[non-text part]"))
-                    .join("\n")}
-                </p>
-              </article>
-            ))}
+    <div className="app">
+      <header className="topbar">
+        <div className="brand">
+          <span className="logo" aria-hidden>
+            PA
+          </span>
+          <div>
+            <h1>Personal Agent Protocol</h1>
+            <p>Local personal-agent client</p>
           </div>
-          <form action={sendChatMessage}>
-            <input name="providerUrl" type="hidden" value={providerUrl} />
-            <input name="slug" type="hidden" value={slug} />
-            <input name="userId" type="hidden" value={userId} />
-            <input name="taskId" type="hidden" value={selectedTask?.id ?? ""} />
-            <label>
-              Message <textarea name="text" required rows={3} />
-            </label>
-            <button type="submit">Send</button>
-          </form>
-        </section>
-      </div>
-    </main>
+        </div>
+      </header>
+
+      <main>
+        <form className="card connect" action={connect}>
+          <label>
+            <span>Provider URL</span>
+            <input name="providerUrl" defaultValue={providerUrl} />
+          </label>
+          <label>
+            <span>Customer slug</span>
+            <input name="slug" defaultValue={slug} placeholder="abc1234_customer" />
+          </label>
+          <label className="user-field">
+            <span>User ID</span>
+            <div className="input-group">
+              <input name="userId" defaultValue={userId} spellCheck={false} />
+              <button type="submit" formAction={newUser} className="secondary" title="New user">
+                New
+              </button>
+            </div>
+          </label>
+          <button type="submit" className="primary">
+            Connect
+          </button>
+        </form>
+
+        {!issuer || !privateJwk ? (
+          <p className="alert">Configure PA_ISSUER and PA_PRIVATE_JWK in the server environment.</p>
+        ) : null}
+        {error ? (
+          <p className="alert" role="alert">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="workspace">
+          <aside className="card sidebar">
+            <div className="sidebar-head">
+              <h2>Conversations</h2>
+              <Link className="button secondary small" href={homePath({ providerUrl, slug })}>
+                New chat
+              </Link>
+            </div>
+            {tasks.length === 0 ? (
+              <p className="empty">No conversations yet.</p>
+            ) : (
+              <ul className="task-list">
+                {tasks.map((task) => (
+                  <li key={task.id}>
+                    <Link
+                      href={homePath({ providerUrl, slug, task: task.id })}
+                      className={task.id === selectedTask?.id ? "task active" : "task"}
+                    >
+                      <span className="preview">{taskPreview(task)}</span>
+                      <span className="task-meta">
+                        <span className={stateClass(task.status.state)}>
+                          {stateLabel(task.status.state)}
+                        </span>
+                        <span>{formatTime(task.status.timestamp)}</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </aside>
+
+          <section className="card chat">
+            {card ? (
+              <header className="agent">
+                <span className="avatar" aria-hidden>
+                  {card.name.charAt(0)}
+                </span>
+                <div className="agent-body">
+                  <h2>{card.name}</h2>
+                  <p>{card.description}</p>
+                  <div className="chips">
+                    {card.skills.map((skill) => (
+                      <span className="chip" key={skill.id} title={skill.description}>
+                        {skill.name}
+                      </span>
+                    ))}
+                    {auth ? <span className="chip muted">{auth}</span> : null}
+                    {agentInterface ? (
+                      <span className="chip muted">
+                        {agentInterface.protocolBinding} {agentInterface.protocolVersion}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </header>
+            ) : (
+              <header className="agent">
+                <div className="agent-body">
+                  <h2>Not connected</h2>
+                  <p>Enter a provider URL and customer slug, then connect.</p>
+                </div>
+              </header>
+            )}
+
+            <div className="thread-head">
+              <h3>{selectedTask ? `Task ${selectedTask.id.slice(0, 8)}` : "New conversation"}</h3>
+              {selectedTask ? (
+                <span className={stateClass(selectedTask.status.state)}>
+                  {stateLabel(selectedTask.status.state)}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="thread">
+              {messages.length === 0 ? (
+                <p className="empty">Ask about hours, location, parking, or insurance.</p>
+              ) : (
+                messages.map((message) => (
+                  <article
+                    className={message.role === "ROLE_USER" ? "bubble user" : "bubble agent-msg"}
+                    key={message.messageId}
+                  >
+                    <span className="author">
+                      {message.role === "ROLE_USER" ? "You" : (card?.name ?? "Agent")}
+                    </span>
+                    <p>{messageText(message)}</p>
+                  </article>
+                ))
+              )}
+            </div>
+
+            {closed ? (
+              <p className="closed">
+                This conversation is complete.{" "}
+                <Link href={homePath({ providerUrl, slug })}>Start a new one</Link>.
+              </p>
+            ) : (
+              <form className="composer" action={sendChatMessage}>
+                <input name="providerUrl" type="hidden" value={providerUrl} />
+                <input name="slug" type="hidden" value={slug} />
+                <input name="taskId" type="hidden" value={selectedTask?.id ?? ""} />
+                <textarea
+                  name="text"
+                  required
+                  rows={2}
+                  placeholder={selectedTask ? "Reply…" : "Write a message…"}
+                  aria-label="Message"
+                  disabled={!card}
+                />
+                <button type="submit" className="primary" disabled={!card}>
+                  Send
+                </button>
+              </form>
+            )}
+          </section>
+        </div>
+      </main>
+    </div>
   );
 }
