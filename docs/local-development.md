@@ -19,14 +19,14 @@ public key, and the PA client uses the private JWK from its ignored
 Start these four processes in separate terminals:
 
 ```sh
-pnpm --filter @pap/personal-agent-server dev
-PGLITE_DATA_DIR="$HOME/.local/share/pap-provider-db" pnpm --filter @pap/provider db:pglite
-pnpm --filter @pap/provider dev
-pnpm --filter @pap/personal-agent-client dev
+pnpm --filter @pac2/personal-agent-server dev
+PGLITE_DATA_DIR="$HOME/.local/share/pac2-provider-db" pnpm --filter @pac2/provider db:pglite
+pnpm --filter @pac2/provider dev
+pnpm --filter @pac2/personal-agent-client dev
 ```
 
 They listen on ports 3002, 5432, 3000, and 3001 respectively. PGlite uses a
-persistent directory at `~/.local/share/pap-provider-db` by default.
+persistent directory at `~/.local/share/pac2-provider-db` by default.
 
 Initialize a fresh database after PGlite is ready:
 
@@ -34,8 +34,8 @@ Initialize a fresh database after PGlite is ready:
 export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
 export DATABASE_POOL_MAX=1
 export PA_ISSUER=http://localhost:3002
-pnpm --filter @pap/provider db:migrate
-pnpm --filter @pap/provider db:seed
+pnpm --filter @pac2/provider db:migrate
+pnpm --filter @pac2/provider db:seed
 ```
 
 Seeding prints `Acme Health id: …` and `Globex Clinic id: …`. It creates the
@@ -70,8 +70,8 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm format:check
-pnpm --filter @pap/provider build
-pnpm --filter @pap/personal-agent-client build
+pnpm --filter @pac2/provider build
+pnpm --filter @pac2/personal-agent-client build
 pnpm e2e
 ```
 

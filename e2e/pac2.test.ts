@@ -2,8 +2,8 @@ import { generateKeyPair, importJWK, SignJWT, type CryptoKey, type JWK } from "j
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import { A2AErrorResponseSchema } from "@pap/protocol";
-import { A2AClient, createPlatformSigner, discoverAgent, type DiscoveredAgent } from "@pap/client";
+import { A2AErrorResponseSchema } from "@pac2/protocol";
+import { A2AClient, createPlatformSigner, discoverAgent, type DiscoveredAgent } from "@pac2/client";
 
 function readLocalEnv(): void {
   const path = fileURLToPath(new URL("../apps/personal-agent/client/.env.local", import.meta.url));

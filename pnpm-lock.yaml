@@ -59,10 +59,10 @@ importers:
 
   apps/personal-agent/client:
     dependencies:
-      "@pap/client":
+      "@pac2/client":
         specifier: workspace:*
         version: link:../../../packages/client
-      "@pap/protocol":
+      "@pac2/protocol":
         specifier: workspace:*
         version: link:../../../packages/protocol
       lucide-react:
@@ -89,7 +89,7 @@ importers:
 
   apps/provider:
     dependencies:
-      "@pap/protocol":
+      "@pac2/protocol":
         specifier: workspace:*
         version: link:../../packages/protocol
       drizzle-orm:
@@ -135,10 +135,10 @@ importers:
 
   e2e:
     dependencies:
-      "@pap/client":
+      "@pac2/client":
         specifier: workspace:*
         version: link:../packages/client
-      "@pap/protocol":
+      "@pac2/protocol":
         specifier: workspace:*
         version: link:../packages/protocol
       jose:
@@ -150,7 +150,7 @@ importers:
 
   packages/client:
     dependencies:
-      "@pap/protocol":
+      "@pac2/protocol":
         specifier: workspace:*
         version: link:../protocol
       jose:

@@ -1,4 +1,4 @@
-export const USER_ID_COOKIE = "pap_user_id";
+export const USER_ID_COOKIE = "pac2_user_id";
 
 export const USER_ID_COOKIE_OPTIONS = {
   httpOnly: true,

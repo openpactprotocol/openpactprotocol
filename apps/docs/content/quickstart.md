@@ -122,11 +122,11 @@ semantics.
 
 ## Use the reference TypeScript client
 
-The repository's `@pap/client` package wraps platform signing, card discovery,
+The repository's `@pac2/client` package wraps platform signing, card discovery,
 registration, and message requests:
 
 ```ts
-import { A2AClient, createPlatformSigner, discoverAgent, registerPlatform } from "@pap/client";
+import { A2AClient, createPlatformSigner, discoverAgent, registerPlatform } from "@pac2/client";
 
 const signer = createPlatformSigner({ issuer: ISSUER, privateJwk });
 await registerPlatform({ providerUrl: PROVIDER_URL, name: "instinct", signer });

@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { A2AHttpError, discoverAgent } from "@pap/client";
-import type { AgentCard } from "@pap/protocol";
+import { A2AHttpError, discoverAgent } from "@pac2/client";
+import type { AgentCard } from "@pac2/protocol";
 import {
   Bot,
   CircleAlert,

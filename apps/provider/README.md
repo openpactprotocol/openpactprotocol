@@ -31,6 +31,6 @@ disabled platform.
   default runtime JWT audience.
 - `DATABASE_POOL_MAX`: use `1` with the local PGlite socket.
 
-Run `pnpm --filter @pap/provider db:migrate` and
-`pnpm --filter @pap/provider db:seed`. Local database and stack setup is in the
+Run `pnpm --filter @pac2/provider db:migrate` and
+`pnpm --filter @pac2/provider db:seed`. Local database and stack setup is in the
 [local development guide](../../docs/local-development.md).

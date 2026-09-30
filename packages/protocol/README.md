@@ -1,6 +1,6 @@
 # Protocol package
 
-`@pap/protocol` exports Zod schemas and types for the A2A HTTP+JSON messages,
+`@pac2/protocol` exports Zod schemas and types for the A2A HTTP+JSON messages,
 Agent Card, error responses, and platform JWT claims. Its A2A error mapping is
 shared by the provider and reference client.
 

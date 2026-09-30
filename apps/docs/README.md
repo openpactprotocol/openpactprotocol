@@ -9,9 +9,9 @@ This is a statically generated Next.js site. Pages are authored in
 From the repository root:
 
 ```sh
-pnpm --filter @pap/docs dev
-pnpm --filter @pap/docs build
-pnpm --filter @pap/docs start
+pnpm --filter @pac2/docs dev
+pnpm --filter @pac2/docs build
+pnpm --filter @pac2/docs start
 ```
 
 The development and production servers use port 3003. The app has no runtime
@@ -25,8 +25,8 @@ environment variables; the default Vercel Next.js preset is sufficient.
    section in `src/nav.ts`.
 3. Link to site paths such as `/guides/messaging`; use heading fragments such
    as `#required-claims` when needed.
-4. Run `pnpm test`, `pnpm --filter @pap/docs typecheck`, and
-   `pnpm --filter @pap/docs build`. Content tests check frontmatter,
+4. Run `pnpm test`, `pnpm --filter @pac2/docs typecheck`, and
+   `pnpm --filter @pac2/docs build`. Content tests check frontmatter,
    navigation coverage, Markdoc validation, links, and anchors.
 
 The optional catch-all route statically generates every path in the

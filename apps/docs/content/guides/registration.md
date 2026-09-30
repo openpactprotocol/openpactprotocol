@@ -84,4 +84,4 @@ const result = await registerPlatform({
 console.log(result.created ? "created" : "already registered");
 ```
 
-The equivalent CLI command is `pap register --name instinct`.
+The equivalent CLI command is `pac2 register --name instinct`.

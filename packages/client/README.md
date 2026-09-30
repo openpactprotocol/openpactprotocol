@@ -1,18 +1,18 @@
 # Reference client and CLI
 
-`@pap/client` provides platform JWT signing, Agent Card discovery, message
+`@pac2/client` provides platform JWT signing, Agent Card discovery, message
 sending, and platform registration. `A2AClient.sendMessage(text, { contextId
 })` returns a `Message`; its default audience is `{provider origin}/a2a`, or
 pass `audience` for a platform with an explicit registration override.
 
-The `pap` CLI supports:
+The `pac2` CLI supports:
 
 ```sh
-pnpm --filter @pap/client pap card
-pnpm --filter @pap/client pap send "What are your hours?"
-pnpm --filter @pap/client pap send "hours" --context <context-id>
-pnpm --filter @pap/client pap chat
-pnpm --filter @pap/client pap register
+pnpm --filter @pac2/client pac2 card
+pnpm --filter @pac2/client pac2 send "What are your hours?"
+pnpm --filter @pac2/client pac2 send "hours" --context <context-id>
+pnpm --filter @pac2/client pac2 chat
+pnpm --filter @pac2/client pac2 register
 ```
 
 The A2A commands use `PROVIDER_URL`, `CUSTOMER_ID`, `PA_ISSUER`, and

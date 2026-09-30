@@ -1,5 +1,5 @@
 {
-  "name": "@pap/personal-agent-server",
+  "name": "@pac2/personal-agent-server",
   "version": "0.1.0",
   "private": true,
   "type": "module",

@@ -41,7 +41,7 @@ for assertions.
 
 - Which Vercel team/scope should own these internal projects?
 - Should the projects be created through the Vercel CLI or Git integration?
-- Are `pap-provider`, `pap-personal-agent`, and `pap-docs` acceptable project
+- Are `pac2-provider`, `pac2-personal-agent`, and `pac2-docs` acceptable project
   names?
 
 The local PA client is a development harness and is not a Vercel project.

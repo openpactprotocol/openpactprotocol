@@ -1,9 +1,9 @@
 ---
 title: TypeScript client and CLI
-description: Use the repository's signer, registration helper, A2A client, typed errors, and pap command-line interface.
+description: Use the repository's signer, registration helper, A2A client, typed errors, and pac2 command-line interface.
 ---
 
-The reference package `@pap/client` exports the platform signer, registration
+The reference package `@pac2/client` exports the platform signer, registration
 helper, Agent Card discovery, and HTTP+JSON client.
 
 ## Signer and registration
@@ -13,7 +13,7 @@ takes a `sub`, an `aud`, and an optional `ttlSeconds` from 1 to 300. The
 reference signer emits ES256 JWTs with a `jti`.
 
 ```ts
-import { createPlatformSigner, registerPlatform } from "@pap/client";
+import { createPlatformSigner, registerPlatform } from "@pac2/client";
 
 const signer = createPlatformSigner({
   issuer: "https://agent.example.com",
@@ -38,7 +38,7 @@ the selected HTTP+JSON interface URL. `A2AClient` signs each send with the
 configured user subject:
 
 ```ts
-import { A2AClient, discoverAgent } from "@pap/client";
+import { A2AClient, discoverAgent } from "@pac2/client";
 
 const discovered = await discoverAgent(providerUrl, customerId);
 const client = new A2AClient({
@@ -69,13 +69,13 @@ The reference client sets `A2A-Version: 1.0` and
 
 ## CLI
 
-The package publishes the `pap` command:
+The package publishes the `pac2` command:
 
 ```sh
-pap register [--name <name>] [--jwks-uri <url>]
-pap card
-pap send <text> [--context <id>]
-pap chat
+pac2 register [--name <name>] [--jwks-uri <url>]
+pac2 card
+pac2 send <text> [--context <id>]
+pac2 chat
 ```
 
 `register` requires `PROVIDER_URL`, `PA_ISSUER`, and `PA_PRIVATE_JWK`, but not

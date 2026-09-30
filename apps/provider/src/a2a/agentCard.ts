@@ -1,4 +1,4 @@
-import { AgentCardSchema, type AgentCard } from "@pap/protocol";
+import { AgentCardSchema, type AgentCard } from "@pac2/protocol";
 import type { customers } from "../db/schema.js";
 
 export function buildAgentCard(

@@ -12,7 +12,7 @@
     "test": "vitest run --exclude='e2e/**'",
     "format:check": "prettier --check .",
     "gen-keys": "tsx scripts/gen-keys.ts",
-    "e2e": "pnpm --filter @pap/e2e test"
+    "e2e": "pnpm --filter @pac2/e2e test"
   },
   "devDependencies": {
     "@types/node": "22.20.3",

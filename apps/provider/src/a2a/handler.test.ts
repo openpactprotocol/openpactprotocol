@@ -12,7 +12,7 @@ import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { A2A_ERRORS, A2AErrorResponseSchema, MessageSchema, type Message } from "@pap/protocol";
+import { A2A_ERRORS, A2AErrorResponseSchema, MessageSchema, type Message } from "@pac2/protocol";
 import { createA2AHandler, type A2AHandler } from "./handler.js";
 import type { Db } from "../db/client.js";
 import { agentPlatforms, conversations, customers, messages, schema } from "../db/schema.js";

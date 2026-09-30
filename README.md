@@ -19,7 +19,7 @@ conversations remain anonymous and continue through a context ID.
 - [PA JWKS server](apps/personal-agent/server/README.md) — serves the platform's public signing keys.
 - [PA client](apps/personal-agent/client/README.md) — local chat UI and conversation history.
 - [Protocol package](packages/protocol/README.md) — shared A2A and registration schemas.
-- [Reference client and CLI](packages/client/README.md) — platform signer, A2A client, and `pap`.
+- [Reference client and CLI](packages/client/README.md) — platform signer, A2A client, and `pac2`.
 - [E2E suite](e2e/README.md) — live HTTP checks for the local harness.
 
 ## Quick start
