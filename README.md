@@ -1,4 +1,4 @@
-# Personal Agent Protocol · Phase 1 harness
+# Personal Agent Protocol harness
 
 An internal end-to-end test harness for the A2A 1.0 HTTP+JSON agent channel. The provider is a deliberately small Decagon-like dummy FAQ agent, and the personal-agent (PA) app signs platform JWTs server-side. Nothing in this repository is a public product or a general-purpose service.
 
