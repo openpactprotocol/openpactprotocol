@@ -2,8 +2,6 @@ import Link from "next/link";
 import { A2AHttpError, discoverAgent } from "@pac2/client";
 import type { AgentCard } from "@pac2/protocol";
 import {
-  ArrowUp,
-  AudioLines,
   Bot,
   ChevronLeft,
   ChevronRight,
@@ -17,7 +15,6 @@ import {
   Lock,
   MessagesSquare,
   Plug,
-  Plus,
   RotateCw,
   Sparkle,
   Sparkles,
@@ -42,7 +39,8 @@ import {
   type PaConversation,
   type PhoneMessage,
 } from "../lib/conversationStore.js";
-import { connect, newUser, registerPersonalAgent, sendChatMessage } from "./actions.js";
+import { connect, newUser, registerPersonalAgent } from "./actions.js";
+import { PhoneChat } from "./PhoneChat.js";
 
 export const dynamic = "force-dynamic";
 
@@ -545,91 +543,27 @@ export default async function HomePage({
                   </span>
                 </header>
 
-                <div className="thread">
-                  <div className="thread-inner">
-                    <p className="timestamp">
-                      {formatDay(messages[0]?.at ?? new Date().toISOString())}
-                    </p>
-                    {messages.length === 0 ? null : (
-                      <>
-                        {messages.map((message, index) => {
-                          const previousMessage = messages[index - 1];
-                          const showSender =
-                            message.role !== "user" &&
-                            (previousMessage?.role !== message.role ||
-                              (message.role === "business" &&
-                                previousMessage?.role === "business" &&
-                                previousMessage.businessName !== message.businessName));
-                          return (
-                            <div
-                              className={message.role === "user" ? "row outgoing" : "row incoming"}
-                              key={`${message.at}-${index}`}
-                            >
-                              {showSender ? (
-                                <span className="sender">
-                                  {message.role === "business"
-                                    ? message.businessName
-                                    : "Personal Agent"}
-                                </span>
-                              ) : null}
-                              <p className="bubble">{message.text}</p>
-                            </div>
-                          );
-                        })}
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                <form className="composer" action={sendChatMessage}>
-                  <input name="providerUrl" type="hidden" value={providerUrl} />
-                  <input name="customerIds" type="hidden" value={customerIds.join(",")} />
-                  <input
-                    name="conversationId"
-                    type="hidden"
-                    value={selectedConversation?.id ?? ""}
-                  />
-                  <span className="composer-plus" aria-hidden>
-                    <Plus size={20} strokeWidth={1.75} />
-                  </span>
-                  <div className="composer-pill">
-                    <input
-                      name="text"
-                      required
-                      autoComplete="off"
-                      placeholder={card ? "Message" : "Not connected"}
-                      aria-label="Message"
-                      disabled={!card}
-                    />
-                    <span className="dictate" aria-hidden>
-                      <AudioLines size={18} strokeWidth={1.75} />
-                    </span>
-                    <button
-                      type="submit"
-                      className="send"
-                      disabled={!card}
-                      aria-label="Send"
-                      title="Send"
-                    >
-                      <ArrowUp size={16} strokeWidth={3} aria-hidden />
-                    </button>
-                  </div>
-                </form>
+                <PhoneChat
+                  messages={messages}
+                  dayLabel={formatDay(messages[0]?.at ?? new Date().toISOString())}
+                  providerUrl={providerUrl}
+                  customerIds={customerIds}
+                  conversationId={selectedConversation?.id ?? ""}
+                  connected={Boolean(card)}
+                />
                 <span className="home-indicator" aria-hidden />
               </div>
             </div>
 
-            {threads.length > 0 ? (
-              <div className="threads" aria-label="Business conversations">
-                {threads.map((thread) => (
-                  <ThreadCard
-                    key={thread.customerId}
-                    thread={thread}
-                    color={brandColor(customerIds, thread.customerId)}
-                  />
-                ))}
-              </div>
-            ) : null}
+            <div className="threads" aria-label="Business conversations">
+              {threads.map((thread) => (
+                <ThreadCard
+                  key={thread.customerId}
+                  thread={thread}
+                  color={brandColor(customerIds, thread.customerId)}
+                />
+              ))}
+            </div>
           </section>
         </div>
       </main>
