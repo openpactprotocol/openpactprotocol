@@ -9,48 +9,28 @@ export const navigation: ReadonlyArray<{
   pages: readonly DocNavigationPage[];
 }> = [
   {
-    title: "Getting started",
+    title: "Overview",
     pages: [
       { title: "Introduction", href: "/", file: "index.md" },
-      { title: "How it works", href: "/how-it-works", file: "how-it-works.md" },
       { title: "Quickstart", href: "/quickstart", file: "quickstart.md" },
     ],
   },
   {
-    title: "Integration guide",
-    pages: [
-      {
-        title: "Registration",
-        href: "/guides/registration",
-        file: "guides/registration.md",
-      },
-      {
-        title: "Authentication",
-        href: "/guides/authentication",
-        file: "guides/authentication.md",
-      },
-      { title: "Discovery", href: "/guides/discovery", file: "guides/discovery.md" },
-      { title: "Messaging", href: "/guides/messaging", file: "guides/messaging.md" },
-    ],
+    title: "Protocol",
+    pages: [{ title: "Specification", href: "/spec", file: "spec.md" }],
   },
   {
     title: "Reference",
     pages: [
-      { title: "Operations", href: "/reference/operations", file: "reference/operations.md" },
-      { title: "Errors", href: "/reference/errors", file: "reference/errors.md" },
       {
-        title: "TypeScript client",
-        href: "/reference/typescript-client",
-        file: "reference/typescript-client.md",
+        title: "Reference implementation",
+        href: "/reference-implementation",
+        file: "reference-implementation.md",
       },
-      {
-        title: "Reference harness",
-        href: "/reference/reference-harness",
-        file: "reference/reference-harness.md",
-      },
+      { title: "TypeScript client", href: "/typescript-client", file: "typescript-client.md" },
     ],
   },
-] as const;
+];
 
 export const navigationPages: readonly DocNavigationPage[] = navigation.flatMap((section) => [
   ...section.pages,

@@ -32,32 +32,37 @@ importers:
         specifier: 3.2.4
         version: 3.2.4(@types/node@22.20.3)(supports-color@7.2.0)(tsx@4.23.14)
 
-  apps/docs:
+  e2e:
     dependencies:
-      "@markdoc/markdoc":
-        specifier: 0.5.10
-        version: 0.5.10(@types/react@19.1.16)(react@19.1.1)
-      lucide-react:
-        specifier: 1.47.0
-        version: 1.47.0(react@19.1.1)
-      next:
-        specifier: 15.5.26
-        version: 15.5.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
-      react:
-        specifier: 19.1.1
-        version: 19.1.1
-      react-dom:
-        specifier: 19.1.1
-        version: 19.1.1(react@19.1.1)
-    devDependencies:
-      "@types/react":
-        specifier: 19.1.16
-        version: 19.1.16
-      "@types/react-dom":
-        specifier: 19.1.9
-        version: 19.1.9(@types/react@19.1.16)
+      "@pac2/client":
+        specifier: workspace:*
+        version: link:../packages/client
+      "@pac2/protocol":
+        specifier: workspace:*
+        version: link:../packages/protocol
+      jose:
+        specifier: 6.1.0
+        version: 6.1.0
+      vitest:
+        specifier: 3.2.4
+        version: 3.2.4(@types/node@22.20.3)(supports-color@7.2.0)(tsx@4.23.14)
 
-  apps/personal-agent/client:
+  packages/client:
+    dependencies:
+      "@pac2/protocol":
+        specifier: workspace:*
+        version: link:../protocol
+      jose:
+        specifier: 6.1.0
+        version: 6.1.0
+
+  packages/protocol:
+    dependencies:
+      zod:
+        specifier: 4.1.5
+        version: 4.1.5
+
+  reference/personal-agent/client:
     dependencies:
       "@pac2/client":
         specifier: workspace:*
@@ -85,9 +90,9 @@ importers:
         specifier: 19.1.9
         version: 19.1.9(@types/react@19.1.16)
 
-  apps/personal-agent/server: {}
+  reference/personal-agent/server: {}
 
-  apps/provider:
+  reference/provider:
     dependencies:
       "@pac2/protocol":
         specifier: workspace:*
@@ -133,35 +138,30 @@ importers:
         specifier: 0.31.4
         version: 0.31.4(supports-color@7.2.0)
 
-  e2e:
+  website:
     dependencies:
-      "@pac2/client":
-        specifier: workspace:*
-        version: link:../packages/client
-      "@pac2/protocol":
-        specifier: workspace:*
-        version: link:../packages/protocol
-      jose:
-        specifier: 6.1.0
-        version: 6.1.0
-      vitest:
-        specifier: 3.2.4
-        version: 3.2.4(@types/node@22.20.3)(supports-color@7.2.0)(tsx@4.23.14)
-
-  packages/client:
-    dependencies:
-      "@pac2/protocol":
-        specifier: workspace:*
-        version: link:../protocol
-      jose:
-        specifier: 6.1.0
-        version: 6.1.0
-
-  packages/protocol:
-    dependencies:
-      zod:
-        specifier: 4.1.5
-        version: 4.1.5
+      "@markdoc/markdoc":
+        specifier: 0.5.10
+        version: 0.5.10(@types/react@19.1.16)(react@19.1.1)
+      lucide-react:
+        specifier: 1.47.0
+        version: 1.47.0(react@19.1.1)
+      next:
+        specifier: 15.5.26
+        version: 15.5.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
+      react:
+        specifier: 19.1.1
+        version: 19.1.1
+      react-dom:
+        specifier: 19.1.1
+        version: 19.1.1(react@19.1.1)
+    devDependencies:
+      "@types/react":
+        specifier: 19.1.16
+        version: 19.1.16
+      "@types/react-dom":
+        specifier: 19.1.9
+        version: 19.1.9(@types/react@19.1.16)
 
 packages:
   "@drizzle-team/brocli@0.10.2":

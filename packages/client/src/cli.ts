@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { A2AClient, createPlatformSigner, discoverAgent, registerPlatform } from "./index.js";
 
 const envFile = fileURLToPath(
-  new URL("../../../apps/personal-agent/client/.env.local", import.meta.url),
+  new URL("../../../reference/personal-agent/client/.env.local", import.meta.url),
 );
 if (existsSync(envFile)) {
   for (const line of readFileSync(envFile, "utf8").split(/\r?\n/)) {

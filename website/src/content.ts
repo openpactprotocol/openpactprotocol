@@ -18,11 +18,11 @@ export type DocContent = {
 };
 
 function contentDirectory(): string {
-  const fromWorkingDirectory = resolve(process.cwd(), "content");
-  if (existsSync(fromWorkingDirectory)) return fromWorkingDirectory;
-  const fromWorkspaceRoot = resolve(process.cwd(), "apps/docs/content");
+  const fromWorkspaceRoot = resolve(process.cwd(), "docs");
   if (existsSync(fromWorkspaceRoot)) return fromWorkspaceRoot;
-  return resolve(dirname(fileURLToPath(import.meta.url)), "../content");
+  const fromAppDirectory = resolve(process.cwd(), "../docs");
+  if (existsSync(fromAppDirectory)) return fromAppDirectory;
+  return resolve(dirname(fileURLToPath(import.meta.url)), "../../docs");
 }
 
 export function parseFrontmatter(source: string): {

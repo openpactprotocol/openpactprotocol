@@ -2,8 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { calculateJwkThumbprint, exportJWK, generateKeyPair } from "jose";
 
 const force = process.argv.includes("--force");
-const jwksPath = "apps/personal-agent/server/public/.well-known/jwks.json";
-const envPath = "apps/personal-agent/client/.env.local";
+const jwksPath = "reference/personal-agent/server/public/.well-known/jwks.json";
+const envPath = "reference/personal-agent/client/.env.local";
 const existingJwks = existsSync(jwksPath) ? readFileSync(jwksPath, "utf8").trim() : "";
 const env = existsSync(envPath) ? readFileSync(envPath, "utf8") : "";
 const existingPrivateJwk = env.match(/^PA_PRIVATE_JWK\s*=/m);

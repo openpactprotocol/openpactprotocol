@@ -1,6 +1,7 @@
 packages:
-  - apps/*
-  - apps/personal-agent/*
+  - reference/*
+  - reference/personal-agent/*
+  - website
   - packages/*
   - e2e
 

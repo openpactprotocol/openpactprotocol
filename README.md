@@ -1,34 +1,60 @@
-# PAC2 harness
+# PAC2 — Personal Agent ↔ Customer Connector
 
-PAC2 (Personal Agent Customer Connector Protocol; name TBD) lets a personal
-agent platform such as Instinct call a customer's support agent over A2A 1.0
-HTTP+JSON. The platform proves its identity with a signed JWT, while customer
-conversations remain anonymous and continue through a context ID.
+PAC2 extends [A2A 1.0](https://a2a-protocol.org) with the two things A2A leaves
+open: **which PA is calling**, and **what the User allowed**.
 
-## How it works
+| Term         | Meaning                                                         |
+| ------------ | --------------------------------------------------------------- |
+| **Provider** | Builds and hosts Brands' support agents.                        |
+| **Brand**    | A business whose agent runs on a Provider.                      |
+| **PA**       | A personal-agent platform. Signs its requests with its own key. |
+| **User**     | The person using the PA.                                        |
 
-1. Register the personal-agent platform with the provider.
-2. Discover the customer's public A2A Agent Card.
-3. Send a signed `message:send` request to the customer's agent.
-4. Continue the conversation by sending its returned `contextId`.
+```text
+ User ──▶ PA ──A2A over HTTPS──▶ Provider ──▶ Brand's agent
+              JWT {iss, sub, aud}         verifies via JWKS · mints contextId
+              delegation token (optional) checks scopes · signs receipts
 
-## This repo contains
+ once, per Provider
+    onboard     publish JWKS; Provider records issuer, assigns your audience
 
-- [Developer docs](apps/docs/README.md) — PAC2 integration guides, protocol reference, and docs-site development.
-- [Provider](apps/provider/README.md) — customer support agent, platform auth, and persistence.
-- [PA JWKS server](apps/personal-agent/server/README.md) — serves the platform's public signing keys.
-- [PA client](apps/personal-agent/client/README.md) — local chat UI and conversation history.
-- [Protocol package](packages/protocol/README.md) — shared A2A and registration schemas.
-- [Reference client and CLI](packages/client/README.md) — platform signer, A2A client, and `pac2`.
-- [E2E suite](e2e/README.md) — live HTTP checks for the local harness.
+ per User
+ 1. discover    GET  /a2a/{brandId}/.well-known/agent-card.json  → interface URL (+ Brand's scopes)
+ 2. send        POST {interfaceUrl}/message:send + Bearer JWT     → reply + contextId
+ 3. continue    same call with contextId
+ 4. authorize   only if the card offers it: OAuth device code → delegation token → send it too
+```
 
-## Quick start
+## Docs
 
-1. Install dependencies and generate local keys: `pnpm install && pnpm gen-keys`.
-2. Start JWKS, PGlite, provider, and PA client; see the [local development guide](docs/local-development.md).
-3. Run provider migrations and seed the local customer IDs.
-4. Set `CUSTOMER_IDS` (comma-separated) and local signing values in the PA
-   client's ignored `.env.local`.
-5. Open `http://localhost:3001`, register the platform if needed, and start a chat.
+| Read                                                         | To                                                                  |
+| ------------------------------------------------------------ | ------------------------------------------------------------------- |
+| [Introduction](docs/index.md)                                | see the terms, the two layers, the calls                            |
+| [Quickstart](docs/quickstart.md)                             | send a message with curl or TypeScript                              |
+| [**Specification**](docs/spec.md)                            | implement a PA or a Provider — the normative text                   |
+| [Reference implementation](docs/reference-implementation.md) | run the Provider, demo PA, and conformance suite (Identity profile) |
+| [TypeScript client](docs/typescript-client.md)               | use `@pac2/client` and the `pac2` CLI                               |
 
-See [deployment notes](docs/deployment.md) for the Vercel setup.
+Rendered at the docs site (`website/`).
+
+## In this repository
+
+```text
+docs/                      the pages above (single source for the site)
+packages/protocol          @pac2/protocol — Zod schemas: Agent Card, messages, errors, JWT claims
+packages/client            @pac2/client   — signer, discoverAgent, A2AClient, `pac2` CLI
+reference/provider         reference Provider (Next.js + PostgreSQL)
+reference/personal-agent/  demo PA: JWKS server + chat UI
+e2e/                       conformance suite — run against any Provider with E2E_PROVIDER=any
+website/                   docs-site renderer
+```
+
+Only `docs/spec.md` is normative.
+
+## Run it
+
+```sh
+pnpm install && pnpm gen-keys
+```
+
+then [Reference implementation → Run it locally](docs/reference-implementation.md#run-it-locally).

@@ -18,7 +18,7 @@ export function buildAgentCard(
         protocolVersion: "1.0",
       },
     ],
-    provider: { organization: "Decagon (PAC2 test harness)", url: base },
+    provider: { organization: "PAC2 reference provider", url: base },
     version: "0.1.0",
     capabilities: { streaming: false, pushNotifications: false, extendedAgentCard: false },
     securitySchemes: {

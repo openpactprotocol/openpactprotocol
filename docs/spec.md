@@ -1,0 +1,494 @@
+---
+title: Specification
+description: PAC2 extends A2A 1.0 with PA identity and delegated authority. This is the normative text.
+---
+
+PAC2 extends [A2A 1.0](https://a2a-protocol.org) with the two things A2A leaves
+open: who is calling, and what the User allowed. A2A's transport, message shapes,
+and error envelope apply unchanged. MUST, SHOULD, and MAY are as in RFC 2119.
+
+## 1. Terms
+
+| Term         | Meaning                                                                                         |
+| ------------ | ----------------------------------------------------------------------------------------------- |
+| **Provider** | Builds and hosts Brands' support agents. Serves Agent Cards, verifies tokens, answers messages. |
+| **Brand**    | A business whose agent runs on a Provider. Has a Provider-assigned `brandId`.                   |
+| **PA**       | A personal-agent platform. Has a signing key and publishes its public keys as a JWKS.           |
+| **User**     | The person using the PA.                                                                        |
+
+| Section                | Required?                              | Adds                                                                                  |
+| ---------------------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
+| §2 Transport           | yes                                    | Where a Brand's Agent Card is; which A2A operations exist.                            |
+| §3 PA identity         | yes                                    | The bearer token is a JWT the PA signs; the Provider checks its JWKS.                 |
+| §4 Messages            | yes                                    | One `contextId` per (PA, User, Brand); retries are idempotent.                        |
+| §5 Delegated authority | no — a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account. |
+
+## 2. Transport
+
+A2A 1.0 HTTP+JSON. Requests SHOULD send `A2A-Version: 1.0` and
+`Content-Type: application/json`. A2A responses MUST use
+`Content-Type: application/a2a+json`.
+
+### 2.1 Agent Card
+
+One card per Brand:
+
+```http
+GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
+```
+
+- No authentication. Unknown `brandId` → `404` with no A2A body.
+- MUST list a `supportedInterfaces` entry with `protocolBinding: "HTTP+JSON"`
+  and `protocolVersion: "1.0"`. Its `url` is the **interface URL**. PAs pick
+  the interface by binding and version, not by position.
+- MUST declare the PA JWT (§3) as an `httpAuthSecurityScheme` with
+  `scheme: "Bearer"`, `bearerFormat: "JWT"`, listed alone in one
+  `securityRequirements` entry.
+- MAY declare delegated authority (§5.1).
+- `capabilities.streaming`, `pushNotifications`, and `extendedAgentCard` MUST
+  be `false`. `name`, `description`, `skills` are informational.
+
+```json
+{
+  "name": "Example Co. Support",
+  "supportedInterfaces": [
+    {
+      "url": "https://provider.example.com/a2a/01J…",
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "provider": { "organization": "Example Provider", "url": "https://provider.example.com" },
+  "version": "0.1.0",
+  "capabilities": { "streaming": false, "pushNotifications": false, "extendedAgentCard": false },
+  "securitySchemes": {
+    "paJwt": { "httpAuthSecurityScheme": { "scheme": "Bearer", "bearerFormat": "JWT" } }
+  },
+  "securityRequirements": [{ "schemes": { "paJwt": { "list": [] } } }],
+  "defaultInputModes": ["text/plain"],
+  "defaultOutputModes": ["text/plain"],
+  "skills": [
+    {
+      "id": "orders",
+      "name": "Orders",
+      "description": "Order status and changes.",
+      "tags": ["orders"]
+    }
+  ]
+}
+```
+
+### 2.2 Operations
+
+Relative to the interface URL. Only `message:send` does work; the others
+return A2A errors so generic A2A clients fail cleanly.
+
+| Method          | Path                                            | Result                                                           |
+| --------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
+| `POST`          | `message:send`                                  | `200` `{ "message": Message }` (§4) or `{ "task": Task }` (§5.5) |
+| `GET`           | `tasks`                                         | `200` empty `ListTasksResponse` (`pageSize` 1–100, default 50)   |
+| `GET`           | `tasks/{id}`                                    | `TASK_NOT_FOUND`                                                 |
+| `POST`          | `tasks/{id}:cancel`                             | `TASK_NOT_FOUND`                                                 |
+| `POST`          | `tasks/{id}:subscribe`, `message:stream`        | `UNSUPPORTED_OPERATION`                                          |
+| `GET`           | `extendedAgentCard`                             | `UNSUPPORTED_OPERATION`                                          |
+| `GET`, `POST`   | `tasks/{id}/pushNotificationConfigs`            | `PUSH_NOTIFICATION_NOT_SUPPORTED`                                |
+| `GET`, `DELETE` | `tasks/{id}/pushNotificationConfigs/{configId}` | `PUSH_NOTIFICATION_NOT_SUPPORTED`                                |
+
+Anything else → `404` or `405` with no A2A body. Routing happens before
+authentication; an unknown Brand is `404` even with a valid token.
+
+## 3. PA identity
+
+The bearer token is a JWT the PA signs with its own key. The Provider
+verifies it against the PA's JWKS. No shared secrets.
+
+### 3.1 Onboarding
+
+| Held by  | Value      | Rule                                                                               |
+| -------- | ---------- | ---------------------------------------------------------------------------------- |
+| Provider | `issuer`   | URL the PA puts in `iss`. Exact string match.                                      |
+| Provider | `jwksUri`  | HTTPS URL of the PA's JWKS. Rotate keys by publishing new ones; the URI is stable. |
+| Provider | enabled    | Providers MAY disable a PA; its requests then get `401`.                           |
+| PA       | `audience` | Opaque string the Provider assigns. Goes in `aud` verbatim.                        |
+
+How these are exchanged is out of scope. Onboarding happens once per PA and
+Provider, not per User or Brand. `audience` is one value per Provider and
+MUST NOT be derived from a card URL.
+
+Whether a Provider accepts only PAs it has allowlisted (a trusted-issuer
+registry) or any PA whose `iss` serves a JWKS is the Provider's policy, not
+PAC2's. An open Provider still verifies §3.2 in full; `jwksUri` MAY then be
+found through OIDC discovery at `{iss}/.well-known/openid-configuration`.
+
+### 3.2 PA JWT
+
+Every request except the card carries `Authorization: Bearer <pa-jwt>`.
+
+| Field | Rule                                                                           |
+| ----- | ------------------------------------------------------------------------------ |
+| `alg` | `ES256` or `RS256`. Providers MUST reject others.                              |
+| `kid` | SHOULD match a key in the JWKS.                                                |
+| `iss` | MUST equal the registered issuer.                                              |
+| `sub` | MUST be present. Stable, opaque, per User. MUST NOT contain personal data.     |
+| `aud` | MUST equal the assigned audience. One string.                                  |
+| `iat` | MUST be present. Reject if more than 30 s in the future.                       |
+| `exp` | MUST be present. SHOULD be short (the reference signer uses 120 s, max 300 s). |
+| `jti` | MAY be present. Providers need not track replay.                               |
+
+Providers MUST verify the signature via `jwksUri`, allow at most 30 s clock
+skew, and reject unknown or disabled PAs. The User is the pair `(PA, sub)`;
+the PA MUST reuse the same `sub` for the same User.
+
+### 3.3 What the PA JWT proves
+
+That a known PA is calling for someone it calls `sub`. Not that `sub` owns a
+Brand account. Without §5, the agent verifies the User the way it does in a
+chat widget — it asks for an order number, email, etc. — and the PA relays the
+User's answers. Account credentials never pass through the PA.
+
+### 3.4 Failure
+
+```http
+HTTP/1.1 401 Unauthorized
+WWW-Authenticate: Bearer realm="a2a"
+```
+
+For every authentication failure. No A2A body. Providers SHOULD authenticate
+before looking up the Brand or reading the body.
+
+## 4. Messages
+
+```http
+POST {interfaceUrl}/message:send
+Authorization: Bearer <pa-jwt>
+A2A-Version: 1.0
+Content-Type: application/json
+
+{ "message": { "messageId": "m-001", "role": "ROLE_USER", "parts": [{ "text": "I need help with my order." }] } }
+```
+
+```json
+{
+  "message": {
+    "messageId": "r-001",
+    "contextId": "f0c12e6b-231e-4d92-a610-2518a0f27d20",
+    "role": "ROLE_AGENT",
+    "parts": [{ "text": "Sure — what is the order number?" }]
+  }
+}
+```
+
+### 4.1 Request
+
+- An A2A `SendMessageRequest`. `configuration` and `metadata` MAY be ignored.
+- `role` MUST be `ROLE_USER`. `parts` MUST have at least one non-blank `text`
+  part. Other part kinds → `CONTENT_TYPE_NOT_SUPPORTED`.
+- `taskId` MUST be absent (→ `TASK_NOT_FOUND`).
+- `messageId` MUST be unique within the context.
+
+### 4.2 Context
+
+- The reply is synchronous: `{ "message": Message }` with `role: ROLE_AGENT`
+  and `contextId` set (or a task, §5.5).
+- No `contextId` → new conversation; the Provider mints an opaque one.
+- With `contextId` → continue. The context MUST belong to this Brand and this
+  `(PA, sub)`; otherwise `INVALID_PARAMS`, without saying whether it exists for
+  someone else.
+- `contextId` is state, not a credential. Ordinary turns create no A2A Task.
+
+### 4.3 Retries
+
+Same `contextId` + same `messageId` → the stored reply, without re-running
+the agent. No stored reply yet → `INVALID_PARAMS`.
+
+## 5. Delegated authority
+
+> Status: specified; no public implementation yet. Providers without it omit
+> §5.1 from their cards.
+
+Lets the agent act on the User's Brand account. Standard OAuth 2.0 device
+code ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)): the Brand defines
+its own scopes for its own use cases; the User logs in with the Brand — never
+with the PA — and approves some of them; the Provider issues a delegation
+token; every turn under it returns a signed receipt. The PA needs a generic
+device-code client.
+
+```text
+PA   ──POST device_authorization {scopes}──▶ Provider           (auth: PA JWT)
+PA   ◀── verification_uri_complete ───────── Provider
+User ──opens link──▶ Brand login ──identity assertion──▶ Provider consent ──approve──▶ grant
+PA   ──POST token ──▶ Provider ──▶ delegation token {sub, client_id, scope, exp}
+PA   ──message:send + PA JWT + delegation token──▶ agent acts as the User, within scope ──▶ reply + receipt
+```
+
+### 5.1 Card
+
+A Brand that supports delegation adds an `oauth2SecurityScheme` with a
+`deviceCode` flow and a second `securityRequirements` entry naming both
+schemes:
+
+```json
+{
+  "securitySchemes": {
+    "paJwt": { "httpAuthSecurityScheme": { "scheme": "Bearer", "bearerFormat": "JWT" } },
+    "userDelegation": {
+      "oauth2SecurityScheme": {
+        "flows": {
+          "deviceCode": {
+            "deviceAuthorizationUrl": "https://provider.example.com/a2a/01J…/oauth/device_authorization",
+            "tokenUrl": "https://provider.example.com/a2a/01J…/oauth/token",
+            "scopes": {
+              "orders:read": "Look up your orders and their status",
+              "orders:cancel": "Cancel an order that has not shipped"
+            }
+          }
+        },
+        "oauth2MetadataUrl": "https://provider.example.com/a2a/01J…/oauth/.well-known/oauth-authorization-server"
+      }
+    }
+  },
+  "securityRequirements": [
+    { "schemes": { "paJwt": { "list": [] } } },
+    { "schemes": { "paJwt": { "list": [] }, "userDelegation": { "list": [] } } }
+  ]
+}
+```
+
+- The PA-JWT-only entry MUST stay. A PA MAY always talk with §3 alone.
+- `oauth2MetadataUrl` MUST serve [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)
+  metadata; its `jwks_uri` publishes the keys that sign delegation tokens and
+  receipts.
+
+### 5.2 Scopes
+
+A scope is `{ id, description }`. Each Brand defines its own — `orders:read`,
+`booking:change`, whatever its agent does — and PAC2 reserves no ids. The
+Brand maps its agent's capabilities to scopes; unmapped capabilities stay
+available under §3. PAs pick scopes by reading the descriptions and MUST
+request only ids on the card. Providers show descriptions to the User
+verbatim on consent.
+
+### 5.3 Getting a token
+
+RFC 8628 with two rules: the OAuth client is the PA, authenticated with its
+§3 JWT (`client_id` = its issuer URL); the login step is the Brand's own login.
+
+```http
+POST {deviceAuthorizationUrl}
+Authorization: Bearer <pa-jwt>
+Content-Type: application/x-www-form-urlencoded
+
+client_id=https://pa.example.com&scope=orders:read%20orders:cancel
+```
+
+```json
+{
+  "device_code": "dc_9f3c…",
+  "user_code": "WDJB-MJHT",
+  "verification_uri": "https://brand.example/login?return_to=…",
+  "verification_uri_complete": "https://brand.example/login?return_to=…user_code%3DWDJB-MJHT",
+  "expires_in": 600,
+  "interval": 5
+}
+```
+
+- Unknown scope id → OAuth `invalid_scope`. Bad PA JWT → `401` (§3.4).
+- The PA shows the User `verification_uri_complete`. It MUST NOT proxy, frame,
+  or observe the login.
+- The link opens the Brand's login. The Brand authenticates the User and
+  redirects back to the Provider with an identity assertion (whatever it
+  already uses for its other channels; out of scope here). The Provider then
+  shows consent as the logged-in User: which PA, which Brand, each scope as a
+  checkbox the User MAY uncheck. Login comes first so the grant is bound to a
+  verified account.
+- Consent MAY be skipped when an unexpired grant for `(User, PA)` already
+  covers the request.
+
+```http
+POST {tokenUrl}
+Authorization: Bearer <pa-jwt>
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=urn:ietf:params:oauth:grant-type:device_code&device_code=dc_9f3c…&client_id=https://pa.example.com
+```
+
+Until approval: `authorization_pending`, `slow_down`, `access_denied`, or
+`expired_token` per RFC 8628. Then:
+
+```json
+{
+  "token_type": "Bearer",
+  "access_token": "eyJ…",
+  "refresh_token": "rt_…",
+  "expires_in": 3600,
+  "scope": "orders:read orders:cancel"
+}
+```
+
+`scope` is what the User approved, which may be less than requested. The PA
+MUST read it.
+
+### 5.4 Delegation token
+
+`access_token` is a JWT signed by the Provider (`ES256`/`RS256`; keys at the
+`jwks_uri` from §5.1).
+
+| Claim        | Meaning                                                                  |
+| ------------ | ------------------------------------------------------------------------ |
+| `iss`        | The Brand's authorization server (as in its RFC 8414 metadata).          |
+| `aud`        | The Brand's interface URL. One Brand per token.                          |
+| `sub`        | The User's id at the Brand — the same id the Brand's other channels use. |
+| `client_id`  | The PA's issuer URL. MUST equal the `iss` of the PA JWT sent with it.    |
+| `scope`      | Space-separated granted scope ids.                                       |
+| `grant_id`   | Opaque id of the grant. Appears in receipts.                             |
+| `iat`, `exp` | Lifetime SHOULD be ≤ 1 h. Refresh within the grant's lifetime.           |
+
+### 5.5 Sending with it
+
+Both tokens go on the request. The PA JWT is checked first, unchanged.
+
+```http
+POST {interfaceUrl}/message:send
+Authorization: Bearer <pa-jwt>
+X-A2A-User-Delegation: Bearer <delegation-token>
+A2A-Version: 1.0
+Content-Type: application/json
+```
+
+The Provider MUST (1) verify the PA JWT (§3.2); (2) verify the delegation
+token's signature, `aud`, `exp`, that `client_id` equals the PA's `iss`, and
+that the grant is not revoked; (3) run the agent as Brand user `sub`, limited
+to `scope`. A bad delegation token → `401` with
+`WWW-Authenticate: Bearer realm="a2a", error="invalid_token"`, no A2A body.
+
+`contextId` rules (§4.2) are unchanged. A context started under §3 MAY
+continue under delegation. Once a context has run as one `sub`, a token for a
+different `sub` → `INVALID_PARAMS`.
+
+**Step-up.** If a turn needs a scope the token lacks, the Provider MUST NOT
+fail it. It returns a task in `TASK_STATE_AUTH_REQUIRED` with the missing ids
+and a new link; the conversation stays open:
+
+```json
+{
+  "task": {
+    "id": "t-01J…",
+    "contextId": "f0c12e6b-…",
+    "status": {
+      "state": "TASK_STATE_AUTH_REQUIRED",
+      "message": {
+        "role": "ROLE_AGENT",
+        "parts": [{ "text": "I need permission to issue refunds." }]
+      }
+    },
+    "metadata": {
+      "pac2.missingScopes": ["refunds:issue"],
+      "pac2.verificationUriComplete": "https://brand.example/login?return_to=…"
+    }
+  }
+}
+```
+
+The PA repeats §5.3 for the missing scopes (login is skipped if the User's
+session with the Provider is still live), gets a new token, and re-sends with
+the same `contextId`. The step-up task MAY be ephemeral; `tasks/{id}` MAY
+return `TASK_NOT_FOUND` for it.
+
+### 5.6 Receipts
+
+Every `message:send` served under a delegation token MUST include in the
+reply's `metadata` a receipt signed with the same keys as the token:
+
+```json
+{
+  "message": {
+    "messageId": "r-002",
+    "contextId": "f0c12e6b-…",
+    "role": "ROLE_AGENT",
+    "parts": [{ "text": "Order #A-88213 is cancelled. Refund posts in 3–5 days." }],
+    "metadata": {
+      "pac2.receipt": {
+        "jws": "eyJ…",
+        "claims": {
+          "grantId": "a2agrant_…",
+          "user": "jane-4471",
+          "pa": "https://pa.example.com",
+          "brand": "https://provider.example.com/a2a/01J…",
+          "scopesUsed": ["orders:read", "orders:cancel"],
+          "actions": [{ "tool": "lookup_orders" }, { "tool": "cancel_order", "argsHash": "…" }],
+          "ts": "2026-09-30T12:00:00Z"
+        }
+      }
+    }
+  }
+}
+```
+
+`jws` is the compact JWS of `claims`. PAs SHOULD verify and keep receipts.
+
+## 6. Errors
+
+A2A errors use the A2A / AIP-193 envelope. `code` repeats the HTTP status; the
+reason is `error.details[0].reason`. Clients MUST NOT infer the reason from
+the status alone.
+
+```json
+{
+  "error": {
+    "code": 400,
+    "status": "INVALID_ARGUMENT",
+    "message": "Unknown contextId",
+    "details": [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        "reason": "INVALID_PARAMS",
+        "domain": "a2a-protocol.org"
+      }
+    ]
+  }
+}
+```
+
+| Reason                            | HTTP | `status`              | When                                                                                                                                                   |
+| --------------------------------- | ---: | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Bad JSON or schema, wrong role, blank text, bad `pageSize`, unknown or foreign `contextId`, duplicate `messageId` with no reply, `sub` mismatch (§5.5) |
+| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Non-text part                                                                                                                                          |
+| `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Streaming, subscribe, extended card                                                                                                                    |
+| `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push-notification routes                                                                                                                               |
+| `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Task lookup or cancel; `taskId` on `message:send`                                                                                                      |
+| `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                                                                                                                       |
+
+Not A2A errors: `401` (§3.4, §5.5), `404`/`405` for unmatched routes or
+unknown Brands (§2.2), and OAuth endpoint errors
+([RFC 6749 §5.2](https://www.rfc-editor.org/rfc/rfc6749#section-5.2), RFC 8628).
+
+## 7. Conformance
+
+| Profile            | Sections         |
+| ------------------ | ---------------- |
+| **PAC2 Identity**  | §2, §3, §4, §6   |
+| **PAC2 Delegated** | Identity plus §5 |
+
+This is PAC2 **1.0**. Breaking changes to either profile bump that number.
+
+### 7.1 Implementing a Provider (Identity)
+
+1. Decide your trust policy (§3.1): allowlist PAs, or accept any issuer that
+   serves a JWKS. Pick one `audience` string and give it to every PA.
+2. Serve one Agent Card per Brand at `/a2a/{brandId}/.well-known/agent-card.json`
+   (§2.1), unauthenticated, with the `HTTP+JSON` 1.0 interface and the
+   Bearer-JWT scheme.
+3. On every other route, verify the PA JWT first (§3.2): signature via the
+   issuer's JWKS, `iss`, `aud`, `exp`, `iat`, allowed `alg`. Fail with `401` +
+   `WWW-Authenticate: Bearer` and no A2A body (§3.4).
+4. Key each conversation by `(PA, sub, Brand)`. Reject a `contextId` from
+   anyone else with `INVALID_PARAMS`, not `NOT_FOUND` (§4.2).
+5. Answer `message:send` synchronously; return the stored reply for a repeated
+   `messageId` (§4.3). Answer the other A2A operations per §2.2.
+6. Use the §6 envelope for A2A errors and plain HTTP for everything else.
+7. Run `e2e/` against yourself with `E2E_PROVIDER=any`; see
+   [Reference implementation](/reference-implementation#conformance-tests).
+
+For Delegated, add §5: scopes and login per Brand, the OAuth device-code
+server under `{interfaceUrl}/oauth/`, delegation-token checks, step-up, and
+receipts.

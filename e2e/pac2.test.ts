@@ -6,7 +6,9 @@ import { A2AErrorResponseSchema } from "@pac2/protocol";
 import { A2AClient, createPlatformSigner, discoverAgent, type DiscoveredAgent } from "@pac2/client";
 
 function readLocalEnv(): void {
-  const path = fileURLToPath(new URL("../apps/personal-agent/client/.env.local", import.meta.url));
+  const path = fileURLToPath(
+    new URL("../reference/personal-agent/client/.env.local", import.meta.url),
+  );
   if (!existsSync(path)) return;
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     const match = line.match(/^([A-Z0-9_]+)=(.*)$/);

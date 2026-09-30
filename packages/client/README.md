@@ -1,22 +1,13 @@
-# Reference client and CLI
+# @pac2/client
 
-`@pac2/client` provides platform JWT signing, Agent Card discovery, message
-sending, and platform registration. `A2AClient.sendMessage(text, { contextId
-})` returns a `Message`; `audience` is the value the provider assigned at
-registration.
+PA-side client: `createPlatformSigner`, `discoverAgent`, `A2AClient`,
+`registerPlatform`, typed errors, and the `pac2` CLI.
 
-The `pac2` CLI supports:
-
-```sh
-pnpm --filter @pac2/client pac2 card
-pnpm --filter @pac2/client pac2 send "What are your hours?"
-pnpm --filter @pac2/client pac2 send "hours" --context <context-id>
-pnpm --filter @pac2/client pac2 chat
-pnpm --filter @pac2/client pac2 register
+```ts
+const signer = createPlatformSigner({ issuer, privateJwk });
+const { url } = await discoverAgent(providerUrl, brandId);
+const client = new A2AClient({ url, signer, userId, audience });
+const reply = await client.sendMessage("Where is my order?");
 ```
 
-The A2A commands use `PROVIDER_URL`, `CUSTOMER_ID`, `PA_ISSUER`,
-`PA_PRIVATE_JWK`, and `PA_AUDIENCE`; registration does not require a customer
-ID or audience. See the [authentication
-guide](../../apps/docs/content/guides/authentication.md) and [messaging
-guide](../../apps/docs/content/guides/messaging.md) for request and JWT rules.
+API and CLI: [TypeScript client](../../docs/typescript-client.md).
