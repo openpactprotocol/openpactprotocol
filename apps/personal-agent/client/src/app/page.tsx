@@ -10,9 +10,8 @@ import {
   CircleAlert,
   CircleCheck,
   CircleX,
-  Headset,
+  ExternalLink,
   Fingerprint,
-  Info,
   KeyRound,
   Link as LinkIcon,
   Lock,
@@ -22,6 +21,7 @@ import {
   SignalHigh,
   Sparkles,
   SquarePen,
+  Store,
   Wifi,
 } from "lucide-react";
 import { cookies } from "next/headers";
@@ -36,6 +36,7 @@ import {
 } from "../lib/session.js";
 import {
   listConversations,
+  type BusinessThread,
   type PaConversation,
   type PhoneMessage,
 } from "../lib/conversationStore.js";
@@ -76,6 +77,61 @@ function lastUserIndex(messages: PhoneMessage[]): number {
 
 function agentCardUrl(providerUrl: string, customerId: string): string {
   return `${providerUrl.replace(/\/+$/, "")}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`;
+}
+
+type ConnectedBusiness = {
+  customerId: string;
+  card?: AgentCard;
+  error?: string;
+  unauthorized?: boolean;
+};
+
+const BRAND_COLORS = ["#16345c", "#1f4d3a", "#7a1f45", "#7a4a0c", "#3b3b8f"];
+
+function brandColor(customerIds: string[], customerId: string): string {
+  const index = Math.max(0, customerIds.indexOf(customerId));
+  return BRAND_COLORS[index % BRAND_COLORS.length] ?? "#16345c";
+}
+
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
+}
+
+function ThreadCard(input: { thread: BusinessThread; color: string }): ReactElement {
+  const { thread } = input;
+  return (
+    <article className="thread-card">
+      <header style={{ background: input.color }}>
+        <span className="brand-avatar light" aria-hidden>
+          {thread.businessName.charAt(0)}
+        </span>
+        <div>
+          <h3>{thread.businessName}</h3>
+          <p>
+            contextId <code>{thread.contextId.slice(0, 8)}</code> · via PAC2
+          </p>
+        </div>
+        <span className="pa-badge">
+          <Sparkles size={12} aria-hidden />
+          Personal Agent
+        </span>
+      </header>
+      <div className="thread-card-body">
+        {thread.messages.map((message, index) => (
+          <p
+            className={message.role === "ROLE_USER" ? "tbubble from-pa" : "tbubble from-business"}
+            key={`${message.at}-${index}`}
+          >
+            {message.text}
+          </p>
+        ))}
+        <span className={thread.awaitingReply ? "thread-status waiting" : "thread-status done"}>
+          {thread.awaitingReply ? "Waiting on the customer" : "Answered"}
+        </span>
+      </div>
+    </article>
+  );
 }
 
 function authLabel(card: AgentCard): string | undefined {
@@ -228,15 +284,11 @@ export default async function HomePage({
   const query = await searchParams;
   const providerUrl = query.providerUrl ?? process.env.PROVIDER_URL ?? "http://localhost:3000";
   const customerIds = parseCustomerIds(query.customerIds ?? process.env.CUSTOMER_IDS);
-  const firstCustomerId = customerIds[0];
   const userId = (await cookies()).get(USER_ID_COOKIE)?.value ?? "";
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
-  let card: AgentCard | undefined;
   let conversations: PaConversation[] = [];
   let selectedConversation: PaConversation | undefined;
-  let error: string | undefined;
-  let unauthorized = false;
   const registration = readRegistrationNotice(query);
   if (userId) {
     conversations = await listConversations({ userId, providerUrl });
@@ -244,19 +296,31 @@ export default async function HomePage({
       (conversation) => conversation.id === query.conversation,
     );
   }
-  if (firstCustomerId && issuer && privateJwk) {
-    try {
-      const discovery = await discoverAgent(providerUrl, firstCustomerId);
-      card = discovery.card;
-    } catch (cause) {
-      unauthorized = cause instanceof A2AHttpError && cause.status === 401;
-      error = unauthorized
-        ? "The provider rejected this platform's token (401). Is this personal agent registered with the provider?"
-        : cause instanceof Error
-          ? cause.message
-          : "Could not connect to the provider.";
-    }
-  }
+  const businesses: ConnectedBusiness[] =
+    issuer && privateJwk
+      ? await Promise.all(
+          customerIds.map(async (customerId): Promise<ConnectedBusiness> => {
+            try {
+              return { customerId, card: (await discoverAgent(providerUrl, customerId)).card };
+            } catch (cause) {
+              return {
+                customerId,
+                unauthorized: cause instanceof A2AHttpError && cause.status === 401,
+                error: cause instanceof Error ? cause.message : "Could not reach this business.",
+              };
+            }
+          }),
+        )
+      : [];
+  const unauthorized = businesses.some((business) => business.unauthorized);
+  const error = unauthorized
+    ? "The provider rejected this platform's token (401). Is this personal agent registered with the provider?"
+    : undefined;
+  const connectedNames = businesses.flatMap((business) =>
+    business.card ? [business.card.name] : [],
+  );
+  const card = businesses.find((business) => business.card)?.card;
+  const threads = selectedConversation?.threads ?? [];
   const messages: PhoneMessage[] = selectedConversation?.messages ?? [];
   const agentInterface = card?.supportedInterfaces[0];
   const auth = card ? authLabel(card) : undefined;
@@ -339,40 +403,66 @@ export default async function HomePage({
         <div className="workspace">
           <div className="peripherals">
             <section className="card agent-card">
-              <h2>Agent Card</h2>
-              {card ? (
-                <div className="agent">
-                  <span className="avatar" aria-hidden>
-                    <Headset size={20} />
-                  </span>
-                  <div className="agent-body">
-                    <h3>{card.name}</h3>
-                    <p>{card.description}</p>
-                    <div className="chips">
-                      {card.skills.map((skill) => (
-                        <span className="chip" key={skill.id} title={skill.description}>
-                          <Sparkles size={12} aria-hidden />
-                          {skill.name}
-                        </span>
-                      ))}
-                      {auth ? (
-                        <span className="chip muted">
-                          <Lock size={12} aria-hidden />
-                          {auth}
-                        </span>
-                      ) : null}
-                      {agentInterface ? (
-                        <span className="chip muted">
-                          <LinkIcon size={12} aria-hidden />
-                          {agentInterface.protocolBinding} {agentInterface.protocolVersion}
-                        </span>
-                      ) : null}
-                    </div>
-                  </div>
-                </div>
-              ) : (
+              <h2>Connected businesses</h2>
+              {businesses.length === 0 ? (
                 <p className="muted-text">Enter a provider URL and business IDs, then connect.</p>
+              ) : (
+                <ul className="business-list">
+                  {businesses.map((business) => (
+                    <li className="business" key={business.customerId}>
+                      <span
+                        className="brand-avatar"
+                        style={{ background: brandColor(customerIds, business.customerId) }}
+                        aria-hidden
+                      >
+                        {business.card ? business.card.name.charAt(0) : <Store size={16} />}
+                      </span>
+                      <div className="business-body">
+                        <div className="business-head">
+                          <h3>{business.card?.name ?? "Unavailable"}</h3>
+                          <a
+                            href={agentCardUrl(providerUrl, business.customerId)}
+                            target="_blank"
+                            rel="noreferrer"
+                            aria-label="Open Agent Card"
+                            title="Open Agent Card"
+                          >
+                            <ExternalLink size={13} aria-hidden />
+                          </a>
+                        </div>
+                        <p>{business.card?.description ?? business.error}</p>
+                        <div className="chips">
+                          {business.card?.skills.map((skill) => (
+                            <span className="chip" key={skill.id} title={skill.description}>
+                              <Sparkles size={12} aria-hidden />
+                              {skill.name}
+                            </span>
+                          ))}
+                          <span className="chip muted" title={business.customerId}>
+                            {business.customerId.slice(0, 10)}…
+                          </span>
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
               )}
+              {card ? (
+                <div className="chips">
+                  {agentInterface ? (
+                    <span className="chip muted">
+                      <LinkIcon size={12} aria-hidden />
+                      {agentInterface.protocolBinding} {agentInterface.protocolVersion}
+                    </span>
+                  ) : null}
+                  {auth ? (
+                    <span className="chip muted">
+                      <Lock size={12} aria-hidden />
+                      {auth}
+                    </span>
+                  ) : null}
+                </div>
+              ) : null}
             </section>
 
             <aside className="card sidebar">
@@ -411,6 +501,11 @@ export default async function HomePage({
                           {conversation.messages.find((message) => message.role === "user")?.text ??
                             "Untitled conversation"}
                         </span>
+                        {conversation.threads.length > 0 ? (
+                          <span className="conversation-businesses">
+                            {conversation.threads.map((thread) => thread.businessName).join(" · ")}
+                          </span>
+                        ) : null}
                         <span className="conversation-meta">
                           <span>{formatTime(conversation.updatedAt)}</span>
                           <code>{conversation.id.slice(0, 8)}</code>
@@ -454,32 +549,19 @@ export default async function HomePage({
                       <ChevronRight size={14} aria-hidden />
                     </span>
                   </div>
-                  {card ? (
-                    <a
-                      className="round-button"
-                      href={firstCustomerId ? agentCardUrl(providerUrl, firstCustomerId) : "#"}
-                      target="_blank"
-                      rel="noreferrer"
-                      aria-label={`Open ${card.name} Agent Card`}
-                      title={`Open ${card.name} Agent Card`}
-                    >
-                      <Info size={18} aria-hidden />
-                    </a>
-                  ) : (
-                    <span className="round-button placeholder" aria-hidden />
-                  )}
+                  <span className="round-button placeholder" aria-hidden />
                 </header>
 
                 <div className="thread">
                   <div className="thread-inner">
                     <div className="thread-meta">
-                      <span>
+                      <span className="connected-to">
                         {card ? (
                           <>
-                            Connected to <strong>{customerIds.length} businesses</strong> via PAC2
+                            Connected to <strong>{joinNames(connectedNames)}</strong> via PAC2
                           </>
                         ) : (
-                          "Not connected to any business"
+                          "Not connected to any businesses"
                         )}
                       </span>
                       {card ? (
@@ -562,6 +644,24 @@ export default async function HomePage({
                 </form>
                 <span className="home-indicator" aria-hidden />
               </div>
+            </div>
+
+            <div className="threads" aria-label="Business conversations">
+              <p className="threads-label">Personal Agent ↔ businesses over PAC2</p>
+              {threads.length === 0 ? (
+                <p className="threads-hint">
+                  Each business the personal agent contacts gets its own A2A conversation, shown
+                  here.
+                </p>
+              ) : (
+                threads.map((thread) => (
+                  <ThreadCard
+                    key={thread.customerId}
+                    thread={thread}
+                    color={brandColor(customerIds, thread.customerId)}
+                  />
+                ))
+              )}
             </div>
           </section>
         </div>

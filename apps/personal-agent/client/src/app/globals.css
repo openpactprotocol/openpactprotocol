@@ -47,7 +47,7 @@ a:hover {
   display: flex;
   align-items: center;
   gap: 12px;
-  max-width: 1200px;
+  max-width: 1480px;
   margin: 0 auto;
 }
 .brand h1 {
@@ -71,7 +71,7 @@ a:hover {
 }
 
 main {
-  max-width: 1200px;
+  max-width: 1480px;
   margin: 0 auto;
   padding: 24px 32px 32px;
   display: grid;
@@ -471,7 +471,7 @@ button:disabled {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(280px, 360px) 1fr;
+  grid-template-columns: minmax(280px, 340px) 1fr;
   gap: 16px;
   align-items: start;
 }
@@ -501,9 +501,12 @@ button:disabled {
 }
 
 .stage {
-  display: grid;
-  place-items: center;
-  padding: 40px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 40px;
+  padding: 40px 24px;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background-color: #f4f4f1;
@@ -634,6 +637,7 @@ button:disabled {
   display: flex;
   flex-direction: column-reverse;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 0 14px 12px;
   scrollbar-width: none;
 }
@@ -642,6 +646,7 @@ button:disabled {
 }
 .thread-inner {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: 4px;
   min-height: 100%;
@@ -657,6 +662,11 @@ button:disabled {
   display: inline-flex;
   align-items: center;
   gap: 3px;
+}
+.thread-meta .connected-to {
+  display: block;
+  max-width: 280px;
+  text-align: center;
 }
 .thread-meta strong {
   font-weight: 600;
@@ -778,4 +788,157 @@ button:disabled {
     margin-left: 0;
     flex-wrap: wrap;
   }
+}
+
+.business-list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.business {
+  display: flex;
+  gap: 12px;
+}
+.brand-avatar {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  color: white;
+  font-weight: 700;
+  font-size: 15px;
+}
+.brand-avatar.light {
+  background: white;
+  color: #111;
+}
+.business-body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.business-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.business-head h3 {
+  font-size: 14px;
+  font-weight: 600;
+}
+.business-head a {
+  color: var(--muted);
+  display: inline-flex;
+}
+.business-body p {
+  color: var(--muted);
+  font-size: 13px;
+}
+.conversation-businesses {
+  display: block;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+.threads {
+  display: grid;
+  gap: 16px;
+  width: 400px;
+  max-width: 100%;
+  align-content: start;
+}
+.threads-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}
+.threads-hint {
+  padding: 20px;
+  border: 1px dashed var(--border);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 60%);
+  color: var(--muted);
+  font-size: 13px;
+}
+.thread-card {
+  overflow: hidden;
+  border-radius: 16px;
+  background: white;
+  box-shadow:
+    0 1px 2px rgb(0 0 0 / 6%),
+    0 12px 32px rgb(0 0 0 / 10%);
+}
+.thread-card header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  color: white;
+}
+.thread-card header > div {
+  flex: 1;
+  min-width: 0;
+}
+.thread-card h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+.thread-card header p {
+  font-size: 12px;
+  opacity: 0.8;
+}
+.thread-card header code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.pa-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgb(255 255 255 / 16%);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.thread-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+.tbubble {
+  max-width: 85%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+.tbubble.from-pa {
+  align-self: flex-end;
+  background: #111;
+  color: white;
+}
+.tbubble.from-business {
+  align-self: flex-start;
+  background: #f1f1f0;
+  color: #1c1c1e;
+}
+.thread-status {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.thread-status.waiting {
+  background: #fdf3c7;
+  color: #7a5b00;
+}
+.thread-status.done {
+  background: #e3f4e8;
+  color: #1f6b3a;
 }
