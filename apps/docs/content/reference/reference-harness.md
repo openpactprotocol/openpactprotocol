@@ -29,6 +29,11 @@ routing logic; PAC2 does not define routing. An external platform
 can integrate with a different Customer agent as long as it follows the Agent
 Card, JWT, and message contract.
 
+Separately, the provider can use `OPENAI_API_KEY` and `OPENAI_MODEL` (default
+`gpt-6-luna`) to generate business replies from conversation history and each
+profile's facts. Without a key or after a failure or timeout, it uses the
+deterministic canned replies.
+
 Configure the PA client with `CUSTOMER_IDS`, a comma-separated list of
 customer ULIDs. The protocol CLI continues to take one `CUSTOMER_ID` at a time.
 

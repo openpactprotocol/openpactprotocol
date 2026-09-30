@@ -116,7 +116,7 @@ export async function registerPersonalAgent(formData: FormData): Promise<void> {
   redirect(homePath({ ...connection, registration }));
 }
 
-export async function sendChatMessage(formData: FormData): Promise<void> {
+export async function sendChatMessage(formData: FormData): Promise<string> {
   const connection = readConnection(formData);
   const text = String(formData.get("text") ?? "");
   const requestedConversationId = String(formData.get("conversationId") ?? "");
@@ -146,12 +146,10 @@ export async function sendChatMessage(formData: FormData): Promise<void> {
     };
   }
   if (!text.trim()) {
-    redirect(
-      homePath({
-        ...connection,
-        ...(requestedConversationId ? { conversationId: conversation.id } : {}),
-      }),
-    );
+    return homePath({
+      ...connection,
+      ...(requestedConversationId ? { conversationId: conversation.id } : {}),
+    });
   }
 
   const discoveries = await Promise.all(
@@ -219,7 +217,7 @@ export async function sendChatMessage(formData: FormData): Promise<void> {
     });
     conversation.updatedAt = responseAt;
     await saveConversation(conversation);
-    redirect(homePath({ ...connection, conversationId: conversation.id }));
+    return homePath({ ...connection, conversationId: conversation.id });
   }
 
   const targets = routes.flatMap((customerId) => {
@@ -299,5 +297,5 @@ export async function sendChatMessage(formData: FormData): Promise<void> {
   }
 
   await saveConversation(conversation);
-  redirect(homePath({ ...connection, conversationId: conversation.id }));
+  return homePath({ ...connection, conversationId: conversation.id });
 }

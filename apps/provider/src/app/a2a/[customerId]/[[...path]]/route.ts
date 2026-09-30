@@ -10,7 +10,18 @@ type RouteContext = {
 
 async function handle(request: Request, context: RouteContext): Promise<Response> {
   const { customerId, path } = await context.params;
-  return createA2AHandler({ db: getDb() })(request, customerId, path ?? []);
+  const apiKey = process.env.OPENAI_API_KEY;
+  return createA2AHandler({
+    db: getDb(),
+    ...(apiKey
+      ? {
+          openai: {
+            apiKey,
+            model: process.env.OPENAI_MODEL || "gpt-6-luna",
+          },
+        }
+      : {}),
+  })(request, customerId, path ?? []);
 }
 
 export const GET = handle;

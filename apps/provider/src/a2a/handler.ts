@@ -29,6 +29,7 @@ type HandlerOptions = {
   db: Db;
   getJwks?: (uri: string) => JWTVerifyGetKey;
   now?: () => Date;
+  openai?: { apiKey: string; model: string; fetchImpl?: typeof fetch };
 };
 
 export type A2AHandler = (
@@ -162,6 +163,15 @@ function makeAgentMessage(messageId: string, contextId: string, parts: unknown[]
 
 function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
+function textFromParts(parts: unknown[]): string {
+  return parts
+    .map((part) => {
+      if (typeof part !== "object" || part === null || !("text" in part)) return "";
+      return typeof part.text === "string" ? part.text : "";
+    })
+    .join("\n");
 }
 
 export function createA2AHandler(options: HandlerOptions): A2AHandler {
@@ -333,6 +343,16 @@ export function createA2AHandler(options: HandlerOptions): A2AHandler {
           customerName: customer.name,
           initialText: text,
           previousFlow: conversation.metadata.flow ?? {},
+          history: history.flatMap<{ role: "customer" | "agent"; text: string }>((stored) => {
+            if (stored.role === "ROLE_USER") {
+              return [{ role: "customer" as const, text: textFromParts(stored.parts) }];
+            }
+            if (stored.role === "ROLE_AGENT") {
+              return [{ role: "agent" as const, text: textFromParts(stored.parts) }];
+            }
+            return [];
+          }),
+          ...(options.openai ? { openai: options.openai } : {}),
         });
         const agentMessageId = randomUUID();
         const agentParts = [{ text: turn.text }];
