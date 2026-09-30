@@ -11,6 +11,7 @@
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
+    "test": "vitest run",
     "pap": "tsx src/cli.ts"
   },
   "dependencies": {
