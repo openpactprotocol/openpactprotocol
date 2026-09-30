@@ -27,7 +27,7 @@ const registrationAudience = `${origin}/api/platforms`;
 
 let client: PGlite;
 let testDb: Db;
-let slugs: { acmeSlug: string; globexSlug: string };
+let customerIds: { acmeId: string; globexId: string };
 let keyPair: GenerateKeyPairResult;
 let kid: string;
 let localJwks: JWTVerifyGetKey;
@@ -118,7 +118,7 @@ beforeAll(async () => {
     migrationsFolder: new URL("../../drizzle", import.meta.url).pathname,
   });
   testDb = drizzleClient as unknown as Db;
-  slugs = await seedDatabase(testDb, "http://localhost:3002", { seedDemoPlatform: true });
+  customerIds = await seedDatabase(testDb, "http://localhost:3002", { seedDemoPlatform: true });
   registerHandler = createRegisterPlatformHandler({
     db: testDb,
     getJwks: () => localJwks,
@@ -150,10 +150,10 @@ describe("platform registration", () => {
     const sub = "instinct-user";
     const a2aToken = await token({
       sub,
-      audience: `${origin}/a2a/${slugs.acmeSlug}`,
+      audience: `${origin}/a2a`,
     });
-    const taskResponse = await a2aHandler(
-      new Request(`${origin}/a2a/${slugs.acmeSlug}/message:send`, {
+    const messageResponse = await a2aHandler(
+      new Request(`${origin}/a2a/${customerIds.acmeId}/message:send`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${a2aToken}`,
@@ -168,13 +168,16 @@ describe("platform registration", () => {
           },
         }),
       }),
-      slugs.acmeSlug,
+      customerIds.acmeId,
       ["message:send"],
     );
-    expect(taskResponse.status).toBe(200);
-    const taskBody = (await taskResponse.json()) as { task: { id: string } };
+    expect(messageResponse.status).toBe(200);
+    const messageBody = (await messageResponse.json()) as {
+      message: { contextId: string; role: string };
+    };
+    expect(messageBody.message.role).toBe("ROLE_AGENT");
     const conversation = await testDb.query.conversations.findFirst({
-      where: eq(conversations.id, taskBody.task.id),
+      where: eq(conversations.id, messageBody.message.contextId),
     });
     expect(conversation?.userId).toBe(`instinct:${sub}`);
   });

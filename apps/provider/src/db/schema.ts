@@ -1,27 +1,15 @@
-import {
-  boolean,
-  index,
-  jsonb,
-  pgTable,
-  primaryKey,
-  text,
-  timestamp,
-  unique,
-  uuid,
-} from "drizzle-orm/pg-core";
-import { v7 as uuidv7 } from "uuid";
+import { boolean, index, jsonb, pgTable, text, timestamp, unique, uuid } from "drizzle-orm/pg-core";
+import { ulid } from "ulid";
 import type { FlowState } from "../agent/index.js";
 
 export type ConversationMetadata = {
-  contextId?: string;
   flow?: FlowState;
 };
 
 export const customers = pgTable("customers", {
-  id: uuid("id")
+  id: text("id")
     .primaryKey()
-    .$defaultFn(() => uuidv7()),
-  slug: text("slug").notNull().unique(),
+    .$defaultFn(() => ulid()),
   name: text("name").notNull().unique(),
 });
 
@@ -31,17 +19,17 @@ export const agentPlatforms = pgTable("agent_platforms", {
   issuer: text("issuer").notNull().unique(),
   jwksUri: text("jwks_uri").notNull(),
   enabled: boolean("enabled").notNull().default(true),
+  audience: text("audience"),
 });
 
 export const conversations = pgTable(
   "conversations",
   {
     id: uuid("id").primaryKey().defaultRandom(),
-    customerId: uuid("customer_id")
+    customerId: text("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "cascade" }),
     userId: text("user_id").notNull(),
-    state: text("state").notNull(),
     metadata: jsonb("metadata").$type<ConversationMetadata>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -68,22 +56,9 @@ export const messages = pgTable(
   ],
 );
 
-export const seenJtis = pgTable(
-  "seen_jtis",
-  {
-    platformId: uuid("platform_id")
-      .notNull()
-      .references(() => agentPlatforms.id, { onDelete: "cascade" }),
-    jti: text("jti").notNull(),
-    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
-  },
-  (table) => [primaryKey({ columns: [table.platformId, table.jti] })],
-);
-
 export const schema = {
   customers,
   agentPlatforms,
   conversations,
   messages,
-  seenJtis,
 };

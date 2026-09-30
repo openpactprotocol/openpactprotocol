@@ -3,13 +3,14 @@ import {
   A2A_ERRORS,
   A2AErrorResponseSchema,
   AgentCardSchema,
+  ListTasksResponseSchema,
   MessageSchema,
   PartSchema,
+  PlatformJwtClaimsSchema,
   PlatformRegistrationRequestSchema,
   PlatformRegistrationResponseSchema,
   SecuritySchemeSchema,
-  TaskSchema,
-  TaskStateSchema,
+  SendMessageResponseSchema,
 } from "./index.js";
 
 describe("protocol schemas", () => {
@@ -25,24 +26,24 @@ describe("protocol schemas", () => {
     expect(
       SecuritySchemeSchema.safeParse({
         httpAuthSecurityScheme: { scheme: "Bearer" },
-        apiKeySecurityScheme: { name: "key", in: "HEADER" },
+        apiKeySecurityScheme: { name: "key", location: "HEADER" },
       }).success,
     ).toBe(false);
   });
 
-  it("round-trips an AgentCard using proto field names", () => {
+  it("round-trips an AgentCard with the platform JWT security scheme", () => {
     const card = {
       name: "Example",
       description: "Example support",
       supportedInterfaces: [
-        { url: "https://example.com/a2a", protocolBinding: "HTTP+JSON", protocolVersion: "1.0" },
+        { url: "https://example.com/a2a/id", protocolBinding: "HTTP+JSON", protocolVersion: "1.0" },
       ],
       version: "0.1.0",
       capabilities: { streaming: false, pushNotifications: false, extendedAgentCard: false },
       securitySchemes: {
-        paPlatformJwt: { httpAuthSecurityScheme: { scheme: "Bearer", bearerFormat: "JWT" } },
+        platformJwt: { httpAuthSecurityScheme: { scheme: "Bearer", bearerFormat: "JWT" } },
       },
-      securityRequirements: [{ schemes: { paPlatformJwt: { list: [] } } }],
+      securityRequirements: [{ schemes: { platformJwt: { list: [] } } }],
       defaultInputModes: ["text/plain"],
       defaultOutputModes: ["text/plain"],
       skills: [
@@ -52,33 +53,53 @@ describe("protocol schemas", () => {
     expect(AgentCardSchema.parse(JSON.parse(JSON.stringify(card)))).toEqual(card);
   });
 
-  it("uses the proto enum names", () => {
-    expect(TaskStateSchema.parse("TASK_STATE_COMPLETED")).toBe("TASK_STATE_COMPLETED");
-    expect(TaskStateSchema.safeParse("completed").success).toBe(false);
+  it("returns a Message only and describes an empty task list", () => {
+    const message = {
+      messageId: "message-1",
+      contextId: "00000000-0000-4000-8000-000000000000",
+      role: "ROLE_AGENT",
+      parts: [{ text: "Open until 5 PM." }],
+    };
+    expect(SendMessageResponseSchema.parse({ message })).toEqual({ message });
+    expect(SendMessageResponseSchema.safeParse({ task: {} }).success).toBe(false);
+    expect(
+      ListTasksResponseSchema.parse({
+        tasks: [],
+        nextPageToken: "",
+        pageSize: 50,
+        totalSize: 0,
+      }).tasks,
+    ).toEqual([]);
+    expect(
+      ListTasksResponseSchema.safeParse({
+        tasks: [{ id: "task-1" }],
+        nextPageToken: "",
+        pageSize: 50,
+        totalSize: 1,
+      }).success,
+    ).toBe(false);
   });
 
-  it("allows Tasks and Messages to omit contextId", () => {
+  it("allows platform JWTs without jti", () => {
     expect(
-      TaskSchema.parse({ id: "task-1", status: { state: "TASK_STATE_COMPLETED" } }),
-    ).not.toHaveProperty("contextId");
-    expect(
-      MessageSchema.parse({
-        messageId: "message-1",
-        role: "ROLE_USER",
-        parts: [{ text: "hello" }],
+      PlatformJwtClaimsSchema.parse({
+        iss: "https://pa.example",
+        sub: "user-1",
+        aud: "https://provider.example/a2a",
+        iat: 100,
+        exp: 200,
       }),
-    ).not.toHaveProperty("contextId");
+    ).not.toHaveProperty("jti");
   });
 
-  it("shares protocol error HTTP and gRPC status mappings", () => {
-    expect(A2A_ERRORS.TASK_NOT_FOUND).toEqual({ httpStatus: 404, status: "NOT_FOUND" });
-    expect(A2A_ERRORS.TASK_NOT_CANCELABLE).toEqual({
-      httpStatus: 409,
-      status: "FAILED_PRECONDITION",
-    });
-    expect(A2A_ERRORS.UNSUPPORTED_OPERATION).toEqual({
-      httpStatus: 400,
-      status: "UNIMPLEMENTED",
+  it("shares the exact A2A error HTTP and gRPC status mappings", () => {
+    expect(A2A_ERRORS).toEqual({
+      INVALID_PARAMS: { httpStatus: 400, status: "INVALID_ARGUMENT" },
+      CONTENT_TYPE_NOT_SUPPORTED: { httpStatus: 400, status: "INVALID_ARGUMENT" },
+      UNSUPPORTED_OPERATION: { httpStatus: 400, status: "FAILED_PRECONDITION" },
+      PUSH_NOTIFICATION_NOT_SUPPORTED: { httpStatus: 400, status: "FAILED_PRECONDITION" },
+      TASK_NOT_FOUND: { httpStatus: 404, status: "NOT_FOUND" },
+      INTERNAL: { httpStatus: 500, status: "INTERNAL" },
     });
   });
 
@@ -99,6 +120,13 @@ describe("protocol schemas", () => {
         },
       }).error.details[0]?.reason,
     ).toBe("TASK_NOT_FOUND");
+    expect(
+      MessageSchema.parse({
+        messageId: "message-1",
+        role: "ROLE_USER",
+        parts: [{ text: "hello" }],
+      }),
+    ).not.toHaveProperty("contextId");
   });
 
   it("validates platform registration request and response schemas", () => {

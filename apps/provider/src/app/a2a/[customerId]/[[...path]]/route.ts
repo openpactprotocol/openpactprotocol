@@ -5,12 +5,12 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type RouteContext = {
-  params: Promise<{ slug: string; path?: string[] }>;
+  params: Promise<{ customerId: string; path?: string[] }>;
 };
 
 async function handle(request: Request, context: RouteContext): Promise<Response> {
-  const { slug, path } = await context.params;
-  return createA2AHandler({ db: getDb() })(request, slug, path ?? []);
+  const { customerId, path } = await context.params;
+  return createA2AHandler({ db: getDb() })(request, customerId, path ?? []);
 }
 
 export const GET = handle;

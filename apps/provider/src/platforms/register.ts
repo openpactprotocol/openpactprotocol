@@ -29,7 +29,7 @@ function unauthorized(reason: string): Response {
   });
 }
 
-function platformResponse(platform: typeof agentPlatforms.$inferSelect, status: number): Response {
+function platformResponse(platform: RegisteredPlatform, status: number): Response {
   return Response.json(
     {
       platform: {

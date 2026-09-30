@@ -1,23 +1,18 @@
-import { exportJWK, generateKeyPair, importJWK, SignJWT, type CryptoKey, type JWK } from "jose";
+import { generateKeyPair, importJWK, SignJWT, type CryptoKey, type JWK } from "jose";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import { A2AErrorResponseSchema } from "@pap/protocol";
-import {
-  A2AClient,
-  createPlatformSigner,
-  discoverAgent,
-  registerPlatform,
-  type DiscoveredAgent,
-} from "@pap/client";
+import { A2AClient, createPlatformSigner, discoverAgent, type DiscoveredAgent } from "@pap/client";
 
 function readLocalEnv(): void {
   const path = fileURLToPath(new URL("../apps/personal-agent/client/.env.local", import.meta.url));
   if (!existsSync(path)) return;
   for (const line of readFileSync(path, "utf8").split(/\r?\n/)) {
     const match = line.match(/^([A-Z0-9_]+)=(.*)$/);
-    if (match?.[1] && !process.env[match[1]])
+    if (match?.[1] && !process.env[match[1]]) {
       process.env[match[1]] = (match[2] ?? "").replace(/^['"]|['"]$/g, "");
+    }
   }
 }
 
@@ -30,106 +25,150 @@ function requiredEnv(name: string): string {
 }
 
 const providerUrl = (process.env.PROVIDER_URL ?? "http://localhost:3000").replace(/\/+$/, "");
-let slug = "";
-let globexSlug = "";
+let customerId = "";
+let globexId = "";
 let issuer = "";
-let jwk: (JWK & { kid: string }) | undefined;
+let privateJwk: (JWK & { kid: string }) | undefined;
 let cardResult: DiscoveredAgent | undefined;
 let multiTurnClient: A2AClient | undefined;
-let multiTurnTaskId = "";
 
-async function signedToken(input: {
-  signKey?: CryptoKey;
+type TokenOptions = {
+  signingKey?: CryptoKey | Uint8Array;
   kid?: string;
-  iss?: string;
-  aud: string;
-  sub?: string;
+  issuer?: string;
+  audience?: string;
+  subject?: string;
+  algorithm?: "ES256" | "HS256";
   iat?: number;
   exp?: number;
-  jti?: string;
-}): Promise<string> {
-  if (!jwk) throw new Error("PA_PRIVATE_JWK is required");
-  const key = input.signKey ?? (await importJWK(jwk, "ES256"));
-  const iat = input.iat ?? Math.floor(Date.now() / 1000);
-  return new SignJWT({ sub: input.sub ?? `e2e-${crypto.randomUUID()}` })
-    .setProtectedHeader({ alg: "ES256", kid: input.kid ?? jwk.kid, typ: "JWT" })
-    .setIssuer(input.iss ?? issuer)
-    .setAudience(input.aud)
+};
+
+async function signedToken(options: TokenOptions = {}): Promise<string> {
+  if (!privateJwk) throw new Error("PA_PRIVATE_JWK is required");
+  const algorithm = options.algorithm ?? "ES256";
+  const key = options.signingKey ?? (await importJWK(privateJwk, "ES256"));
+  const iat = options.iat ?? Math.floor(Date.now() / 1000);
+  return new SignJWT({ sub: options.subject ?? `e2e-${crypto.randomUUID()}` })
+    .setProtectedHeader({ alg: algorithm, kid: options.kid ?? privateJwk.kid, typ: "JWT" })
+    .setIssuer(options.issuer ?? issuer)
+    .setAudience(options.audience ?? (process.env.PA_AUDIENCE || `${providerUrl}/a2a`))
     .setIssuedAt(iat)
-    .setExpirationTime(input.exp ?? iat + 120)
-    .setJti(input.jti ?? crypto.randomUUID())
+    .setExpirationTime(options.exp ?? iat + 120)
     .sign(key);
 }
 
 async function rawRequest(
-  url: string,
+  route: string,
   input: {
+    customer?: string;
     method?: string;
-    token?: string;
+    token?: string | null;
     body?: unknown;
     version?: string | null;
-    contentType?: string;
+    contentType?: string | null;
+    audience?: string;
+    subject?: string;
+    issuer?: string;
   } = {},
 ): Promise<Response> {
   const headers = new Headers();
-  if (input.token) headers.set("Authorization", `Bearer ${input.token}`);
-  if (input.version === undefined) headers.set("A2A-Version", "1.0");
-  else if (input.version !== null) headers.set("A2A-Version", input.version);
-  if (input.body !== undefined || input.contentType) {
+  const token =
+    input.token === null
+      ? undefined
+      : (input.token ??
+        (await signedToken({
+          ...(input.audience === undefined ? {} : { audience: input.audience }),
+          ...(input.subject === undefined ? {} : { subject: input.subject }),
+          ...(input.issuer === undefined ? {} : { issuer: input.issuer }),
+        })));
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (input.version !== null) headers.set("A2A-Version", input.version ?? "1.0");
+  if (input.body !== undefined && input.contentType !== null) {
     headers.set("Content-Type", input.contentType ?? "application/json");
   }
-  return fetch(url, {
+  const base = `${providerUrl}/a2a/${input.customer ?? customerId}`;
+  const body =
+    input.body === undefined
+      ? undefined
+      : typeof input.body === "string"
+        ? input.body
+        : JSON.stringify(input.body);
+  return fetch(`${base}${route ? `/${route}` : ""}`, {
     method: input.method ?? "GET",
     headers,
-    ...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
+    ...(body === undefined ? {} : { body }),
   });
+}
+
+function messageBody(
+  text: string,
+  options: {
+    messageId?: string;
+    contextId?: string;
+    taskId?: string;
+    role?: string;
+    parts?: unknown[];
+  } = {},
+): unknown {
+  return {
+    message: {
+      messageId: options.messageId ?? crypto.randomUUID(),
+      ...(options.contextId === undefined ? {} : { contextId: options.contextId }),
+      ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
+      role: options.role ?? "ROLE_USER",
+      parts: options.parts ?? [{ text }],
+    },
+  };
 }
 
 async function expectA2AError(
   response: Response,
-  expected: { httpStatus: number; status: string; reason: string },
+  expected: { httpStatus: number; status: string; reason: string; message?: string },
 ): Promise<void> {
   const parsed = A2AErrorResponseSchema.parse(await response.json());
   expect(response.status).toBe(expected.httpStatus);
+  expect(response.headers.get("content-type")).toBe("application/a2a+json");
   expect(parsed.error).toMatchObject({
     code: expected.httpStatus,
     status: expected.status,
     details: [{ reason: expected.reason, domain: "a2a-protocol.org" }],
+    ...(expected.message === undefined ? {} : { message: expected.message }),
   });
 }
 
 function client(userId: string): A2AClient {
-  if (!cardResult || !jwk) throw new Error("The agent card and PA key must be loaded first");
+  if (!cardResult || !privateJwk) throw new Error("The card and PA key must be loaded first");
   return new A2AClient({
     url: cardResult.url,
-    signer: createPlatformSigner({ privateJwk: jwk, issuer }),
+    signer: createPlatformSigner({ privateJwk, issuer }),
     userId,
+    ...(process.env.PA_AUDIENCE ? { audience: process.env.PA_AUDIENCE } : {}),
   });
 }
 
-describe.sequential("Personal Agent Protocol HTTP+JSON E2E", () => {
+describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
   beforeAll(() => {
-    slug = requiredEnv("CUSTOMER_SLUG");
-    globexSlug = requiredEnv("GLOBEX_SLUG");
+    customerId = requiredEnv("CUSTOMER_ID");
+    globexId = requiredEnv("GLOBEX_ID");
     issuer = requiredEnv("PA_ISSUER");
-    jwk = JSON.parse(requiredEnv("PA_PRIVATE_JWK")) as JWK & { kid: string };
+    privateJwk = JSON.parse(requiredEnv("PA_PRIVATE_JWK")) as JWK & { kid: string };
   });
 
-  it("discovers the HTTP+JSON card with bearer auth and a single FAQ skill", async () => {
-    cardResult = await discoverAgent(providerUrl, slug);
+  it("discovers the public Agent Card with the customer-ID interface URL", async () => {
+    cardResult = await discoverAgent(providerUrl, customerId);
     expect(cardResult.card.supportedInterfaces[0]).toMatchObject({
-      url: `${providerUrl}/a2a/${slug}`,
+      url: `${providerUrl}/a2a/${customerId}`,
       protocolBinding: "HTTP+JSON",
       protocolVersion: "1.0",
     });
-    expect(cardResult.card.securitySchemes?.paPlatformJwt).toHaveProperty(
+    expect(cardResult.card.securitySchemes?.platformJwt).toHaveProperty(
       "httpAuthSecurityScheme.scheme",
       "Bearer",
     );
-    expect(cardResult.card.capabilities).toMatchObject({
-      streaming: false,
-      pushNotifications: false,
-    });
+    expect(cardResult.card.securitySchemes?.platformJwt).toHaveProperty(
+      "httpAuthSecurityScheme.description",
+      "JWT signed by a registered Personal Agent platform; aud is the platform's registered audience (default {base}/a2a)",
+    );
     expect(cardResult.card.skills).toEqual([
       {
         id: "faq",
@@ -138,314 +177,264 @@ describe.sequential("Personal Agent Protocol HTTP+JSON E2E", () => {
         tags: ["faq"],
       },
     ]);
+    const unknown = await rawRequest(".well-known/agent-card.json", {
+      customer: "unknown-customer",
+      token: null,
+    });
+    expect(unknown.status).toBe(404);
+    expect(await unknown.text()).toBe("");
   });
 
-  it("registers the configured platform and reports whether it was created", async () => {
-    const signer = createPlatformSigner({ privateJwk: jwk!, issuer });
-    const endpoint = `${providerUrl}/api/platforms`;
-    const originalFetch = globalThis.fetch;
-    let responseStatus: number | undefined;
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      const response = await originalFetch(input, init);
-      if (String(input) === endpoint) responseStatus = response.status;
-      return response;
+  it("returns Message replies and continues FAQ flow by contextId", async () => {
+    const faq = await client("faq-user").sendMessage("What are your hours?");
+    expect(faq).toMatchObject({
+      role: "ROLE_AGENT",
+      contextId: expect.any(String),
+      parts: [{ text: expect.any(String) }],
     });
-    try {
-      const result = await registerPlatform({
-        providerUrl,
-        name: process.env.PA_PLATFORM_NAME || "demo-pa",
-        signer,
+    expect(faq).not.toHaveProperty("taskId");
+
+    multiTurnClient = client("multi-turn-user");
+    const prompt = await multiTurnClient.sendMessage("Do you offer pediatric cardiology?");
+    expect(prompt.parts).toEqual([
+      { text: "Which would you like to know about: hours, location, parking, or insurance?" },
+    ]);
+    const contextId = prompt.contextId;
+    if (!contextId) throw new Error("The clarification reply did not include a contextId");
+    const answer = await multiTurnClient.sendMessage("hours", { contextId });
+    expect(answer.contextId).toBe(contextId);
+    expect(answer.parts[0]).toMatchObject({ text: expect.stringContaining("8:00 AM") });
+  });
+
+  it("returns the same reply for a duplicate messageId", async () => {
+    const messageId = crypto.randomUUID();
+    const subject = `retry-${crypto.randomUUID()}`;
+    const first = await rawRequest("message:send", {
+      method: "POST",
+      subject,
+      body: messageBody("What are your hours?", { messageId }),
+    });
+    const firstMessage = (await first.json()).message as { messageId: string; contextId: string };
+    const retry = await rawRequest("message:send", {
+      method: "POST",
+      subject,
+      body: messageBody("What are your hours?", {
+        messageId,
+        contextId: firstMessage.contextId,
+      }),
+    });
+    expect(((await retry.json()).message as { messageId: string }).messageId).toBe(
+      firstMessage.messageId,
+    );
+  });
+
+  it("rejects contexts owned by another user or customer", async () => {
+    const owner = await client("context-owner").sendMessage("hours");
+    const contextId = owner.contextId;
+    if (!contextId) throw new Error("The owner reply did not include a contextId");
+    for (const [customer, subject] of [
+      [customerId, "another-user"],
+      [globexId, "context-owner"],
+    ] as const) {
+      const response = await rawRequest("message:send", {
+        customer,
+        method: "POST",
+        subject,
+        body: messageBody("hours", { contextId }),
       });
-      expect([200, 201]).toContain(responseStatus);
-      expect(result.created).toBe(responseStatus === 201);
-      expect(result.platform).toMatchObject({
-        name: process.env.PA_PLATFORM_NAME || "demo-pa",
-        issuer,
-        enabled: true,
+      await expectA2AError(response, {
+        httpStatus: 400,
+        status: "INVALID_ARGUMENT",
+        reason: "INVALID_PARAMS",
+        message: "Unknown contextId",
       });
-    } finally {
-      fetchSpy.mockRestore();
     }
   });
 
-  it("rejects platform registration when the key is absent from the JWKS", async () => {
-    const { privateKey } = await generateKeyPair("ES256", { extractable: true });
-    const privateJwk = await exportJWK(privateKey);
-    privateJwk.kid = `unpublished-${crypto.randomUUID()}`;
-    const signer = createPlatformSigner({ privateJwk, issuer });
-    await expect(
-      registerPlatform({
-        providerUrl,
-        name: `e2e-unpublished-${crypto.randomUUID()}`,
-        signer,
-      }),
-    ).rejects.toMatchObject({ status: 401, message: "Unauthorized" });
-  });
-
-  it("rejects cross-origin JWKS URIs and a name owned by another issuer", async () => {
-    const signer = createPlatformSigner({ privateJwk: jwk!, issuer });
-    await expect(
-      registerPlatform({
-        providerUrl,
-        name: `e2e-cross-origin-${crypto.randomUUID()}`,
-        jwksUri: "https://another-origin.example/.well-known/jwks.json",
-        signer,
-      }),
-    ).rejects.toMatchObject({ status: 400 });
-    await expect(
-      registerPlatform({ providerUrl, name: "disabled-pa", signer }),
-    ).rejects.toMatchObject({ status: 409 });
-  });
-
-  it("answers a recognized FAQ request", async () => {
-    const faq = await client(`e2e-faq-${crypto.randomUUID()}`).sendMessage("What are your hours?");
-    expect(faq.task.status.state).toBe("TASK_STATE_COMPLETED");
-    expect(faq.task).not.toHaveProperty("contextId");
-    expect(faq.task.status.message).not.toHaveProperty("contextId");
-    expect(faq.task.status.message?.parts[0]).toMatchObject({
-      text: expect.stringContaining("Monday through Friday"),
+  it("returns empty tasks and validates pageSize", async () => {
+    const listed = await rawRequest("tasks?pageSize=20&contextId=ignored&status=ignored");
+    expect(await listed.json()).toEqual({
+      tasks: [],
+      nextPageToken: "",
+      pageSize: 20,
+      totalSize: 0,
     });
-  });
-
-  it("continues an unrecognized question into the same FAQ task", async () => {
-    multiTurnClient = client(`e2e-multiturn-${crypto.randomUUID()}`);
-    const started = await multiTurnClient.sendMessage("Can you help me?");
-    expect(started.task.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
-    expect(started.task).not.toHaveProperty("contextId");
-    expect(started.task.status.message?.parts[0]).toMatchObject({
-      text: "Which would you like to know about: hours, location, parking, or insurance?",
-    });
-
-    multiTurnTaskId = started.task.id;
-    const answered = await multiTurnClient.sendMessage("hours", { taskId: multiTurnTaskId });
-    expect(answered.task.id).toBe(multiTurnTaskId);
-    expect(answered.task.status.state).toBe("TASK_STATE_COMPLETED");
-    expect(answered.task.history).toHaveLength(4);
-    expect(answered.task).not.toHaveProperty("contextId");
-    expect(answered.task.history?.every((message) => !("contextId" in message))).toBe(true);
-  });
-
-  it("round-trips context IDs, filters tasks, and rejects context mismatches", async () => {
-    const sub = `e2e-context-${crypto.randomUUID()}`;
-    const contextId = `context-${crypto.randomUUID()}`;
-    const contextClient = client(sub);
-    const started = await contextClient.sendMessage("Can you help me?", { contextId });
-    expect(started.task.contextId).toBe(contextId);
-    expect(started.task.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
-    expect(started.task.status.message?.contextId).toBe(contextId);
-
-    const answered = await contextClient.sendMessage("hours", { taskId: started.task.id });
-    expect(answered.task.id).toBe(started.task.id);
-    expect(answered.task.status.state).toBe("TASK_STATE_COMPLETED");
-    expect(answered.task.contextId).toBe(contextId);
-    expect(answered.task.history?.every((message) => message.contextId === contextId)).toBe(true);
-
-    const fetched = await contextClient.getTask(answered.task.id);
-    expect(fetched.contextId).toBe(contextId);
-    expect(fetched.history?.every((message) => message.contextId === contextId)).toBe(true);
-    const matching = await contextClient.listTasks({ contextId });
-    expect(matching.tasks.map((task) => task.id)).toContain(answered.task.id);
-    const filteredOut = await contextClient.listTasks({ contextId: `${contextId}-other` });
-    expect(filteredOut.tasks.map((task) => task.id)).not.toContain(answered.task.id);
-
-    const token = await signedToken({ aud: cardResult!.url, sub });
-    const mismatch = await rawRequest(`${cardResult!.url}/message:send`, {
-      method: "POST",
-      token,
-      body: {
-        message: {
-          messageId: crypto.randomUUID(),
-          taskId: answered.task.id,
-          contextId: `${contextId}-other`,
-          role: "ROLE_USER",
-          parts: [{ text: "parking" }],
-        },
-      },
-    });
-    await expectA2AError(mismatch, {
+    expect(listed.headers.get("content-type")).toBe("application/a2a+json");
+    const defaultList = await rawRequest("tasks");
+    expect((await defaultList.json()).pageSize).toBe(50);
+    const invalid = await rawRequest("tasks?pageSize=0");
+    await expectA2AError(invalid, {
       httpStatus: 400,
       status: "INVALID_ARGUMENT",
-      reason: "INVALID_ARGUMENT",
+      reason: "INVALID_PARAMS",
     });
   });
 
-  it("scopes task reads and cancellation to the caller", async () => {
-    if (!multiTurnClient || !multiTurnTaskId) throw new Error("Multi-turn task was not created");
-    const differentCaller = client(`e2e-other-${crypto.randomUUID()}`);
-    await expect(differentCaller.getTask(multiTurnTaskId)).rejects.toMatchObject({
-      httpStatus: 404,
-      status: "NOT_FOUND",
-      reason: "TASK_NOT_FOUND",
-    });
-    const otherTasks = await differentCaller.listTasks();
-    expect(otherTasks.tasks.some((task) => task.id === multiTurnTaskId)).toBe(false);
-    await expect(multiTurnClient.cancelTask(multiTurnTaskId)).rejects.toMatchObject({
-      httpStatus: 409,
-      status: "FAILED_PRECONDITION",
-      reason: "TASK_NOT_CANCELABLE",
-    });
-  });
-
-  it("returns AIP-193 errors for unsupported operations and invalid query values", async () => {
+  it("maps task, unsupported, and push routes to the specified A2A errors", async () => {
     const taskId = crypto.randomUUID();
-    const cases = [
-      ["POST", "/message:stream", undefined, 400, "UNIMPLEMENTED", "UNSUPPORTED_OPERATION"],
-      [
-        "GET",
-        `/tasks/${taskId}:subscribe`,
-        undefined,
-        400,
-        "UNIMPLEMENTED",
-        "UNSUPPORTED_OPERATION",
-      ],
-      ["POST", `/tasks/${taskId}:subscribe`, {}, 400, "UNIMPLEMENTED", "UNSUPPORTED_OPERATION"],
-      [
-        "GET",
-        `/tasks/${taskId}/pushNotificationConfigs`,
-        undefined,
-        400,
-        "UNIMPLEMENTED",
-        "UNSUPPORTED_OPERATION",
-      ],
-      [
-        "POST",
-        `/tasks/${taskId}/pushNotificationConfigs`,
-        {},
-        400,
-        "UNIMPLEMENTED",
-        "UNSUPPORTED_OPERATION",
-      ],
-      [
-        "DELETE",
-        `/tasks/${taskId}/pushNotificationConfigs/config-1`,
-        undefined,
-        400,
-        "UNIMPLEMENTED",
-        "UNSUPPORTED_OPERATION",
-      ],
-      [
-        "GET",
-        "/extendedAgentCard",
-        undefined,
-        400,
-        "FAILED_PRECONDITION",
-        "EXTENDED_AGENT_CARD_NOT_CONFIGURED",
-      ],
-      ["GET", "/tasks?pageSize=1.5", undefined, 400, "INVALID_ARGUMENT", "INVALID_ARGUMENT"],
-      ["GET", "/tasks?includeArtifacts=1", undefined, 400, "INVALID_ARGUMENT", "INVALID_ARGUMENT"],
-    ] as const;
-    for (const [method, path, body, httpStatus, status, reason] of cases) {
-      const response = await rawRequest(`${cardResult!.url}${path}`, {
-        method,
-        token: await signedToken({ aud: cardResult!.url }),
-        body,
+    for (const [method, route] of [
+      ["GET", `tasks/${taskId}`],
+      ["POST", `tasks/${taskId}:cancel`],
+    ] as const) {
+      await expectA2AError(await rawRequest(route, { method }), {
+        httpStatus: 404,
+        status: "NOT_FOUND",
+        reason: "TASK_NOT_FOUND",
+        message: `Task not found: ${taskId}`,
       });
-      await expectA2AError(response, { httpStatus, status, reason });
     }
-
-    const unknownTask = await rawRequest(`${cardResult!.url}/tasks/${taskId}`, {
-      token: await signedToken({ aud: cardResult!.url }),
-    });
-    await expectA2AError(unknownTask, {
-      httpStatus: 404,
-      status: "NOT_FOUND",
-      reason: "TASK_NOT_FOUND",
-    });
-    const unsupportedContent = await rawRequest(`${cardResult!.url}/message:send`, {
-      method: "POST",
-      token: await signedToken({ aud: cardResult!.url }),
-      contentType: "text/plain",
-      body: {},
-    });
-    await expectA2AError(unsupportedContent, {
-      httpStatus: 415,
-      status: "INVALID_ARGUMENT",
-      reason: "CONTENT_TYPE_NOT_SUPPORTED",
-    });
+    for (const [method, route] of [
+      ["POST", "message:stream"],
+      ["GET", `tasks/${taskId}:subscribe`],
+      ["POST", `tasks/${taskId}:subscribe`],
+      ["GET", "extendedAgentCard"],
+    ] as const) {
+      await expectA2AError(await rawRequest(route, { method }), {
+        httpStatus: 400,
+        status: "FAILED_PRECONDITION",
+        reason: "UNSUPPORTED_OPERATION",
+      });
+    }
+    for (const [method, route] of [
+      ["GET", `tasks/${taskId}/pushNotificationConfigs`],
+      ["POST", `tasks/${taskId}/pushNotificationConfigs`],
+      ["GET", `tasks/${taskId}/pushNotificationConfigs/config-1`],
+      ["DELETE", `tasks/${taskId}/pushNotificationConfigs/config-1`],
+    ] as const) {
+      await expectA2AError(await rawRequest(route, { method }), {
+        httpStatus: 400,
+        status: "FAILED_PRECONDITION",
+        reason: "PUSH_NOTIFICATION_NOT_SUPPORTED",
+      });
+    }
   });
 
-  it("returns empty 404s for unknown routes and wrong methods before auth", async () => {
-    for (const [method, path] of [
-      ["GET", "/unknown"],
-      ["POST", "/unknown"],
-      ["PUT", "/message:send"],
-      ["GET", "/message:send"],
+  it("accepts application/a2a+json and does not require A2A-Version", async () => {
+    const response = await rawRequest("message:send", {
+      method: "POST",
+      body: messageBody("hours"),
+      contentType: "application/a2a+json",
+      version: null,
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/a2a+json");
+    const ignoredHeaders = await rawRequest("message:send", {
+      method: "POST",
+      body: messageBody("hours"),
+      contentType: "text/plain",
+      version: "2.0",
+    });
+    expect(ignoredHeaders.status).toBe(200);
+    expect(ignoredHeaders.headers.get("content-type")).toBe("application/a2a+json");
+  });
+
+  it("returns bare 404 for unmatched route and method combinations before auth", async () => {
+    for (const [method, route] of [
+      ["GET", "unknown"],
+      ["GET", "message:send"],
+      ["DELETE", "message:send"],
+      ["PUT", "message:send"],
+      ["POST", "tasks"],
+      ["GET", `tasks/${crypto.randomUUID()}:cancel`],
+      ["DELETE", `tasks/${crypto.randomUUID()}/pushNotificationConfigs`],
+      ["POST", `tasks/${crypto.randomUUID()}/pushNotificationConfigs/config-1`],
     ] as const) {
-      const response = await rawRequest(`${providerUrl}/a2a/${slug}${path}`, {
-        method,
-      });
+      const response = await rawRequest(route, { method, token: null });
       expect(response.status).toBe(404);
       expect(await response.text()).toBe("");
     }
   });
 
-  it("returns a bare 401 for missing credentials", async () => {
-    const response = await rawRequest(`${cardResult!.url}/tasks`);
-    expect(response.status).toBe(401);
-    expect(await response.text()).toBe("");
-    expect(response.headers.get("www-authenticate")).toBe('Bearer realm="a2a"');
-  });
-
-  it("rejects a bad signature", async () => {
-    const { privateKey } = await generateKeyPair("ES256");
-    const token = await signedToken({
-      aud: cardResult!.url,
-      signKey: privateKey,
-      kid: jwk!.kid,
+  it("rejects missing tokens, bad signatures, wrong audience, expiry, disabled platforms, and HS256", async () => {
+    const missing = await rawRequest("tasks", { token: null });
+    expect(missing.status).toBe(401);
+    expect(await missing.text()).toBe("");
+    expect(missing.headers.get("www-authenticate")).toBe('Bearer realm="a2a"');
+    const unauthenticatedBody = await rawRequest("message:send", {
+      method: "POST",
+      token: null,
+      body: "{",
     });
-    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
-  });
+    expect(unauthenticatedBody.status).toBe(401);
+    expect(await unauthenticatedBody.text()).toBe("");
 
-  it("rejects a token with the wrong audience for the Globex slug", async () => {
-    const token = await signedToken({ aud: cardResult!.url });
-    const globexUrl = `${providerUrl}/a2a/${globexSlug}/tasks`;
-    expect((await rawRequest(globexUrl, { token })).status).toBe(401);
-  });
+    const other = await generateKeyPair("ES256", { extractable: true });
+    const badSignature = await rawRequest("tasks", {
+      token: await signedToken({
+        signingKey: other.privateKey,
+        kid: `unpublished-${crypto.randomUUID()}`,
+      }),
+    });
+    expect(badSignature.status).toBe(401);
 
-  it("rejects expired tokens", async () => {
+    const wrongAudience = await rawRequest("tasks", {
+      audience: `${providerUrl}/a2a/${customerId}`,
+    });
+    expect(wrongAudience.status).toBe(401);
+
     const now = Math.floor(Date.now() / 1000);
-    const token = await signedToken({ aud: cardResult!.url, iat: now - 200, exp: now - 100 });
-    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
-  });
-
-  it("rejects tokens with lifetimes over 300 seconds", async () => {
-    const now = Math.floor(Date.now() / 1000);
-    const token = await signedToken({ aud: cardResult!.url, iat: now, exp: now + 301 });
-    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
-  });
-
-  it("rejects an unknown platform issuer", async () => {
-    const token = await signedToken({
-      aud: cardResult!.url,
-      iss: `${issuer}/not-registered`,
+    const futureIssued = await rawRequest("tasks", {
+      token: await signedToken({ iat: now + 31, exp: now + 151 }),
     });
-    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
-  });
+    expect(futureIssued.status).toBe(401);
 
-  it("rejects replayed JWT IDs", async () => {
-    const token = await signedToken({ aud: cardResult!.url });
-    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(200);
-    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
-  });
-
-  it("rejects the disabled PA platform", async () => {
-    const token = await signedToken({
-      aud: cardResult!.url,
-      iss: `${issuer}/disabled-pa`,
+    const expired = await rawRequest("tasks", {
+      token: await signedToken({ iat: now - 200, exp: now - 100 }),
     });
-    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
+    expect(expired.status).toBe(401);
+
+    const disabled = await rawRequest("tasks", { issuer: `${issuer}/disabled-pa` });
+    expect(disabled.status).toBe(401);
+
+    const hs256 = await rawRequest("tasks", {
+      token: await signedToken({
+        algorithm: "HS256",
+        signingKey: new TextEncoder().encode("not-an-allowed-platform-key"),
+      }),
+    });
+    expect(hs256.status).toBe(401);
+
+    const tokenWithoutJti = await signedToken();
+    expect((await rawRequest("tasks", { token: tokenWithoutJti })).status).toBe(200);
+    expect((await rawRequest("tasks", { customer: globexId, token: tokenWithoutJti })).status).toBe(
+      200,
+    );
+    const unknownCustomer = await rawRequest("tasks", {
+      customer: `missing-${crypto.randomUUID()}`,
+      token: tokenWithoutJti,
+    });
+    expect(unknownCustomer.status).toBe(404);
+    expect(await unknownCustomer.text()).toBe("");
   });
 
-  it("requires the A2A-Version header after successful authentication", async () => {
-    const token = await signedToken({ aud: cardResult!.url });
-    const response = await rawRequest(`${cardResult!.url}/tasks`, {
-      token,
-      version: null,
-    });
-    await expectA2AError(response, {
+  it("rejects taskId, malformed messages, and non-text content", async () => {
+    await expectA2AError(
+      await rawRequest("message:send", {
+        method: "POST",
+        body: messageBody("hours", { taskId: "task-1" }),
+      }),
+      {
+        httpStatus: 404,
+        status: "NOT_FOUND",
+        reason: "TASK_NOT_FOUND",
+        message: "Task not found",
+      },
+    );
+    await expectA2AError(await rawRequest("message:send", { method: "POST", body: "{" }), {
       httpStatus: 400,
-      status: "UNIMPLEMENTED",
-      reason: "VERSION_NOT_SUPPORTED",
+      status: "INVALID_ARGUMENT",
+      reason: "INVALID_PARAMS",
     });
+    await expectA2AError(
+      await rawRequest("message:send", {
+        method: "POST",
+        body: messageBody("", { parts: [{ raw: "aGVsbG8=" }] }),
+      }),
+      {
+        httpStatus: 400,
+        status: "INVALID_ARGUMENT",
+        reason: "CONTENT_TYPE_NOT_SUPPORTED",
+      },
+    );
   });
 });

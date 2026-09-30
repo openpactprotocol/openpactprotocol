@@ -1,168 +1,230 @@
+import { randomUUID } from "node:crypto";
+import { PGlite } from "@electric-sql/pglite";
 import {
-  calculateJwkThumbprint,
   createLocalJWKSet,
   exportJWK,
   generateKeyPair,
   SignJWT,
   type CryptoKey,
-  type GenerateKeyPairResult,
   type JWK,
 } from "jose";
-import { PGlite } from "@electric-sql/pglite";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/pglite";
 import { migrate } from "drizzle-orm/pglite/migrator";
-import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { A2A_ERRORS, A2AErrorResponseSchema, TaskSchema, type Task } from "@pap/protocol";
-import { seedDatabase } from "../db/seed.js";
-import type { Db } from "../db/client.js";
-import * as schema from "../db/schema.js";
-import { conversations, customers } from "../db/schema.js";
+import { A2A_ERRORS, A2AErrorResponseSchema, MessageSchema, type Message } from "@pap/protocol";
 import { createA2AHandler, type A2AHandler } from "./handler.js";
+import type { Db } from "../db/client.js";
+import { agentPlatforms, conversations, customers, messages, schema } from "../db/schema.js";
+import { seedDatabase } from "../db/seed.js";
 
+const origin = "http://provider.test";
 const issuer = "http://localhost:3002";
-const origin = "http://localhost:3000";
-
-let handler: A2AHandler;
-let client: PGlite;
+const defaultAudience = `${origin}/a2a`;
+let pglite: PGlite;
 let testDb: Db;
-let slugs: { acmeSlug: string; globexSlug: string };
-let keyPair: GenerateKeyPairResult;
-let kid: string;
-let publicJwk: JWK;
+let handler: A2AHandler;
+let acmeId = "";
+let globexId = "";
+let signingKey: CryptoKey;
+let publicJwk: JWK & { kid: string };
+let rsaSigningKey: CryptoKey;
+let rsaIssuer = "";
+let previousProviderUrl: string | undefined;
 
-async function token(
-  input: {
-    sub?: string;
-    issuer?: string;
-    audience?: string;
-    iat?: number;
-    exp?: number;
-    jti?: string;
-    key?: CryptoKey;
-  } = {},
-): Promise<string> {
+type TokenOptions = {
+  issuer?: string;
+  audience?: string;
+  subject?: string;
+  signingKey?: CryptoKey | Uint8Array;
+  kid?: string;
+  algorithm?: "ES256" | "RS256" | "HS256";
+  iat?: number;
+  exp?: number;
+  includeJti?: boolean;
+};
+
+async function signToken(options: TokenOptions = {}): Promise<string> {
   const now = Math.floor(Date.now() / 1000);
-  return new SignJWT({ sub: input.sub ?? "user-1" })
-    .setProtectedHeader({ alg: "ES256", kid, typ: "JWT" })
-    .setIssuer(input.issuer ?? issuer)
-    .setAudience(input.audience ?? `${origin}/a2a/${slugs.acmeSlug}`)
-    .setIssuedAt(input.iat ?? now)
-    .setExpirationTime(input.exp ?? now + 120)
-    .setJti(input.jti ?? crypto.randomUUID())
-    .sign(input.key ?? keyPair.privateKey);
+  const iat = options.iat ?? now;
+  const algorithm = options.algorithm ?? "ES256";
+  const key = options.signingKey ?? signingKey;
+  const token = new SignJWT({ sub: options.subject ?? "user-1" })
+    .setProtectedHeader({ alg: algorithm, kid: options.kid ?? publicJwk.kid, typ: "JWT" })
+    .setIssuer(options.issuer ?? issuer)
+    .setAudience(options.audience ?? defaultAudience)
+    .setIssuedAt(iat)
+    .setExpirationTime(options.exp ?? iat + 120);
+  if (options.includeJti) token.setJti(randomUUID());
+  return token.sign(key);
 }
 
 async function call(
-  slug: string,
+  customerId: string,
   path: string,
-  method = "GET",
+  method = "POST",
   body?: unknown,
   options: {
     token?: string | null;
-    sub?: string;
     version?: string | null;
-    contentType?: string;
+    contentType?: string | null;
+    audience?: string;
+    subject?: string;
+    issuer?: string;
   } = {},
 ): Promise<Response> {
-  const jwt =
+  const url = new URL(`${origin}/a2a/${customerId}${path ? `/${path}` : ""}`);
+  const headers = new Headers();
+  const token =
     options.token === null
       ? undefined
-      : (options.token ?? (await token({ sub: options.sub, audience: `${origin}/a2a/${slug}` })));
-  const headers = new Headers();
-  if (jwt) headers.set("Authorization", `Bearer ${jwt}`);
-  if (options.version === undefined) headers.set("A2A-Version", "1.0");
-  else if (options.version !== null) headers.set("A2A-Version", options.version);
-  if (body !== undefined || options.contentType) {
+      : (options.token ??
+        (await signToken({
+          audience: options.audience,
+          subject: options.subject,
+          issuer: options.issuer,
+        })));
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  if (options.version !== null) headers.set("A2A-Version", options.version ?? "1.0");
+  if (options.contentType !== null && body !== undefined) {
     headers.set("Content-Type", options.contentType ?? "application/json");
   }
-  const routePath = path.replace(/^\/+/, "");
-  const request = new Request(`${origin}/a2a/${slug}${routePath ? `/${routePath}` : ""}`, {
+  const requestBody =
+    body === undefined ? undefined : typeof body === "string" ? body : JSON.stringify(body);
+  const request = new Request(url, {
     method,
     headers,
-    ...(body === undefined ? {} : { body: typeof body === "string" ? body : JSON.stringify(body) }),
+    ...(requestBody === undefined ? {} : { body: requestBody }),
   });
-  const pathname = path.split("?")[0]?.replace(/^\/+/, "") ?? "";
-  const segments = pathname ? pathname.split("/") : [];
-  return handler(request, slug, segments);
+  const route = path.split("?", 1)[0] ?? "";
+  return handler(request, customerId, route ? route.split("/").filter(Boolean) : []);
 }
 
 function sendBody(
   text: string,
-  options: { taskId?: string; contextId?: string; historyLength?: number } = {},
-) {
+  options: {
+    messageId?: string;
+    contextId?: string;
+    taskId?: string;
+    role?: string;
+    parts?: unknown[];
+  } = {},
+): unknown {
   return {
     message: {
-      messageId: crypto.randomUUID(),
-      ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
+      messageId: options.messageId ?? randomUUID(),
       ...(options.contextId === undefined ? {} : { contextId: options.contextId }),
-      role: "ROLE_USER",
-      parts: [{ text, mediaType: "text/plain" }],
+      ...(options.taskId === undefined ? {} : { taskId: options.taskId }),
+      role: options.role ?? "ROLE_USER",
+      parts: options.parts ?? [{ text }],
     },
-    ...(options.historyLength === undefined
-      ? {}
-      : { configuration: { historyLength: options.historyLength } }),
   };
 }
 
-async function errorResponse(response: Response, reason: keyof typeof A2A_ERRORS): Promise<void> {
-  const parsed = A2AErrorResponseSchema.parse(await response.json());
+async function readMessage(response: Response): Promise<Message> {
+  return MessageSchema.parse((await response.json()).message);
+}
+
+async function expectA2AError(
+  response: Response,
+  reason: keyof typeof A2A_ERRORS,
+  message?: string,
+): Promise<void> {
+  const { error } = A2AErrorResponseSchema.parse(await response.json());
   const expected = A2A_ERRORS[reason];
   expect(response.status).toBe(expected.httpStatus);
-  expect(response.headers.get("content-type")).toContain("application/json");
-  expect(parsed.error).toMatchObject({
+  expect(response.headers.get("content-type")).toBe("application/a2a+json");
+  expect(error).toMatchObject({
     code: expected.httpStatus,
     status: expected.status,
-    details: [{ reason, domain: "a2a-protocol.org" }],
+    details: [
+      {
+        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+        reason,
+        domain: "a2a-protocol.org",
+      },
+    ],
   });
+  if (message !== undefined) expect(error.message).toBe(message);
 }
 
-async function readTask(response: Response): Promise<Task> {
-  return TaskSchema.parse(await response.json());
+async function expectUnauthorized(response: Response): Promise<void> {
+  expect(response.status).toBe(401);
+  expect(await response.text()).toBe("");
+  expect(response.headers.get("www-authenticate")).toBe('Bearer realm="a2a"');
 }
 
-describe("A2A HTTP+JSON handler", () => {
+describe("A2A handler", () => {
   beforeAll(async () => {
-    keyPair = await generateKeyPair("ES256", { extractable: true });
-    publicJwk = await exportJWK(keyPair.publicKey);
-    kid = await calculateJwkThumbprint(publicJwk, "sha256");
-    publicJwk.kid = kid;
+    previousProviderUrl = process.env.PROVIDER_URL;
+    process.env.PROVIDER_URL = origin;
+    const pair = await generateKeyPair("ES256", { extractable: true });
+    signingKey = pair.privateKey;
+    publicJwk = (await exportJWK(pair.publicKey)) as JWK & { kid: string };
+    publicJwk.kid = "test-es-key";
     publicJwk.alg = "ES256";
     publicJwk.use = "sig";
 
-    client = new PGlite();
-    const database = drizzle(client, { schema });
+    const rsaPair = await generateKeyPair("RS256", {
+      extractable: true,
+      modulusLength: 2048,
+    });
+    rsaSigningKey = rsaPair.privateKey;
+    const rsaJwk = (await exportJWK(rsaPair.publicKey)) as JWK & { kid: string };
+    rsaJwk.kid = "test-rsa-key";
+    rsaJwk.alg = "RS256";
+    rsaJwk.use = "sig";
+
+    pglite = new PGlite();
+    const database = drizzle(pglite, { schema });
     await migrate(database, {
       migrationsFolder: new URL("../../drizzle", import.meta.url).pathname,
     });
     testDb = database as unknown as Db;
-    slugs = await seedDatabase(testDb, issuer);
-    const localJwks = createLocalJWKSet({ keys: [publicJwk] });
+    const seeded = await seedDatabase(testDb, issuer);
+    acmeId = seeded.acmeId;
+    globexId = seeded.globexId;
+    rsaIssuer = `${issuer}/rsa-platform`;
+    await testDb.insert(agentPlatforms).values({
+      name: "rsa-platform",
+      issuer: rsaIssuer,
+      jwksUri: `${issuer}/.well-known/jwks.json`,
+      enabled: true,
+      audience: null,
+    });
+    const localJwks = createLocalJWKSet({ keys: [publicJwk, rsaJwk] });
     handler = createA2AHandler({ db: testDb, getJwks: () => localJwks });
   });
 
-  it("seeds UUIDv7 customer IDs and derives slugs from the IDs", async () => {
-    const customer = await testDb.query.customers.findFirst({
-      where: eq(customers.name, "Acme Health"),
-    });
-    if (!customer) throw new Error("Seeded Acme customer missing");
-    expect(customer.id).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-    );
-    expect(customer.slug).toBe(`${customer.id.slice(-7)}_acme_health`);
+  afterAll(async () => {
+    await pglite.close();
+    if (previousProviderUrl === undefined) delete process.env.PROVIDER_URL;
+    else process.env.PROVIDER_URL = previousProviderUrl;
   });
 
-  it("serves a public HTTP+JSON Agent Card only for existing customers", async () => {
-    const response = await call(slugs.acmeSlug, ".well-known/agent-card.json");
-    const card = await response.json();
+  it("seeds ULID customers and serves a public Agent Card with the default audience contract", async () => {
+    const customer = await testDb.query.customers.findFirst({
+      where: eq(customers.id, acmeId),
+    });
+    expect(customer?.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
+    expect(customer?.name).toBe("Acme Health");
+    const response = await call(acmeId, ".well-known/agent-card.json", "GET", undefined, {
+      token: null,
+    });
     expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/a2a+json");
+    expect(response.headers.get("cache-control")).toBe("public, max-age=300");
+    const card = await response.json();
     expect(card.supportedInterfaces).toEqual([
       {
-        url: `${origin}/a2a/${slugs.acmeSlug}`,
+        url: `${origin}/a2a/${acmeId}`,
         protocolBinding: "HTTP+JSON",
         protocolVersion: "1.0",
       },
     ]);
+    expect(card.securitySchemes.platformJwt.httpAuthSecurityScheme.description).toBe(
+      "JWT signed by a registered Personal Agent platform; aud is the platform's registered audience (default {base}/a2a)",
+    );
     expect(card.skills).toEqual([
       {
         id: "faq",
@@ -172,7 +234,7 @@ describe("A2A HTTP+JSON handler", () => {
       },
     ]);
     const unknown = await call(
-      "unknown-customer",
+      "missing-customer",
       ".well-known/agent-card.json",
       "GET",
       undefined,
@@ -184,430 +246,322 @@ describe("A2A HTTP+JSON handler", () => {
     expect(await unknown.text()).toBe("");
   });
 
-  it("returns empty 404 responses for unmatched routes and methods before authentication", async () => {
+  it("returns bare 404s for unknown route and method combinations before authentication", async () => {
     for (const [method, path] of [
       ["GET", "unknown"],
       ["POST", "unknown"],
+      ["GET", "message:send"],
       ["DELETE", "message:send"],
       ["PUT", "message:send"],
       ["POST", "tasks"],
-      ["GET", "tasks/id/unknown"],
+      ["GET", "tasks/task-1:cancel"],
+      ["DELETE", "tasks/task-1/pushNotificationConfigs"],
+      ["POST", "tasks/task-1/pushNotificationConfigs/config-1"],
     ]) {
-      const response = await call(slugs.acmeSlug, path, method, undefined, { token: null });
+      const response = await call(acmeId, path, method, undefined, { token: null });
       expect(response.status).toBe(404);
       expect(await response.text()).toBe("");
     }
   });
 
-  it("returns bare 401 responses for invalid platform JWTs before checking protocol version", async () => {
-    const noAuth = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      token: null,
-      version: null,
-    });
-    expect(noAuth.status).toBe(401);
-    expect(await noAuth.text()).toBe("");
-    expect(noAuth.headers.get("www-authenticate")).toBe('Bearer realm="a2a"');
+  it("authenticates before looking up customers and supports platform-wide audiences", async () => {
+    const missingToken = await call(acmeId, "tasks", "GET", undefined, { token: null });
+    await expectUnauthorized(missingToken);
+    await expectUnauthorized(await call(acmeId, "message:send", "POST", "{", { token: null }));
 
-    const wrongAudience = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      token: await token({ audience: `${origin}/a2a/${slugs.globexSlug}` }),
+    const otherPair = await generateKeyPair("ES256", { extractable: true });
+    const badSignature = await call(acmeId, "tasks", "GET", undefined, {
+      token: await signToken({ signingKey: otherPair.privateKey }),
     });
-    expect(wrongAudience.status).toBe(401);
-    expect(await wrongAudience.text()).toBe("");
+    await expectUnauthorized(badSignature);
 
-    const otherKey = await generateKeyPair("ES256", { extractable: true });
-    const badSignature = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      token: await token({ key: otherKey.privateKey }),
+    const wrongAudience = await call(acmeId, "tasks", "GET", undefined, {
+      audience: `${origin}/a2a/${acmeId}`,
     });
-    expect(badSignature.status).toBe(401);
-
-    const unknownIssuer = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      token: await token({ issuer: `${issuer}/unknown` }),
-    });
-    expect(unknownIssuer.status).toBe(401);
-
-    const disabledPlatform = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      token: await token({ issuer: `${issuer}/disabled-pa` }),
-    });
-    expect(disabledPlatform.status).toBe(401);
+    await expectUnauthorized(wrongAudience);
 
     const now = Math.floor(Date.now() / 1000);
-    const expired = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      token: await token({ iat: now - 200, exp: now - 100 }),
+    const futureIssued = await call(acmeId, "tasks", "GET", undefined, {
+      token: await signToken({ iat: now + 31, exp: now + 151 }),
     });
-    expect(expired.status).toBe(401);
+    await expectUnauthorized(futureIssued);
 
-    const longLifetime = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      token: await token({ iat: now, exp: now + 301 }),
+    const expired = await call(acmeId, "tasks", "GET", undefined, {
+      token: await signToken({ iat: now - 200, exp: now - 100 }),
     });
-    expect(longLifetime.status).toBe(401);
+    await expectUnauthorized(expired);
 
-    const futureIssued = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      token: await token({ iat: now + 31, exp: now + 151 }),
+    const disabled = await call(acmeId, "tasks", "GET", undefined, {
+      issuer: `${issuer}/disabled-pa`,
     });
-    expect(futureIssued.status).toBe(401);
+    await expectUnauthorized(disabled);
+
+    const hmac = await call(acmeId, "tasks", "GET", undefined, {
+      token: await signToken({
+        algorithm: "HS256",
+        signingKey: new TextEncoder().encode("not-an-allowed-platform-key"),
+      }),
+    });
+    await expectUnauthorized(hmac);
+
+    const acceptedRs256 = await call(acmeId, "tasks", "GET", undefined, {
+      issuer: rsaIssuer,
+      token: await signToken({
+        issuer: rsaIssuer,
+        algorithm: "RS256",
+        signingKey: rsaSigningKey,
+        kid: "test-rsa-key",
+      }),
+    });
+    expect(acceptedRs256.status).toBe(200);
+
+    const sameToken = await signToken();
+    expect((await call(acmeId, "tasks", "GET", undefined, { token: sameToken })).status).toBe(200);
+    expect((await call(globexId, "tasks", "GET", undefined, { token: sameToken })).status).toBe(
+      200,
+    );
 
     const unknownCustomer = await call("missing-customer", "tasks", "GET", undefined, {
-      token: await token({ audience: `${origin}/a2a/missing-customer` }),
+      token: sameToken,
     });
-    expect(unknownCustomer.status).toBe(401);
+    expect(unknownCustomer.status).toBe(404);
+    expect(await unknownCustomer.text()).toBe("");
+  });
 
-    const replayToken = await token();
+  it("honors an explicitly registered platform audience", async () => {
+    const customAudience = "https://platform.example/custom-audience";
+    await testDb
+      .update(agentPlatforms)
+      .set({ audience: customAudience })
+      .where(eq(agentPlatforms.name, "demo-pa"));
     expect(
-      (await call(slugs.acmeSlug, "tasks", "GET", undefined, { token: replayToken })).status,
+      (await call(acmeId, "tasks", "GET", undefined, { audience: defaultAudience })).status,
+    ).toBe(401);
+    expect(
+      (await call(acmeId, "tasks", "GET", undefined, { audience: customAudience })).status,
     ).toBe(200);
-    const replay = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      token: replayToken,
-    });
-    expect(replay.status).toBe(401);
+    await testDb
+      .update(agentPlatforms)
+      .set({ audience: null })
+      .where(eq(agentPlatforms.name, "demo-pa"));
   });
 
-  it("requires A2A-Version 1.0 and validates JSON bodies and content types", async () => {
-    const missingVersion = await call(slugs.acmeSlug, "message:send", "POST", sendBody("hours"), {
+  it("returns a Message, accepts missing protocol headers, and makes message retries idempotent", async () => {
+    const messageId = randomUUID();
+    const requestBody = sendBody("What are your hours?", { messageId });
+    const first = await call(acmeId, "message:send", "POST", requestBody, {
       version: null,
+      contentType: "text/plain",
     });
-    await errorResponse(missingVersion, "VERSION_NOT_SUPPORTED");
-    const unsupportedVersion = await call(
-      slugs.acmeSlug,
+    expect(first.status).toBe(200);
+    expect(first.headers.get("content-type")).toBe("application/a2a+json");
+    const firstMessage = await readMessage(first);
+    expect(firstMessage).toMatchObject({
+      contextId: expect.any(String),
+      role: "ROLE_AGENT",
+      parts: [{ text: expect.any(String) }],
+    });
+    expect(firstMessage).not.toHaveProperty("taskId");
+    const beforeRetry = await testDb.select().from(messages);
+    const retry = await call(
+      acmeId,
       "message:send",
       "POST",
-      sendBody("hours"),
-      { version: "0.3" },
+      sendBody("What are your hours?", { messageId, contextId: firstMessage.contextId }),
     );
-    await errorResponse(unsupportedVersion, "VERSION_NOT_SUPPORTED");
+    const retryMessage = await readMessage(retry);
+    expect(retryMessage.messageId).toBe(firstMessage.messageId);
+    expect(await testDb.select().from(messages)).toHaveLength(beforeRetry.length);
 
-    const invalidJson = await call(slugs.acmeSlug, "message:send", "POST", "{");
-    await errorResponse(invalidJson, "INVALID_ARGUMENT");
-    const invalidBody = await call(slugs.acmeSlug, "message:send", "POST", {});
-    await errorResponse(invalidBody, "INVALID_ARGUMENT");
-    const unsupportedHeader = await call(
-      slugs.acmeSlug,
+    const retryWithoutContext = await call(
+      acmeId,
       "message:send",
       "POST",
-      sendBody("hours"),
-      { contentType: "text/plain" },
+      sendBody("What are your hours?", { messageId }),
     );
-    await errorResponse(unsupportedHeader, "CONTENT_TYPE_NOT_SUPPORTED");
+    expect((await readMessage(retryWithoutContext)).contextId).not.toBe(firstMessage.contextId);
 
-    const nonText = await call(slugs.acmeSlug, "message:send", "POST", {
-      message: {
-        messageId: crypto.randomUUID(),
-        role: "ROLE_USER",
-        parts: [{ raw: "aGVsbG8=" }],
-      },
+    const unsupportedHeaders = await call(acmeId, "message:send", "POST", sendBody("hours"), {
+      version: "2.0",
+      contentType: "text/plain",
     });
-    await errorResponse(nonText, "CONTENT_TYPE_NOT_SUPPORTED");
-
-    const a2aJson = await call(slugs.acmeSlug, "message:send", "POST", sendBody("hours"), {
-      contentType: "application/a2a+json; charset=utf-8",
-    });
-    expect(a2aJson.status).toBe(200);
-    expect(await a2aJson.json()).toHaveProperty("task.status.state", "TASK_STATE_COMPLETED");
+    expect(unsupportedHeaders.status).toBe(200);
   });
 
-  it("maps unexpected request failures to INTERNAL", async () => {
-    let nowCalls = 0;
-    const failingHandler = createA2AHandler({
-      db: testDb,
-      getJwks: () => createLocalJWKSet({ keys: [publicJwk] }),
-      now: () => {
-        nowCalls += 1;
-        if (nowCalls > 1) throw new Error("unexpected test failure");
-        return new Date();
-      },
+  it("rejects a duplicate user message when its context has no stored reply yet", async () => {
+    const contextId = randomUUID();
+    const messageId = randomUUID();
+    await testDb.insert(conversations).values({
+      id: contextId,
+      customerId: acmeId,
+      userId: "demo-pa:retry-owner",
+      metadata: { flow: {} },
     });
-    const jwt = await token();
-    const request = new Request(`${origin}/a2a/${slugs.acmeSlug}/message:send`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-        "A2A-Version": "1.0",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(sendBody("hours")),
+    await testDb.insert(messages).values({
+      conversationId: contextId,
+      messageId,
+      role: "ROLE_USER",
+      parts: [{ text: "hours" }],
     });
-    await errorResponse(
-      await failingHandler(request, slugs.acmeSlug, ["message:send"]),
-      "INTERNAL",
-    );
-  });
-
-  it("returns the HTTP error mappings for unsupported operations and cancellation", async () => {
-    const id = crypto.randomUUID();
-    await errorResponse(
-      await call(slugs.acmeSlug, "message:stream", "POST"),
-      "UNSUPPORTED_OPERATION",
-    );
-    await errorResponse(
-      await call(slugs.acmeSlug, "message:send", "POST", {
-        ...sendBody("hours"),
-        configuration: { returnImmediately: true },
+    await expectA2AError(
+      await call(acmeId, "message:send", "POST", sendBody("hours", { messageId, contextId }), {
+        subject: "retry-owner",
       }),
-      "UNSUPPORTED_OPERATION",
-    );
-    await errorResponse(
-      await call(slugs.acmeSlug, `tasks/${id}:subscribe`, "GET"),
-      "UNSUPPORTED_OPERATION",
-    );
-    await errorResponse(
-      await call(slugs.acmeSlug, `tasks/${id}:subscribe`, "POST"),
-      "UNSUPPORTED_OPERATION",
-    );
-    for (const [method, path] of [
-      ["GET", `tasks/${id}/pushNotificationConfigs`],
-      ["POST", `tasks/${id}/pushNotificationConfigs`],
-      ["DELETE", `tasks/${id}/pushNotificationConfigs/config-1`],
-      ["GET", `tasks/${id}/pushNotificationConfigs/config-1`],
-    ]) {
-      await errorResponse(await call(slugs.acmeSlug, path, method), "UNSUPPORTED_OPERATION");
-    }
-    await errorResponse(
-      await call(slugs.acmeSlug, "extendedAgentCard", "GET"),
-      "EXTENDED_AGENT_CARD_NOT_CONFIGURED",
-    );
-    await errorResponse(
-      await call(slugs.acmeSlug, `tasks/${id}:cancel`, "POST", { id }),
-      "TASK_NOT_FOUND",
+      "INVALID_PARAMS",
+      "messageId was already received in this context and has no reply yet",
     );
   });
 
-  it("answers FAQs, preserves multi-turn history, and applies history limits", async () => {
-    const startedResponse = await call(
-      slugs.acmeSlug,
+  it("keeps FAQ flow in a context across the topic prompt and answer", async () => {
+    const first = await call(
+      acmeId,
       "message:send",
       "POST",
-      sendBody("Can you help me?", { historyLength: 1 }),
-      { sub: "multi-turn-user" },
+      sendBody("Do you have pediatric cardiology?"),
     );
-    const startedJson = (await startedResponse.json()) as { task: Task };
-    const started = TaskSchema.parse(startedJson.task);
-    expect(started.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
-    expect(started).not.toHaveProperty("contextId");
-    expect(started.history).toHaveLength(1);
-    expect(started.status.message?.parts[0]).toMatchObject({
-      text: "Which would you like to know about: hours, location, parking, or insurance?",
+    const prompt = await readMessage(first);
+    expect(prompt.parts).toEqual([
+      { text: "Which would you like to know about: hours, location, parking, or insurance?" },
+    ]);
+    const second = await call(
+      acmeId,
+      "message:send",
+      "POST",
+      sendBody("hours", { contextId: prompt.contextId }),
+    );
+    const answer = await readMessage(second);
+    expect(answer.contextId).toBe(prompt.contextId);
+    expect(answer.parts[0]).toMatchObject({ text: expect.stringContaining("8:00 AM") });
+  });
+
+  it("hides missing, foreign-user, and foreign-customer contexts behind INVALID_PARAMS", async () => {
+    const original = await call(acmeId, "message:send", "POST", sendBody("hours"), {
+      subject: "owner",
     });
-
-    const completedResponse = await call(
-      slugs.acmeSlug,
-      "message:send",
-      "POST",
-      sendBody("hours", { taskId: started.id }),
-      { sub: "multi-turn-user" },
-    );
-    const completedJson = (await completedResponse.json()) as { task: Task };
-    const completed = TaskSchema.parse(completedJson.task);
-    expect(completed.id).toBe(started.id);
-    expect(completed.status.state).toBe("TASK_STATE_COMPLETED");
-    expect(completed.history).toHaveLength(4);
-    expect(completed).not.toHaveProperty("metadata");
-
-    const fetchedResponse = await call(
-      slugs.acmeSlug,
-      `tasks/${completed.id}?historyLength=0`,
-      "GET",
-      undefined,
-      { sub: "multi-turn-user" },
-    );
-    const fetched = await readTask(fetchedResponse);
-    expect(fetchedResponse.status).toBe(200);
-    expect(fetched).not.toHaveProperty("contextId");
-    expect(fetched.history).toEqual([]);
-
-    const noHistory = await call(
-      slugs.acmeSlug,
-      `tasks/${completed.id}?historyLength=1`,
-      "GET",
-      undefined,
-      { sub: "multi-turn-user" },
-    );
-    expect((await readTask(noHistory)).history).toHaveLength(1);
-    await errorResponse(
-      await call(
-        slugs.acmeSlug,
+    const originalMessage = await readMessage(original);
+    for (const [customerId, subject] of [
+      [acmeId, "another-user"],
+      [globexId, "owner"],
+    ] as const) {
+      const response = await call(
+        customerId,
         "message:send",
         "POST",
-        sendBody("parking", { taskId: completed.id }),
-        { sub: "multi-turn-user" },
-      ),
-      "UNSUPPORTED_OPERATION",
-    );
-
-    const flow = await testDb.query.conversations.findFirst({
-      where: eq(conversations.id, completed.id),
-    });
-    expect(flow?.metadata.flow).toMatchObject({ awaitingFaqTopic: false });
-  });
-
-  it("round-trips context IDs and rejects mismatched continuations", async () => {
-    const contextId = `ctx-${crypto.randomUUID()}`;
-    const startedResponse = await call(
-      slugs.acmeSlug,
-      "message:send",
-      "POST",
-      sendBody("Can you help?", { contextId }),
-      { sub: "context-user" },
-    );
-    const started = (await startedResponse.json()).task as Task;
-    expect(started.contextId).toBe(contextId);
-    expect(started.status.message?.contextId).toBe(contextId);
-
-    const mismatch = await call(
-      slugs.acmeSlug,
-      "message:send",
-      "POST",
-      sendBody("hours", { taskId: started.id, contextId: `${contextId}-other` }),
-      { sub: "context-user" },
-    );
-    await errorResponse(mismatch, "INVALID_ARGUMENT");
-
-    const noContextStartedResponse = await call(
-      slugs.acmeSlug,
-      "message:send",
-      "POST",
-      sendBody("Can you help?"),
-      { sub: "context-user" },
-    );
-    const noContextStarted = (await noContextStartedResponse.json()).task as Task;
-    const noStoredContextMismatch = await call(
-      slugs.acmeSlug,
-      "message:send",
-      "POST",
-      sendBody("hours", { taskId: noContextStarted.id, contextId: "unexpected-context" }),
-      { sub: "context-user" },
-    );
-    await errorResponse(noStoredContextMismatch, "INVALID_ARGUMENT");
-
-    const answeredResponse = await call(
-      slugs.acmeSlug,
-      "message:send",
-      "POST",
-      sendBody("hours", { taskId: started.id }),
-      { sub: "context-user" },
-    );
-    const answered = (await answeredResponse.json()).task as Task;
-    expect(answered.contextId).toBe(contextId);
-    expect(answered.history?.every((message) => message.contextId === contextId)).toBe(true);
-
-    const fetched = await call(slugs.acmeSlug, `tasks/${started.id}`, "GET", undefined, {
-      sub: "context-user",
-    });
-    expect(await fetched.json()).toMatchObject({ id: started.id, contextId });
-    const listed = await call(slugs.acmeSlug, `tasks?contextId=${contextId}`, "GET", undefined, {
-      sub: "context-user",
-    });
-    expect(await listed.json()).toMatchObject({
-      tasks: [expect.objectContaining({ id: started.id })],
-      totalSize: 1,
-    });
-  });
-
-  it("scopes GetTask, ListTasks, and CancelTask to the authenticated user", async () => {
-    const created = await call(slugs.acmeSlug, "message:send", "POST", sendBody("hours"), {
-      sub: "owner",
-    });
-    const task = (await created.json()).task as Task;
-    await errorResponse(
-      await call(slugs.acmeSlug, `tasks/${task.id}`, "GET", undefined, { sub: "another-user" }),
-      "TASK_NOT_FOUND",
-    );
-    const hidden = await call(slugs.acmeSlug, "tasks", "GET", undefined, {
-      sub: "another-user",
-    });
-    expect(await hidden.json()).toMatchObject({ tasks: [], totalSize: 0 });
-    await errorResponse(
-      await call(
-        slugs.acmeSlug,
-        `tasks/${task.id}:cancel`,
-        "POST",
-        { id: task.id },
-        {
-          sub: "another-user",
-        },
-      ),
-      "TASK_NOT_FOUND",
-    );
-    await errorResponse(
-      await call(
-        slugs.acmeSlug,
-        `tasks/${task.id}:cancel`,
-        "POST",
-        { id: task.id },
-        {
-          sub: "owner",
-        },
-      ),
-      "TASK_NOT_CANCELABLE",
-    );
-  });
-
-  it("validates list query values and provides filtered cursor pagination", async () => {
-    for (const path of [
-      "tasks?pageSize=1.5",
-      "tasks?pageSize=0",
-      "tasks?historyLength=-1",
-      "tasks?includeArtifacts=yes",
-      "tasks?status=completed",
-      "tasks?statusTimestampAfter=2025-01-01",
-      "tasks?pageToken=not-a-token",
-    ]) {
-      await errorResponse(await call(slugs.acmeSlug, path), "INVALID_ARGUMENT");
+        sendBody("hours", { contextId: originalMessage.contextId }),
+        { subject },
+      );
+      await expectA2AError(response, "INVALID_PARAMS", "Unknown contextId");
     }
-    await errorResponse(
-      await call(slugs.acmeSlug, `tasks/${crypto.randomUUID()}?historyLength=1.5`),
-      "INVALID_ARGUMENT",
+    const unknownContext = await call(
+      acmeId,
+      "message:send",
+      "POST",
+      sendBody("hours", { contextId: randomUUID() }),
+      { subject: "owner" },
     );
-
-    const sub = `pagination-${crypto.randomUUID()}`;
-    const ids: string[] = [];
-    for (const text of ["hours", "parking", "insurance", "location"]) {
-      const response = await call(slugs.acmeSlug, "message:send", "POST", sendBody(text), { sub });
-      ids.push(((await response.json()).task as Task).id);
-    }
-    const firstResponse = await call(slugs.acmeSlug, "tasks?pageSize=1", "GET", undefined, { sub });
-    const first = (await firstResponse.json()) as {
-      tasks: Task[];
-      nextPageToken: string;
-      totalSize: number;
-    };
-    expect(first.tasks).toHaveLength(1);
-    expect(first.nextPageToken).not.toBe("");
-    expect(first.totalSize).toBe(4);
-
-    const secondResponse = await call(
-      slugs.acmeSlug,
-      `tasks?pageSize=1&pageToken=${encodeURIComponent(first.nextPageToken)}`,
-      "GET",
-      undefined,
-      { sub },
+    await expectA2AError(unknownContext, "INVALID_PARAMS", "Unknown contextId");
+    const foreignUser = await call(
+      acmeId,
+      "message:send",
+      "POST",
+      sendBody("hours", { contextId: originalMessage.contextId }),
+      { subject: "another-user" },
     );
-    const second = (await secondResponse.json()) as { tasks: Task[]; nextPageToken: string };
-    expect(second.tasks).toHaveLength(1);
-    expect(second.tasks[0]?.id).not.toBe(first.tasks[0]?.id);
-
-    const lastResponse = await call(
-      slugs.acmeSlug,
-      `tasks?pageSize=2&pageToken=${encodeURIComponent(second.nextPageToken)}`,
-      "GET",
-      undefined,
-      { sub },
+    await expectA2AError(foreignUser, "INVALID_PARAMS", "Unknown contextId");
+    const foreignCustomer = await call(
+      globexId,
+      "message:send",
+      "POST",
+      sendBody("hours", { contextId: originalMessage.contextId }),
+      { subject: "owner" },
     );
-    expect(await lastResponse.json()).toMatchObject({
-      tasks: [{}, {}],
+    await expectA2AError(foreignCustomer, "INVALID_PARAMS", "Unknown contextId");
+  });
+
+  it("rejects task IDs, invalid bodies, non-text parts, and blank text with protocol errors", async () => {
+    await expectA2AError(
+      await call(acmeId, "message:send", "POST", sendBody("hours", { taskId: "task-1" })),
+      "TASK_NOT_FOUND",
+      "Task not found",
+    );
+    await expectA2AError(await call(acmeId, "message:send", "POST", "{"), "INVALID_PARAMS");
+    await expectA2AError(
+      await call(acmeId, "message:send", "POST", { message: { role: "ROLE_USER" } }),
+      "INVALID_PARAMS",
+    );
+    await expectA2AError(
+      await call(acmeId, "message:send", "POST", sendBody("hours", { role: "ROLE_AGENT" })),
+      "INVALID_PARAMS",
+      "Message role must be ROLE_USER",
+    );
+    await expectA2AError(
+      await call(acmeId, "message:send", "POST", sendBody(" ", { messageId: randomUUID() })),
+      "INVALID_PARAMS",
+      "Message text must not be blank",
+    );
+    await expectA2AError(
+      await call(acmeId, "message:send", "POST", sendBody("", { parts: [{ raw: "aGVsbG8=" }] })),
+      "CONTENT_TYPE_NOT_SUPPORTED",
+      "Content type not supported",
+    );
+  });
+
+  it("returns an empty task list and validates pageSize", async () => {
+    const listed = await call(acmeId, "tasks?pageSize=12&status=ignored", "GET");
+    expect(listed.status).toBe(200);
+    expect(listed.headers.get("content-type")).toBe("application/a2a+json");
+    expect(await listed.json()).toEqual({
+      tasks: [],
       nextPageToken: "",
-      totalSize: 4,
+      pageSize: 12,
+      totalSize: 0,
     });
-    const statusFilter = await call(
-      slugs.acmeSlug,
-      "tasks?status=TASK_STATE_COMPLETED",
-      "GET",
-      undefined,
-      { sub },
+    expect(await (await call(acmeId, "tasks", "GET")).json()).toMatchObject({ pageSize: 50 });
+    for (const value of ["0", "101", "1.5", "NaN"]) {
+      await expectA2AError(
+        await call(acmeId, `tasks?pageSize=${value}`, "GET"),
+        "INVALID_PARAMS",
+        "Invalid pageSize",
+      );
+    }
+    await expectA2AError(
+      await call(acmeId, "tasks?pageSize=1&pageSize=2", "GET"),
+      "INVALID_PARAMS",
+      "Invalid pageSize",
     );
-    expect(await statusFilter.json()).toMatchObject({ totalSize: 4 });
-    expect(ids).toHaveLength(4);
   });
-});
 
-afterAll(async () => {
-  await client?.close();
+  it("maps missing task, unsupported, and push notification routes to their A2A errors", async () => {
+    const taskId = randomUUID();
+    const missingTask = await call(acmeId, `tasks/${taskId}`, "GET");
+    await expectA2AError(missingTask, "TASK_NOT_FOUND", `Task not found: ${taskId}`);
+    await expectA2AError(
+      await call(acmeId, `tasks/${taskId}:cancel`, "POST"),
+      "TASK_NOT_FOUND",
+      `Task not found: ${taskId}`,
+    );
+
+    for (const [method, path] of [
+      ["POST", "message:stream"],
+      ["GET", "tasks/task-1:subscribe"],
+      ["POST", "tasks/task-1:subscribe"],
+      ["GET", "extendedAgentCard"],
+    ]) {
+      await expectA2AError(await call(acmeId, path, method), "UNSUPPORTED_OPERATION");
+    }
+    for (const [method, path] of [
+      ["POST", "tasks/task-1/pushNotificationConfigs"],
+      ["GET", "tasks/task-1/pushNotificationConfigs"],
+      ["GET", "tasks/task-1/pushNotificationConfigs/config-1"],
+      ["DELETE", "tasks/task-1/pushNotificationConfigs/config-1"],
+    ]) {
+      await expectA2AError(await call(acmeId, path, method), "PUSH_NOTIFICATION_NOT_SUPPORTED");
+    }
+  });
+
+  it("matches percent-encoded operation colons", async () => {
+    const response = await call(acmeId, "message%3Asend", "POST", sendBody("hours"));
+    expect(response.status).toBe(200);
+    expect((await readMessage(response)).role).toBe("ROLE_AGENT");
+  });
 });

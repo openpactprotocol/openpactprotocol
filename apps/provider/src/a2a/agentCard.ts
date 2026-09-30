@@ -11,7 +11,7 @@ export function buildAgentCard(
     description: `A2A support agent for ${customer.name}.`,
     supportedInterfaces: [
       {
-        url: `${base}/a2a/${customer.slug}`,
+        url: `${base}/a2a/${customer.id}`,
         protocolBinding: "HTTP+JSON",
         protocolVersion: "1.0",
       },
@@ -20,16 +20,16 @@ export function buildAgentCard(
     version: "0.1.0",
     capabilities: { streaming: false, pushNotifications: false, extendedAgentCard: false },
     securitySchemes: {
-      paPlatformJwt: {
+      platformJwt: {
         httpAuthSecurityScheme: {
           scheme: "Bearer",
           bearerFormat: "JWT",
           description:
-            "ES256 platform JWT verified against the platform's registered JWKS; aud must equal the interface url",
+            "JWT signed by a registered Personal Agent platform; aud is the platform's registered audience (default {base}/a2a)",
         },
       },
     },
-    securityRequirements: [{ schemes: { paPlatformJwt: { list: [] } } }],
+    securityRequirements: [{ schemes: { platformJwt: { list: [] } } }],
     defaultInputModes: ["text/plain"],
     defaultOutputModes: ["text/plain"],
     skills: [

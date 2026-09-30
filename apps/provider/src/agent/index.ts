@@ -4,18 +4,14 @@ export type FlowState = {
 };
 
 export type AgentTurn = {
-  state: "TASK_STATE_COMPLETED" | "TASK_STATE_INPUT_REQUIRED";
   text: string;
   flow: FlowState;
 };
 
-const INPUT_REQUIRED = "TASK_STATE_INPUT_REQUIRED";
-const COMPLETED = "TASK_STATE_COMPLETED";
 const FAQ_PROMPT = "Which would you like to know about: hours, location, parking, or insurance?";
 
 function escalation(customerName: string, flow: FlowState): AgentTurn {
   return {
-    state: INPUT_REQUIRED,
     text: `A human will follow up via ${customerName}'s normal support channel.`,
     flow: { ...flow, awaitingFaqTopic: false, escalated: true },
   };
@@ -47,14 +43,12 @@ export async function runAgentTurn(input: {
   const answer = faqAnswer(input.customerName, input.initialText);
   if (answer) {
     return {
-      state: COMPLETED,
       text: answer,
       flow: { ...flow, awaitingFaqTopic: false, escalated: false },
     };
   }
 
   return {
-    state: INPUT_REQUIRED,
     text: FAQ_PROMPT,
     flow: { ...flow, awaitingFaqTopic: true },
   };

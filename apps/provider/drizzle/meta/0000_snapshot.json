@@ -1,5 +1,5 @@
 {
-  "id": "fa99a614-9865-4a85-9e08-82cb3e6c70d3",
+  "id": "f5671bae-03ba-49d0-a310-ca25e0ef8281",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -39,6 +39,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": true
+        },
+        "audience": {
+          "name": "audience",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {},
@@ -73,18 +79,12 @@
         },
         "customer_id": {
           "name": "customer_id",
-          "type": "uuid",
+          "type": "text",
           "primaryKey": false,
           "notNull": true
         },
         "user_id": {
           "name": "user_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "state": {
-          "name": "state",
           "type": "text",
           "primaryKey": false,
           "notNull": true
@@ -163,14 +163,8 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true
-        },
-        "slug": {
-          "name": "slug",
           "type": "text",
-          "primaryKey": false,
+          "primaryKey": true,
           "notNull": true
         },
         "name": {
@@ -184,11 +178,6 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "customers_slug_unique": {
-          "name": "customers_slug_unique",
-          "nullsNotDistinct": false,
-          "columns": ["slug"]
-        },
         "customers_name_unique": {
           "name": "customers_name_unique",
           "nullsNotDistinct": false,
@@ -262,52 +251,6 @@
           "columns": ["conversation_id", "message_id"]
         }
       },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.seen_jtis": {
-      "name": "seen_jtis",
-      "schema": "",
-      "columns": {
-        "platform_id": {
-          "name": "platform_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "jti": {
-          "name": "jti",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "seen_jtis_platform_id_agent_platforms_id_fk": {
-          "name": "seen_jtis_platform_id_agent_platforms_id_fk",
-          "tableFrom": "seen_jtis",
-          "tableTo": "agent_platforms",
-          "columnsFrom": ["platform_id"],
-          "columnsTo": ["id"],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {
-        "seen_jtis_platform_id_jti_pk": {
-          "name": "seen_jtis_platform_id_jti_pk",
-          "columns": ["platform_id", "jti"]
-        }
-      },
-      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false

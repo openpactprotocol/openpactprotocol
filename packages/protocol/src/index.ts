@@ -3,29 +3,18 @@ import { z } from "zod";
 export const A2A_VERSION = "1.0";
 
 export const A2A_ERRORS = {
+  INVALID_PARAMS: { httpStatus: 400, status: "INVALID_ARGUMENT" },
+  CONTENT_TYPE_NOT_SUPPORTED: { httpStatus: 400, status: "INVALID_ARGUMENT" },
+  UNSUPPORTED_OPERATION: { httpStatus: 400, status: "FAILED_PRECONDITION" },
+  PUSH_NOTIFICATION_NOT_SUPPORTED: { httpStatus: 400, status: "FAILED_PRECONDITION" },
   TASK_NOT_FOUND: { httpStatus: 404, status: "NOT_FOUND" },
-  TASK_NOT_CANCELABLE: { httpStatus: 409, status: "FAILED_PRECONDITION" },
-  UNSUPPORTED_OPERATION: { httpStatus: 400, status: "UNIMPLEMENTED" },
-  CONTENT_TYPE_NOT_SUPPORTED: { httpStatus: 415, status: "INVALID_ARGUMENT" },
-  EXTENDED_AGENT_CARD_NOT_CONFIGURED: {
-    httpStatus: 400,
-    status: "FAILED_PRECONDITION",
-  },
-  VERSION_NOT_SUPPORTED: { httpStatus: 400, status: "UNIMPLEMENTED" },
-  INVALID_ARGUMENT: { httpStatus: 400, status: "INVALID_ARGUMENT" },
   INTERNAL: { httpStatus: 500, status: "INTERNAL" },
 } as const;
 
 export const A2AErrorResponseSchema = z.object({
   error: z.object({
     code: z.number().int(),
-    status: z.enum([
-      "NOT_FOUND",
-      "FAILED_PRECONDITION",
-      "UNIMPLEMENTED",
-      "INVALID_ARGUMENT",
-      "INTERNAL",
-    ]),
+    status: z.enum(["NOT_FOUND", "FAILED_PRECONDITION", "INVALID_ARGUMENT", "INTERNAL"]),
     message: z.string(),
     details: z.array(
       z
@@ -40,17 +29,6 @@ export const A2AErrorResponseSchema = z.object({
 });
 
 export const RoleSchema = z.enum(["ROLE_UNSPECIFIED", "ROLE_USER", "ROLE_AGENT"]);
-export const TaskStateSchema = z.enum([
-  "TASK_STATE_UNSPECIFIED",
-  "TASK_STATE_SUBMITTED",
-  "TASK_STATE_WORKING",
-  "TASK_STATE_COMPLETED",
-  "TASK_STATE_FAILED",
-  "TASK_STATE_CANCELED",
-  "TASK_STATE_INPUT_REQUIRED",
-  "TASK_STATE_REJECTED",
-  "TASK_STATE_AUTH_REQUIRED",
-]);
 
 const JsonValueSchema: z.ZodType<unknown> = z.union([
   z.string(),
@@ -93,30 +71,6 @@ export const MessageSchema = z.object({
   referenceTaskIds: z.array(z.string()).optional(),
 });
 
-export const TaskStatusSchema = z.object({
-  state: TaskStateSchema,
-  message: MessageSchema.optional(),
-  timestamp: z.string().datetime({ offset: true }).optional(),
-});
-
-export const ArtifactSchema = z.object({
-  artifactId: z.string().min(1),
-  name: z.string().optional(),
-  description: z.string().optional(),
-  parts: z.array(PartSchema).min(1),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-  extensions: z.array(z.string()).optional(),
-});
-
-export const TaskSchema = z.object({
-  id: z.string().min(1),
-  contextId: z.string().optional(),
-  status: TaskStatusSchema,
-  artifacts: z.array(ArtifactSchema).optional(),
-  history: z.array(MessageSchema).optional(),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
-
 export const SendMessageConfigurationSchema = z.object({
   acceptedOutputModes: z.array(z.string()).optional(),
   taskPushNotificationConfig: z.record(z.string(), z.unknown()).optional(),
@@ -125,46 +79,21 @@ export const SendMessageConfigurationSchema = z.object({
 });
 
 export const SendMessageRequestSchema = z.object({
-  tenant: z.string().optional(),
   message: MessageSchema,
   configuration: SendMessageConfigurationSchema.optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const SendMessageResponseSchema = z.union([
-  z.object({ task: TaskSchema }).strict(),
-  z.object({ message: MessageSchema }).strict(),
-]);
+export const SendMessageResponseSchema = z.object({ message: MessageSchema }).strict();
 
-export const GetTaskRequestSchema = z.object({
-  tenant: z.string().optional(),
-  id: z.string().min(1),
-  historyLength: z.number().int().nonnegative().optional(),
-});
-
-export const ListTasksRequestSchema = z.object({
-  tenant: z.string().optional(),
-  contextId: z.string().optional(),
-  status: TaskStateSchema.optional(),
-  pageSize: z.number().int().min(1).max(100).optional(),
-  pageToken: z.string().optional(),
-  historyLength: z.number().int().nonnegative().optional(),
-  statusTimestampAfter: z.string().datetime({ offset: true }).optional(),
-  includeArtifacts: z.boolean().optional(),
-});
-
-export const ListTasksResponseSchema = z.object({
-  tasks: z.array(TaskSchema),
-  nextPageToken: z.string(),
-  pageSize: z.number().int(),
-  totalSize: z.number().int(),
-});
-
-export const CancelTaskRequestSchema = z.object({
-  tenant: z.string().optional(),
-  id: z.string().min(1),
-  metadata: z.record(z.string(), z.unknown()).optional(),
-});
+export const ListTasksResponseSchema = z
+  .object({
+    tasks: z.array(z.never()),
+    nextPageToken: z.string(),
+    pageSize: z.number().int().min(1).max(100),
+    totalSize: z.number().int().nonnegative(),
+  })
+  .strict();
 
 export const SecuritySchemeSchema = z.union([
   z
@@ -254,23 +183,16 @@ export const PlatformJwtClaimsSchema = z.object({
   aud: z.string(),
   iat: z.number().int(),
   exp: z.number().int(),
-  jti: z.string().min(1),
+  jti: z.string().min(1).optional(),
 });
 
 export type Role = z.infer<typeof RoleSchema>;
-export type TaskState = z.infer<typeof TaskStateSchema>;
 export type Part = z.infer<typeof PartSchema>;
 export type Message = z.infer<typeof MessageSchema>;
-export type TaskStatus = z.infer<typeof TaskStatusSchema>;
-export type Artifact = z.infer<typeof ArtifactSchema>;
-export type Task = z.infer<typeof TaskSchema>;
 export type SendMessageConfiguration = z.infer<typeof SendMessageConfigurationSchema>;
 export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>;
 export type SendMessageResponse = z.infer<typeof SendMessageResponseSchema>;
-export type GetTaskRequest = z.infer<typeof GetTaskRequestSchema>;
-export type ListTasksRequest = z.infer<typeof ListTasksRequestSchema>;
 export type ListTasksResponse = z.infer<typeof ListTasksResponseSchema>;
-export type CancelTaskRequest = z.infer<typeof CancelTaskRequestSchema>;
 export type SecurityScheme = z.infer<typeof SecuritySchemeSchema>;
 export type SecurityRequirement = z.infer<typeof SecurityRequirementSchema>;
 export type AgentInterface = z.infer<typeof AgentInterfaceSchema>;

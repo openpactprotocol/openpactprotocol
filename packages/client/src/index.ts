@@ -4,30 +4,21 @@ import {
   A2A_VERSION,
   A2AErrorResponseSchema,
   AgentCardSchema,
-  CancelTaskRequestSchema,
-  ListTasksResponseSchema,
   PlatformRegistrationResponseSchema,
   SendMessageResponseSchema,
-  TaskSchema,
   type A2AErrorResponse,
   type AgentCard,
-  type ListTasksResponse,
   type Message,
   type PlatformRegistrationRequest,
   type RegisteredPlatform,
-  type Task,
 } from "@pap/protocol";
 
-export type { AgentCard, ListTasksResponse, Message, Task };
+export type { AgentCard, Message };
 export type { PlatformRegistrationRequest, RegisteredPlatform };
 
 export type DiscoveredAgent = {
   card: AgentCard;
   url: string;
-};
-
-export type SendMessageResult = {
-  task: Task;
 };
 
 type A2AStatus = A2AErrorResponse["error"]["status"];
@@ -148,9 +139,14 @@ export async function registerPlatform(input: {
   return { created: response.status === 201, platform: parsed.platform };
 }
 
-export async function discoverAgent(providerUrl: string, slug: string): Promise<DiscoveredAgent> {
+export async function discoverAgent(
+  providerUrl: string,
+  customerId: string,
+): Promise<DiscoveredAgent> {
   const base = providerUrl.replace(/\/+$/, "");
-  const result = await fetch(`${base}/a2a/${encodeURIComponent(slug)}/.well-known/agent-card.json`);
+  const result = await fetch(
+    `${base}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`,
+  );
   if (!result.ok) throw new A2AHttpError(result.status, await result.text());
   const card = AgentCardSchema.parse(await result.json());
   const agentInterface = card.supportedInterfaces.find(
@@ -160,49 +156,42 @@ export async function discoverAgent(providerUrl: string, slug: string): Promise<
   return { card, url: agentInterface.url };
 }
 
-type QueryValue = string | number | boolean | undefined;
-
 export class A2AClient {
   constructor(
     readonly options: {
       url: string;
       signer: PlatformSigner;
       userId: string;
+      audience?: string;
       fetchImpl?: typeof fetch;
     },
   ) {}
 
-  private async request<T>(
-    method: "GET" | "POST",
-    path: string,
-    options: { query?: Record<string, QueryValue>; body?: unknown } = {},
-  ): Promise<T> {
+  private async request(path: string, body: unknown): Promise<Message> {
     const baseUrl = this.options.url.replace(/\/+$/, "");
     const url = new URL(`${baseUrl}${path}`);
-    for (const [key, value] of Object.entries(options.query ?? {})) {
-      if (value !== undefined) url.searchParams.set(key, String(value));
-    }
-    const token = await this.options.signer.sign({ sub: this.options.userId, aud: baseUrl });
+    const audience = this.options.audience ?? `${new URL(this.options.url).origin}/a2a`;
+    const token = await this.options.signer.sign({ sub: this.options.userId, aud: audience });
     const response = await (this.options.fetchImpl ?? fetch)(url, {
-      method,
+      method: "POST",
       headers: {
         "A2A-Version": A2A_VERSION,
         Authorization: `Bearer ${token}`,
-        ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
+        "Content-Type": "application/json",
       },
-      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
+      body: JSON.stringify(body),
     });
     const text = await response.text();
-    let body: unknown = text;
+    let responseBody: unknown = text;
     if (text) {
       try {
-        body = JSON.parse(text) as unknown;
+        responseBody = JSON.parse(text) as unknown;
       } catch {
-        body = text;
+        responseBody = text;
       }
     }
     if (!response.ok) {
-      const parsedError = A2AErrorResponseSchema.safeParse(body);
+      const parsedError = A2AErrorResponseSchema.safeParse(responseBody);
       if (parsedError.success) {
         const error = parsedError.data.error;
         throw new A2AError(
@@ -213,62 +202,19 @@ export class A2AClient {
           error.details,
         );
       }
-      throw new A2AHttpError(response.status, body);
+      throw new A2AHttpError(response.status, responseBody);
     }
-    return body as T;
+    return SendMessageResponseSchema.parse(responseBody).message;
   }
 
-  async sendMessage(
-    text: string,
-    options: { taskId?: string; contextId?: string; historyLength?: number } = {},
-  ): Promise<SendMessageResult> {
-    const body = await this.request<unknown>("POST", "/message:send", {
-      body: {
-        message: {
-          messageId: randomUUID(),
-          ...(options.taskId ? { taskId: options.taskId } : {}),
-          ...(options.contextId === undefined ? {} : { contextId: options.contextId }),
-          role: "ROLE_USER",
-          parts: [{ text, mediaType: "text/plain" }],
-        },
-        ...(options.historyLength === undefined
-          ? {}
-          : { configuration: { historyLength: options.historyLength } }),
+  async sendMessage(text: string, options: { contextId?: string } = {}): Promise<Message> {
+    return this.request("/message:send", {
+      message: {
+        messageId: randomUUID(),
+        ...(options.contextId === undefined ? {} : { contextId: options.contextId }),
+        role: "ROLE_USER",
+        parts: [{ text, mediaType: "text/plain" }],
       },
     });
-    const parsed = SendMessageResponseSchema.parse(body);
-    if (!("task" in parsed)) throw new Error("Expected SendMessage to return a task");
-    return { task: parsed.task };
-  }
-
-  async getTask(id: string, historyLength?: number): Promise<Task> {
-    return TaskSchema.parse(
-      await this.request("GET", `/tasks/${encodeURIComponent(id)}`, {
-        query: { historyLength },
-      }),
-    );
-  }
-
-  async listTasks(
-    options: {
-      contextId?: string;
-      status?: string;
-      pageSize?: number;
-      pageToken?: string;
-      historyLength?: number;
-      statusTimestampAfter?: string;
-      includeArtifacts?: boolean;
-    } = {},
-  ): Promise<ListTasksResponse> {
-    return ListTasksResponseSchema.parse(await this.request("GET", "/tasks", { query: options }));
-  }
-
-  async cancelTask(id: string): Promise<Task> {
-    const parsedBody = CancelTaskRequestSchema.parse({ id });
-    return TaskSchema.parse(
-      await this.request("POST", `/tasks/${encodeURIComponent(id)}:cancel`, {
-        body: parsedBody,
-      }),
-    );
   }
 }
