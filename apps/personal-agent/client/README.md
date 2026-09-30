@@ -15,9 +15,11 @@ file `apps/personal-agent/client/.data/pa-conversations.json`. Entries are
 scoped to the user ID and provider URL, and sorted newest first. Changing the
 anonymous user ID shows an empty conversation list.
 
-Business replies are stored in their separate A2A threads; the personal agent
-composes one message for the phone, using OpenAI when configured or a
-`Business: reply` fallback.
+With OpenAI configured, the PA runs a `contact_support_a2a` tool loop using the
+demo profile shown in the Personal context card: it writes contextual messages
+to businesses, answers questions from known facts, and sequences dependent
+follow-ups. Without a key, it uses keyword routing, forwards the user's text
+verbatim, and composes a `Business: reply` fallback.
 
 ## Environment
 
@@ -31,7 +33,8 @@ variables:
 - `PA_PLATFORM_NAME`: optional platform registration name; defaults to
   `demo-pa`.
 - `PA_AUDIENCE`: optional runtime audience override.
-- `OPENAI_API_KEY`: optional key for LLM-assisted business routing.
+- `OPENAI_API_KEY`: optional key for the PA's tool-calling agent loop; without
+  it, the PA uses keyword routing and the deterministic fallback.
 - `OPENAI_MODEL`: optional model name; defaults to `gpt-6-luna`.
 
 The **Register personal agent** panel proves key control and registers the

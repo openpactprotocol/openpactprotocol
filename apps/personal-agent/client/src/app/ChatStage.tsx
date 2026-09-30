@@ -74,38 +74,38 @@ export function ChatStage(input: {
 
     function handleEvent(event: TurnEvent): boolean {
       switch (event.type) {
-        case "routed":
+        case "business-start":
           updateLive((current) => {
             const nextThreads = [...current.threads];
             const at = new Date().toISOString();
-            for (const target of event.targets) {
-              const index = nextThreads.findIndex(
-                (thread) => thread.customerId === target.customerId,
-              );
-              const thread =
-                index < 0
-                  ? {
-                      customerId: target.customerId,
-                      businessName: target.businessName,
-                      contextId: "…",
-                      messages: [],
-                      awaitingReply: false,
-                    }
-                  : nextThreads[index]!;
-              const outgoingThread: BusinessThread = {
-                ...thread,
-                businessName: target.businessName,
-                messages: [...thread.messages, { role: "ROLE_USER", text: current.text, at }],
-                awaitingReply: false,
-              };
-              if (index < 0) nextThreads.push(outgoingThread);
-              else nextThreads[index] = outgoingThread;
-            }
+            const index = nextThreads.findIndex((thread) => thread.customerId === event.customerId);
+            const thread =
+              index < 0
+                ? {
+                    customerId: event.customerId,
+                    businessName: event.businessName,
+                    contextId: "…",
+                    messages: [],
+                    awaitingReply: false,
+                  }
+                : nextThreads[index]!;
+            const outgoingThread: BusinessThread = {
+              ...thread,
+              businessName: event.businessName,
+              messages: [...thread.messages, { role: "ROLE_USER", text: event.text, at }],
+              awaitingReply: false,
+            };
+            if (index < 0) nextThreads.push(outgoingThread);
+            else nextThreads[index] = outgoingThread;
+            const businessErrors = { ...current.businessErrors };
+            delete businessErrors[event.customerId];
             return {
               ...current,
               threads: nextThreads,
-              typingCustomerIds: event.targets.map((target) => target.customerId),
-              businessErrors: {},
+              typingCustomerIds: current.typingCustomerIds.includes(event.customerId)
+                ? current.typingCustomerIds
+                : [...current.typingCustomerIds, event.customerId],
+              businessErrors,
             };
           });
           return true;
@@ -145,10 +145,10 @@ export function ChatStage(input: {
           updateLive((current) => ({
             ...current,
             messages: [...current.messages, event.message],
-            typing: false,
           }));
           return true;
         case "done":
+          updateLive((current) => ({ ...current, typing: false, busy: false }));
           startTransition(() => router.replace(event.href));
           return true;
         case "error":

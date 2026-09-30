@@ -29,6 +29,7 @@ import {
   type RegistrationNotice,
 } from "../lib/session.js";
 import { brandColor } from "../lib/brand.js";
+import { DEMO_USER_PROFILE } from "../lib/userProfile.js";
 import {
   listConversations,
   type PaConversation,
@@ -398,6 +399,15 @@ export default async function HomePage({
                   ) : null}
                 </div>
               ) : null}
+            </section>
+
+            <section className="card agent-card personal-context">
+              <h2>Personal context</h2>
+              <ul>
+                {DEMO_USER_PROFILE.facts.map((fact) => (
+                  <li key={fact}>{fact}</li>
+                ))}
+              </ul>
             </section>
 
             <aside className="card sidebar">

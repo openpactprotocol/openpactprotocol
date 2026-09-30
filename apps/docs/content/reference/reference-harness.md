@@ -19,24 +19,20 @@ separately stores its own local conversation history.
 
 The provider exposes separate flight-status, order-status, and flower-order
 skills to demonstrate message continuation. Their canned responses are
-harness behavior, not protocol requirements. If `OPENAI_API_KEY` is set, the
-PA client uses OpenAI for routing with `OPENAI_MODEL` (default
-`gpt-6-luna`). Otherwise it routes by a business-name mention, then by skill
-tags read from each Agent Card, then to one thread awaiting a follow-up (the
-most recently asked first, with ties in configured customer-ID order), and
-finally to a random connected business. This is the personal agent's own
-routing logic; PAC2 does not define routing. An external platform
-can integrate with a different Customer agent as long as it follows the Agent
-Card, JWT, and message contract.
+harness behavior, not protocol requirements. With `OPENAI_API_KEY`, the PA
+client runs a `contact_support_a2a` tool loop (model `OPENAI_MODEL`, default
+`gpt-6-luna`) using the Alex Rivera demo profile shown in its Personal context
+card. It writes business-specific messages, answers questions from known facts,
+sequences dependent follow-ups, and can send interim phone updates. Without a
+key, it uses keyword routing, forwards the user's text verbatim, and composes a
+`Business: reply` fallback. These are harness behaviors, not PAC2 routing
+requirements. An external platform can integrate with a different Customer
+agent as long as it follows the Agent Card, JWT, and message contract.
 
 Separately, the provider can use `OPENAI_API_KEY` and `OPENAI_MODEL` (default
 `gpt-6-luna`) to generate business replies from conversation history and each
 profile's facts. Without a key or after a failure or timeout, it uses the
 deterministic canned replies.
-
-Business replies go into their separate A2A threads, and the PA composes one
-message for the phone with OpenAI when configured or a `Business: reply`
-fallback. The phone shows only the PA's messages.
 
 Configure the PA client with `CUSTOMER_IDS`, a comma-separated list of
 customer ULIDs. The protocol CLI continues to take one `CUSTOMER_ID` at a time.
