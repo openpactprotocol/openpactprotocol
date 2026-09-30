@@ -11,11 +11,9 @@ CREATE TABLE "agent_platforms" (
 CREATE TABLE "conversations" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"customer_id" uuid NOT NULL,
-	"platform_id" uuid NOT NULL,
-	"pa_user_id" text NOT NULL,
-	"context_id" text NOT NULL,
+	"user_id" text NOT NULL,
 	"state" text NOT NULL,
-	"flow" jsonb DEFAULT '{}'::jsonb NOT NULL,
+	"metadata" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -48,7 +46,6 @@ CREATE TABLE "seen_jtis" (
 );
 --> statement-breakpoint
 ALTER TABLE "conversations" ADD CONSTRAINT "conversations_customer_id_customers_id_fk" FOREIGN KEY ("customer_id") REFERENCES "public"."customers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "conversations" ADD CONSTRAINT "conversations_platform_id_agent_platforms_id_fk" FOREIGN KEY ("platform_id") REFERENCES "public"."agent_platforms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "messages" ADD CONSTRAINT "messages_conversation_id_conversations_id_fk" FOREIGN KEY ("conversation_id") REFERENCES "public"."conversations"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "seen_jtis" ADD CONSTRAINT "seen_jtis_platform_id_agent_platforms_id_fk" FOREIGN KEY ("platform_id") REFERENCES "public"."agent_platforms"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "conversations_owner_updated_idx" ON "conversations" USING btree ("customer_id","platform_id","pa_user_id","updated_at");
+CREATE INDEX "conversations_owner_updated_idx" ON "conversations" USING btree ("customer_id","user_id","updated_at");

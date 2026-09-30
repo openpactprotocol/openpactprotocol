@@ -22,11 +22,13 @@ The provider stores only the protocol core in five tables:
 
 - `customers`: `id`, unique `public_id`, unique `slug`, unique `name`.
 - `agent_platforms`: `id`, unique `name`, unique `issuer`, `jwks_uri`, `enabled`.
-- `conversations`: `id` (the A2A task ID), `customer_id`, `platform_id`, `pa_user_id`, `context_id`, `state`, `flow` (JSONB default `{}`), `created_at`, `updated_at`. The ownership index is `(customer_id, platform_id, pa_user_id, updated_at)`.
+- `conversations`: `id` (the A2A task ID), `customer_id`, `user_id` (`{platform}:{sub}`), `state`, `metadata` (JSONB default `{}`), `created_at`, `updated_at`. The ownership index is `(customer_id, user_id, updated_at)`. Metadata stores the optional A2A `contextId` and FAQ `flow`.
 - `messages`: `id`, `conversation_id`, `message_id`, `role`, `parts` (JSONB), `created_at`; message IDs are unique within a conversation.
 - `seen_jtis`: `platform_id`, `jti`, and `expires_at`, keyed by `(platform_id, jti)` for replay protection.
 
 The dummy agent has one static FAQ skill. Known hours, location, parking, or insurance topics complete immediately. Unrecognized questions ask the user to pick a topic and can be continued on the same task; requests for a human get an `INPUT_REQUIRED` follow-up response.
+
+A2A context IDs are optional. The provider preserves and echoes a context ID when supplied; tasks without one omit the `contextId` field from Task and Message responses.
 
 ## Local development
 

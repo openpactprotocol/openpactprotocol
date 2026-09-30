@@ -103,7 +103,7 @@ export const ArtifactSchema = z.object({
 
 export const TaskSchema = z.object({
   id: z.string().min(1),
-  contextId: z.string().min(1),
+  contextId: z.string().optional(),
   status: TaskStatusSchema,
   artifacts: z.array(ArtifactSchema).optional(),
   history: z.array(MessageSchema).optional(),

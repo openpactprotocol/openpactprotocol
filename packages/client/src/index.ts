@@ -136,7 +136,7 @@ export class A2AClient {
       message: {
         messageId: randomUUID(),
         ...(options.taskId ? { taskId: options.taskId } : {}),
-        ...(options.contextId ? { contextId: options.contextId } : {}),
+        ...(options.contextId === undefined ? {} : { contextId: options.contextId }),
         role: "ROLE_USER",
         parts: [{ text, mediaType: "text/plain" }],
       },

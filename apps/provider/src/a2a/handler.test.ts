@@ -89,18 +89,18 @@ async function rpc(
 
 function taskFrom(body: Record<string, unknown>): {
   id: string;
-  contextId: string;
+  contextId?: string;
   status: { state: string };
-  history: { role: string }[];
+  history: { role: string; contextId?: string }[];
   metadata?: unknown;
 } {
   const task = (body.result as { task?: unknown } | undefined)?.task;
   if (!task || typeof task !== "object") throw new Error("Task response is missing");
   return task as {
     id: string;
-    contextId: string;
+    contextId?: string;
     status: { state: string };
-    history: { role: string }[];
+    history: { role: string; contextId?: string }[];
     metadata?: unknown;
   };
 }
@@ -135,10 +135,13 @@ describe("A2A handler", () => {
     });
     const task = taskFrom(faq.body);
     expect(task.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(task).not.toHaveProperty("contextId");
+    expect(task.history.every((message) => !("contextId" in message))).toBe(true);
     expect(task).not.toHaveProperty("metadata");
 
     const fetched = await rpc(slugs.acmeSlug, "GetTask", { id: task.id });
     expect(fetched.body).toHaveProperty("result.id", task.id);
+    expect(fetched.body.result).not.toHaveProperty("contextId");
     expect(fetched.body.result).not.toHaveProperty("metadata");
 
     const otherUser = await rpc(
@@ -377,7 +380,7 @@ describe("A2A handler", () => {
     const savedConversation = await testDb.query.conversations.findFirst({
       where: eq(conversations.id, answeredTask.id),
     });
-    expect(savedConversation?.flow).toMatchObject({ awaitingFaqTopic: false });
+    expect(savedConversation?.metadata.flow).toMatchObject({ awaitingFaqTopic: false });
 
     const noHistory = await rpc(
       slugs.acmeSlug,
@@ -424,6 +427,69 @@ describe("A2A handler", () => {
     expect(completedTaskSend.body).toMatchObject({ error: { code: -32004 } });
   });
 
+  it("stores, echoes, and filters by an optional context ID", async () => {
+    const sub = `context-${crypto.randomUUID()}`;
+    const contextId = `ctx-${crypto.randomUUID()}`;
+    const started = await rpc(
+      slugs.acmeSlug,
+      "SendMessage",
+      {
+        message: {
+          messageId: crypto.randomUUID(),
+          contextId,
+          role: "ROLE_USER",
+          parts: [{ text: "Can you help me?" }],
+        },
+      },
+      { sub },
+    );
+    const startedTask = taskFrom(started.body);
+    expect(startedTask.contextId).toBe(contextId);
+    expect(startedTask.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
+
+    const continued = await rpc(
+      slugs.acmeSlug,
+      "SendMessage",
+      {
+        message: {
+          messageId: crypto.randomUUID(),
+          taskId: startedTask.id,
+          role: "ROLE_USER",
+          parts: [{ text: "hours" }],
+        },
+      },
+      { sub },
+    );
+    const task = taskFrom(continued.body);
+    expect(task.id).toBe(startedTask.id);
+    expect(task.contextId).toBe(contextId);
+    expect(task.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(task.history.every((message) => message.contextId === contextId)).toBe(true);
+
+    const savedConversation = await testDb.query.conversations.findFirst({
+      where: eq(conversations.id, task.id),
+    });
+    expect(savedConversation?.metadata.contextId).toBe(contextId);
+
+    const fetched = await rpc(slugs.acmeSlug, "GetTask", { id: task.id }, { sub });
+    expect(fetched.body).toHaveProperty("result.contextId", contextId);
+    expect(
+      (fetched.body.result as { history: { contextId?: string }[] }).history.every(
+        (message) => message.contextId === contextId,
+      ),
+    ).toBe(true);
+
+    const listed = await rpc(slugs.acmeSlug, "ListTasks", { contextId }, { sub });
+    expect(listed.body).toMatchObject({ result: { tasks: [{ id: task.id }], totalSize: 1 } });
+    const filteredOut = await rpc(
+      slugs.acmeSlug,
+      "ListTasks",
+      { contextId: `${contextId}-other` },
+      { sub },
+    );
+    expect(filteredOut.body).toMatchObject({ result: { tasks: [], totalSize: 0 } });
+  });
+
   it("rejects a mismatched context and paginates caller-owned tasks", async () => {
     const sub = `pagination-${crypto.randomUUID()}`;
     const started = await rpc(
@@ -446,7 +512,7 @@ describe("A2A handler", () => {
         message: {
           messageId: crypto.randomUUID(),
           taskId: task.id,
-          contextId: `${task.contextId}-other`,
+          contextId: "unexpected-context",
           role: "ROLE_USER",
           parts: [{ text: "hours" }],
         },

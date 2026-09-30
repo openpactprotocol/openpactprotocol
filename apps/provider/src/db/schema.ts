@@ -9,6 +9,12 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
+import type { FlowState } from "../agent/index.js";
+
+export type ConversationMetadata = {
+  contextId?: string;
+  flow?: FlowState;
+};
 
 export const customers = pgTable("customers", {
   id: uuid("id").primaryKey().defaultRandom(),
@@ -32,23 +38,14 @@ export const conversations = pgTable(
     customerId: uuid("customer_id")
       .notNull()
       .references(() => customers.id, { onDelete: "cascade" }),
-    platformId: uuid("platform_id")
-      .notNull()
-      .references(() => agentPlatforms.id, { onDelete: "cascade" }),
-    paUserId: text("pa_user_id").notNull(),
-    contextId: text("context_id").notNull(),
+    userId: text("user_id").notNull(),
     state: text("state").notNull(),
-    flow: jsonb("flow").$type<Record<string, unknown>>().notNull().default({}),
+    metadata: jsonb("metadata").$type<ConversationMetadata>().notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => [
-    index("conversations_owner_updated_idx").on(
-      table.customerId,
-      table.platformId,
-      table.paUserId,
-      table.updatedAt,
-    ),
+    index("conversations_owner_updated_idx").on(table.customerId, table.userId, table.updatedAt),
   ],
 );
 

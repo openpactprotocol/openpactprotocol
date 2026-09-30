@@ -13,7 +13,7 @@ import {
 } from "@pap/protocol";
 import { and, desc, eq, gt, lt, or, sql } from "drizzle-orm";
 import type { JWTVerifyGetKey } from "jose";
-import { runAgentTurn, type FlowState } from "../agent/index.js";
+import { runAgentTurn } from "../agent/index.js";
 import { verifyPlatformJwt } from "../auth/verifyPlatformJwt.js";
 import type { Db } from "../db/client.js";
 import { conversations, messages } from "../db/schema.js";
@@ -213,8 +213,7 @@ export function createA2AHandler(
                 and(
                   eq(conversations.id, requestMessage.taskId),
                   eq(conversations.customerId, auth.customer.id),
-                  eq(conversations.platformId, auth.platform.id),
-                  eq(conversations.paUserId, auth.paUserId),
+                  eq(conversations.userId, auth.paUserId),
                 ),
               )
               .for("update");
@@ -224,7 +223,10 @@ export function createA2AHandler(
                 "Task not found",
                 "TASK_NOT_FOUND",
               );
-            if (requestMessage.contextId && requestMessage.contextId !== found.contextId) {
+            if (
+              requestMessage.contextId !== undefined &&
+              requestMessage.contextId !== found.metadata.contextId
+            ) {
               throw new RpcFailure(A2A_ERROR_CODES.invalidParams, "Invalid parameters");
             }
             if (
@@ -249,11 +251,14 @@ export function createA2AHandler(
               .values({
                 id,
                 customerId: auth.customer.id,
-                platformId: auth.platform.id,
-                paUserId: auth.paUserId,
-                contextId: requestMessage.contextId ?? randomUUID(),
+                userId: auth.paUserId,
                 state: "TASK_STATE_SUBMITTED",
-                flow: {},
+                metadata: {
+                  ...(requestMessage.contextId === undefined
+                    ? {}
+                    : { contextId: requestMessage.contextId }),
+                  flow: {},
+                },
               })
               .returning();
             if (!created) throw new Error("Conversation insert returned no row");
@@ -283,9 +288,10 @@ export function createA2AHandler(
               (lastMessage?.createdAt.getTime() ?? 0) + 1,
             ),
           );
+          const contextId = conversation.metadata.contextId;
           const userMessage: Message = {
             ...requestMessage,
-            contextId: requestMessage.contextId ?? conversation.contextId,
+            ...(contextId === undefined ? {} : { contextId }),
             taskId: conversation.id,
           };
           await transactionDb.insert(messages).values({
@@ -295,7 +301,7 @@ export function createA2AHandler(
             parts: userMessage.parts,
             createdAt: messageCreatedAt,
           });
-          const flow = conversation.flow as FlowState;
+          const flow = conversation.metadata.flow ?? {};
           const inputText = requestMessage.parts
             .map((part) => ("text" in part ? part.text : ""))
             .join("\n");
@@ -307,7 +313,7 @@ export function createA2AHandler(
           const updatedAt = options.now?.() ?? new Date();
           const agentMessage: Message = {
             messageId: randomUUID(),
-            contextId: conversation.contextId,
+            ...(contextId === undefined ? {} : { contextId }),
             taskId: conversation.id,
             role: "ROLE_AGENT",
             parts: [{ text: turn.text, mediaType: "text/plain" }],
@@ -323,7 +329,7 @@ export function createA2AHandler(
             .update(conversations)
             .set({
               state: turn.state,
-              flow: turn.flow,
+              metadata: { ...conversation.metadata, flow: turn.flow },
               updatedAt,
             })
             .where(eq(conversations.id, conversation.id))
@@ -337,7 +343,9 @@ export function createA2AHandler(
           const mappedHistory = history.map(
             (message): Message => ({
               messageId: message.messageId,
-              contextId: updated.contextId,
+              ...(updated.metadata.contextId === undefined
+                ? {}
+                : { contextId: updated.metadata.contextId }),
               taskId: updated.id,
               role: message.role as Message["role"],
               parts: message.parts as Message["parts"],
@@ -352,7 +360,9 @@ export function createA2AHandler(
                 : mappedHistory.slice(-limitLength);
           const result: Task = {
             id: updated.id,
-            contextId: updated.contextId,
+            ...(updated.metadata.contextId === undefined
+              ? {}
+              : { contextId: updated.metadata.contextId }),
             status: {
               state: updated.state as TaskState,
               message: agentMessage,
@@ -394,7 +404,6 @@ export function createA2AHandler(
         options.db,
         parsed.data.id,
         auth.customer.id,
-        auth.platform.id,
         auth.paUserId,
         parsed.data.historyLength,
       );
@@ -419,9 +428,10 @@ export function createA2AHandler(
       const pageSize = parsed.data.pageSize ?? 50;
       const filter = and(
         eq(conversations.customerId, auth.customer.id),
-        eq(conversations.platformId, auth.platform.id),
-        eq(conversations.paUserId, auth.paUserId),
-        ...(parsed.data.contextId ? [eq(conversations.contextId, parsed.data.contextId)] : []),
+        eq(conversations.userId, auth.paUserId),
+        ...(parsed.data.contextId === undefined
+          ? []
+          : [sql`${conversations.metadata}->>'contextId' = ${parsed.data.contextId}`]),
         ...(parsed.data.status ? [eq(conversations.state, parsed.data.status)] : []),
         ...(parsed.data.statusTimestampAfter
           ? [gt(conversations.updatedAt, new Date(parsed.data.statusTimestampAfter))]
@@ -456,7 +466,6 @@ export function createA2AHandler(
           options.db,
           row.id,
           auth.customer.id,
-          auth.platform.id,
           auth.paUserId,
           parsed.data.historyLength,
           parsed.data.includeArtifacts,
@@ -548,7 +557,6 @@ async function loadTask(
   db: Db,
   id: string,
   customerId: string,
-  platformId: string,
   paUserId: string,
   historyLength?: number,
   includeArtifacts = false,
@@ -560,8 +568,7 @@ async function loadTask(
       and(
         eq(conversations.id, id),
         eq(conversations.customerId, customerId),
-        eq(conversations.platformId, platformId),
-        eq(conversations.paUserId, paUserId),
+        eq(conversations.userId, paUserId),
       ),
     )
     .limit(1);
@@ -573,7 +580,9 @@ async function loadTask(
     .orderBy(messages.createdAt, messages.id);
   const history: Message[] = rows.map((message) => ({
     messageId: message.messageId,
-    contextId: conversation.contextId,
+    ...(conversation.metadata.contextId === undefined
+      ? {}
+      : { contextId: conversation.metadata.contextId }),
     taskId: conversation.id,
     role: message.role as Message["role"],
     parts: message.parts as Message["parts"],
@@ -581,7 +590,9 @@ async function loadTask(
   const statusMessage = [...history].reverse().find((message) => message.role === "ROLE_AGENT");
   const result: Task = {
     id: conversation.id,
-    contextId: conversation.contextId,
+    ...(conversation.metadata.contextId === undefined
+      ? {}
+      : { contextId: conversation.metadata.contextId }),
     status: {
       state: conversation.state as TaskState,
       ...(statusMessage ? { message: statusMessage } : {}),

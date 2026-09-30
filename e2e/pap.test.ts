@@ -111,6 +111,8 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
   it("answers a recognized FAQ request", async () => {
     const faq = await client(`e2e-faq-${crypto.randomUUID()}`).sendMessage("What are your hours?");
     expect(faq.task.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(faq.task).not.toHaveProperty("contextId");
+    expect(faq.task.status.message).not.toHaveProperty("contextId");
     expect(faq.task.status.message?.parts[0]).toMatchObject({
       text: expect.stringContaining("Monday through Friday"),
     });
@@ -120,6 +122,8 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     multiTurnClient = client(`e2e-multiturn-${crypto.randomUUID()}`);
     const started = await multiTurnClient.sendMessage("Can you help me?");
     expect(started.task.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
+    expect(started.task).not.toHaveProperty("contextId");
+    expect(started.task.status.message).not.toHaveProperty("contextId");
     expect(started.task.status.message?.parts[0]).toMatchObject({
       text: "Which would you like to know about: hours, location, parking, or insurance?",
     });
@@ -129,6 +133,50 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     expect(answered.task.id).toBe(multiTurnTaskId);
     expect(answered.task.status.state).toBe("TASK_STATE_COMPLETED");
     expect(answered.task.history).toHaveLength(4);
+    expect(answered.task).not.toHaveProperty("contextId");
+    expect(answered.task.history?.every((message) => !("contextId" in message))).toBe(true);
+  });
+
+  it("round-trips and filters a supplied context ID", async () => {
+    const sub = `e2e-context-${crypto.randomUUID()}`;
+    const contextId = `context-${crypto.randomUUID()}`;
+    const contextClient = client(sub);
+    const started = await contextClient.sendMessage("Can you help me?", { contextId });
+    expect(started.task.contextId).toBe(contextId);
+    expect(started.task.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
+    expect(started.task.status.message?.contextId).toBe(contextId);
+
+    const answered = await contextClient.sendMessage("hours", { taskId: started.task.id });
+    expect(answered.task.id).toBe(started.task.id);
+    expect(answered.task.status.state).toBe("TASK_STATE_COMPLETED");
+    expect(answered.task.contextId).toBe(contextId);
+    expect(answered.task.history?.every((message) => message.contextId === contextId)).toBe(true);
+
+    const fetched = await contextClient.getTask(answered.task.id);
+    expect(fetched.contextId).toBe(contextId);
+    expect(fetched.history?.every((message) => message.contextId === contextId)).toBe(true);
+
+    const matching = await contextClient.listTasks({ contextId });
+    expect(matching.tasks.map((task) => task.id)).toContain(answered.task.id);
+    const filteredOut = await contextClient.listTasks({ contextId: `${contextId}-other` });
+    expect(filteredOut.tasks.map((task) => task.id)).not.toContain(answered.task.id);
+
+    const token = await signedToken({ aud: cardResult!.url, sub });
+    const mismatch = await rawRpc(
+      cardResult!.url,
+      token,
+      {
+        message: {
+          messageId: crypto.randomUUID(),
+          taskId: answered.task.id,
+          contextId: `${contextId}-other`,
+          role: "ROLE_USER",
+          parts: [{ text: "parking" }],
+        },
+      },
+      "SendMessage",
+    );
+    expect(await mismatch.json()).toMatchObject({ error: { code: -32602 } });
   });
 
   it("scopes GetTask and ListTasks to the caller and rejects cancellation", async () => {
