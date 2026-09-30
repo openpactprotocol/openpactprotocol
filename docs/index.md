@@ -16,11 +16,32 @@ credentials never pass through the PA.
 | **PA**       | A personal-agent platform. Signs its requests with its own key. |
 | **User**     | The person using the PA.                                        |
 
-```text
- User ──▶ PA ──A2A over HTTPS──▶ Provider ──▶ Brand's agent
-              JWT {iss, sub, aud}         verifies via JWKS · mints contextId
-              delegation token (optional) checks scopes · signs receipts
-```
+## At a glance
+
+The User talks only to their PA. The PA talks to the Brand's agent through the
+Provider, signing every call with its own key. The User's Brand login, if any,
+happens with the Brand — never through the PA.
+
+{% protocol-overview /%}
+
+1. **Onboard** — once per Provider, not per User or Brand. Publish your JWKS;
+   the Provider records your `issuer` and gives you an `audience`. Whether a
+   Provider allowlists PAs or accepts any issuer that serves a JWKS is the
+   Provider's policy.
+2. **Ask.** The User asks the PA for help with a Brand.
+3. **Discover.** `GET /a2a/{brandId}/.well-known/agent-card.json` → interface
+   URL, and whether the Brand offers delegation. No token needed.
+4. **Send.** `POST {interfaceUrl}/message:send` with your JWT
+   `{ iss, sub, aud, iat, exp }`. `sub` is a stable, opaque id for the User.
+5. **Verify.** The Provider checks the signature against your JWKS, then
+   `iss`, `aud`, and expiry. Any failure is a bare `401`.
+6. **Reply.** The Brand's agent answers → reply + `contextId`. Continue with
+   the same call and the same `contextId`.
+7. **Answer.** The PA relays the reply to the User.
+
+**A. Authorize** — only if the card offers it. OAuth device code: the User
+logs in with the Brand, approves scopes, you get a delegation token and send
+it with your JWT from then on.
 
 ## Two layers
 
@@ -32,22 +53,29 @@ credentials never pass through the PA.
 A PA reads the card and does what the card supports. Turning delegation on
 changes nothing in the identity layer.
 
-## Once, per Provider
+## If you know OAuth
 
-**Onboard.** Publish your JWKS; the Provider records your `issuer` and gives
-you an `audience`. Whether a Provider allowlists PAs or accepts any issuer
-that serves a JWKS is the Provider's policy.
+The identity layer is not an OAuth flow: no User login, no consent screen, no
+token endpoint. The PA signs its own short-lived JWT and sends it straight to
+the agent's interface URL — closest to an
+[RFC 7523](https://www.rfc-editor.org/rfc/rfc7523) JWT assertion. The JWT says
+which PA is calling for which `sub`, not that `sub` owns a Brand account.
 
-## Per User
+Delegated authority is standard OAuth 2.0 device code
+([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)), with the PA as the
+client:
 
-1. **Discover.** `GET /a2a/{brandId}/.well-known/agent-card.json` → interface
-   URL, and whether the Brand offers delegation.
-2. **Send.** `POST {interfaceUrl}/message:send` with your JWT
-   `{ iss, sub, aud, iat, exp }` → reply + `contextId`.
-3. **Continue.** Same call with the `contextId`.
-4. **Authorize** — only if the card offers it. OAuth device code: the User
-   logs in with the Brand, approves scopes, you get a delegation token and
-   send it with your JWT.
+| OAuth 2.0             | PAC2                                                                        |
+| --------------------- | --------------------------------------------------------------------------- |
+| Client                | PA. `client_id` is its issuer URL.                                          |
+| Client registration   | Onboarding: `issuer`, `jwksUri`, assigned `audience`.                       |
+| Client authentication | PA JWT as `Authorization: Bearer`, on every call including the token call.  |
+| Resource owner        | User — `sub` in the PA JWT; the Brand's own user id in a delegation token.  |
+| Authorization server  | Provider, per Brand. The login step is the Brand's own login.               |
+| Server metadata       | Agent Card, which links RFC 8414 metadata when the Brand offers delegation. |
+| Scopes                | Defined by each Brand and listed on its card.                               |
+| Access token          | Delegation token, sent in `X-A2A-User-Delegation` next to the PA JWT.       |
+| Resource server       | The Brand's agent, behind the interface URL.                                |
 
 ## Not in PAC2
 

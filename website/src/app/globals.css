@@ -567,3 +567,182 @@ a:hover {
     grid-template-columns: 1fr;
   }
 }
+
+.protocol-overview {
+  margin: 24px 0 8px;
+}
+
+.protocol-overview-canvas {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 14px;
+}
+
+.protocol-overview svg {
+  display: block;
+  width: 100%;
+  min-width: 620px;
+  height: auto;
+  font-family: inherit;
+}
+
+.po-zone {
+  fill: #f7f7ff;
+}
+
+.po-zone-business {
+  fill: #f6f8fa;
+}
+
+.po-zone-label {
+  fill: #9aa1ad;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+}
+
+.po-boundary {
+  stroke: #c3c8d2;
+  stroke-dasharray: 3 4;
+}
+
+.po-actor {
+  fill: var(--surface);
+  stroke: #d4d8df;
+}
+
+.po-actor-title {
+  fill: var(--text);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.po-actor-subtitle {
+  fill: var(--muted);
+  font-size: 10.5px;
+}
+
+.po-part {
+  fill: #fafbfc;
+  stroke: var(--border);
+}
+
+.po-part-accent {
+  fill: var(--accent-soft);
+  stroke: #c7caff;
+}
+
+.po-part-label {
+  fill: #303847;
+  font-size: 11.5px;
+  font-weight: 620;
+}
+
+.po-part-detail {
+  fill: #7b8390;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+}
+
+.po-person {
+  fill: #d9dcf8;
+}
+
+.po-arrow,
+.po-internal {
+  stroke: var(--accent);
+  stroke-width: 1.6;
+}
+
+.po-internal {
+  stroke-width: 1.2;
+}
+
+.po-arrow-setup {
+  stroke: #8a92a0;
+  stroke-dasharray: 5 4;
+}
+
+.po-arrow-optional {
+  stroke: #b45309;
+  stroke-dasharray: 2 4;
+  stroke-linecap: round;
+}
+
+.po-head-optional {
+  fill: #b45309;
+}
+
+.po-step-optional {
+  fill: #b45309;
+}
+
+.po-head {
+  fill: var(--accent);
+}
+
+.po-head-setup {
+  fill: #8a92a0;
+}
+
+.po-arrow-label {
+  fill: #303847;
+  font-size: 11.5px;
+  font-weight: 560;
+  paint-order: stroke;
+  stroke: #fbfbff;
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+.po-step {
+  fill: var(--accent);
+  stroke: var(--surface);
+  stroke-width: 2;
+}
+
+.po-step-setup {
+  fill: #8a92a0;
+}
+
+.po-step-number {
+  fill: white;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.protocol-overview figcaption {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 16px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.po-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.po-legend::before {
+  width: 22px;
+  border-top: 2px solid var(--accent);
+  content: "";
+}
+
+.po-legend-setup::before {
+  border-top: 2px dashed #8a92a0;
+}
+
+.po-legend-optional::before {
+  border-top: 2px dotted #b45309;
+}
+
+.po-legend-note {
+  margin-left: auto;
+}

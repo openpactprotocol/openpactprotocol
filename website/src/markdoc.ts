@@ -72,6 +72,10 @@ export const markdocConfig: Config = {
     },
   },
   tags: {
+    "protocol-overview": {
+      render: "ProtocolOverview",
+      selfClosing: true,
+    },
     callout: {
       render: "aside",
       attributes: {
