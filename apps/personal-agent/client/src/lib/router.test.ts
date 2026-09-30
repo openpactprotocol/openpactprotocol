@@ -84,12 +84,24 @@ describe("routeMessage", () => {
     ).toEqual(["loom"]);
   });
 
-  it("returns no route when there is no name, keyword, or known pending thread", () => {
+  it("chooses one connected business at random when no rule matches", () => {
     expect(
       routeMessage({
         text: "Can you help me with this?",
         businesses,
         awaitingCustomerIds: ["not-connected"],
+        random: () => 0.75,
+      }),
+    ).toEqual(["bloom"]);
+  });
+
+  it("returns no route only when no businesses are connected", () => {
+    expect(
+      routeMessage({
+        text: "Can you help me with this?",
+        businesses: [],
+        awaitingCustomerIds: ["not-connected"],
+        random: () => 0,
       }),
     ).toEqual([]);
   });

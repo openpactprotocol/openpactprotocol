@@ -27,6 +27,8 @@ variables:
 - `PA_PLATFORM_NAME`: optional platform registration name; defaults to
   `demo-pa`.
 - `PA_AUDIENCE`: optional runtime audience override.
+- `OPENAI_API_KEY`: optional key for LLM-assisted business routing.
+- `OPENAI_MODEL`: optional model name; defaults to `gpt-6-luna`.
 
 The **Register personal agent** panel proves key control and registers the
 platform with the provider. The header's **Signing as** identity displays the

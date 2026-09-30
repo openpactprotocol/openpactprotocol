@@ -18,14 +18,17 @@ import {
   type BusinessThread,
   type PaConversation,
 } from "../lib/conversationStore.js";
-import { routeMessage } from "../lib/router.js";
+import { routeWithOpenAI } from "../lib/llmRouter.js";
+import { routeMessage, type RoutableBusiness } from "../lib/router.js";
 
 type Connection = { providerUrl: string; customerIds: string[] };
 type DiscoveredBusiness = {
   customerId: string;
   name: string;
+  description: string;
   url: string;
   keywords: string[];
+  skills: { name: string; description: string }[];
 };
 
 function readConnection(formData: FormData): Connection {
@@ -49,34 +52,31 @@ function createTimestampGenerator(previousTimestamp: string): () => string {
   };
 }
 
-function lastAgentTimestamp(thread: BusinessThread): string {
+function lastAgentMessage(thread: BusinessThread): BusinessThread["messages"][number] | undefined {
   for (let index = thread.messages.length - 1; index >= 0; index -= 1) {
     const message = thread.messages[index];
-    if (message?.role === "ROLE_AGENT") return message.at;
+    if (message?.role === "ROLE_AGENT") return message;
   }
-  return "";
+  return undefined;
 }
 
-function orderedAwaitingCustomerIds(conversation: PaConversation, customerIds: string[]): string[] {
+function orderedAwaitingThreads(
+  conversation: PaConversation,
+  customerIds: string[],
+): BusinessThread[] {
   const customerOrder = new Map(customerIds.map((customerId, index) => [customerId, index]));
   return conversation.threads
     .filter((thread) => thread.awaitingReply)
     .sort((first, second) => {
-      const byMostRecentQuestion = lastAgentTimestamp(second).localeCompare(
-        lastAgentTimestamp(first),
+      const byMostRecentQuestion = (lastAgentMessage(second)?.at ?? "").localeCompare(
+        lastAgentMessage(first)?.at ?? "",
       );
       if (byMostRecentQuestion !== 0) return byMostRecentQuestion;
       return (
         (customerOrder.get(first.customerId) ?? Number.MAX_SAFE_INTEGER) -
         (customerOrder.get(second.customerId) ?? Number.MAX_SAFE_INTEGER)
       );
-    })
-    .map((thread) => thread.customerId);
-}
-
-function joinNames(names: string[]): string {
-  if (names.length < 2) return names[0] ?? "";
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+    });
 }
 
 async function setUserId(userId: string): Promise<void> {
@@ -161,8 +161,10 @@ export async function sendChatMessage(formData: FormData): Promise<void> {
         return {
           customerId,
           name: discovery.card.name,
+          description: discovery.card.description,
           url: discovery.url,
           keywords: [...new Set(discovery.card.skills.flatMap((skill) => skill.tags))],
+          skills: discovery.card.skills.map(({ name, description }) => ({ name, description })),
         };
       } catch {
         return undefined;
@@ -172,26 +174,49 @@ export async function sendChatMessage(formData: FormData): Promise<void> {
   const businesses = discoveries.filter(
     (business): business is DiscoveredBusiness => business !== undefined,
   );
-  const routes = routeMessage({
-    text,
-    businesses: businesses.map(({ customerId, name, keywords }) => ({
-      customerId,
-      name,
-      keywords,
-    })),
-    awaitingCustomerIds: orderedAwaitingCustomerIds(conversation, connection.customerIds),
-  });
+  const routableBusinesses: RoutableBusiness[] = businesses.map(
+    ({ customerId, name, keywords }) => ({ customerId, name, keywords }),
+  );
+  const awaitingThreads = orderedAwaitingThreads(conversation, connection.customerIds);
+  const awaitingCustomerIds = awaitingThreads.map((thread) => thread.customerId);
+  const fallbackRoute = () =>
+    routeMessage({ text, businesses: routableBusinesses, awaitingCustomerIds });
+  let routes: string[];
+  if (process.env.OPENAI_API_KEY && businesses.length > 0) {
+    try {
+      routes = await routeWithOpenAI({
+        text,
+        businesses: businesses.map(({ customerId, name, description, keywords, skills }) => ({
+          customerId,
+          name,
+          description,
+          keywords,
+          skills,
+        })),
+        awaiting: awaitingThreads.map((thread) => ({
+          customerId: thread.customerId,
+          question: lastAgentMessage(thread)?.text ?? "",
+        })),
+        apiKey: process.env.OPENAI_API_KEY,
+        model: process.env.OPENAI_MODEL || "gpt-6-luna",
+      });
+    } catch {
+      routes = fallbackRoute();
+    }
+  } else {
+    routes = fallbackRoute();
+  }
   const nextTimestamp = createTimestampGenerator(conversation.updatedAt);
   const userAt = nextTimestamp();
   conversation.messages.push({ role: "user", text, at: userAt });
 
   if (routes.length === 0) {
-    const responseText =
-      businesses.length > 0
-        ? `I can reach ${joinNames(businesses.map((business) => business.name))}. Which one should I ask?`
-        : "No businesses are connected.";
     const responseAt = nextTimestamp();
-    conversation.messages.push({ role: "personal-agent", text: responseText, at: responseAt });
+    conversation.messages.push({
+      role: "personal-agent",
+      text: "No businesses are connected.",
+      at: responseAt,
+    });
     conversation.updatedAt = responseAt;
     await saveConversation(conversation);
     redirect(homePath({ ...connection, conversationId: conversation.id }));

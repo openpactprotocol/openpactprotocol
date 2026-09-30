@@ -42,6 +42,7 @@ export function routeMessage(input: {
   text: string;
   businesses: RoutableBusiness[];
   awaitingCustomerIds: string[];
+  random?: () => number;
 }): string[] {
   const namedBusinesses = new Set(
     input.businesses
@@ -65,5 +66,12 @@ export function routeMessage(input: {
 
   const knownCustomerIds = new Set(input.businesses.map((business) => business.customerId));
   const awaitingCustomerId = input.awaitingCustomerIds.find((id) => knownCustomerIds.has(id));
-  return awaitingCustomerId ? [awaitingCustomerId] : [];
+  if (awaitingCustomerId) return [awaitingCustomerId];
+  if (input.businesses.length === 0) return [];
+
+  const randomIndex = Math.min(
+    input.businesses.length - 1,
+    Math.max(0, Math.floor((input.random ?? Math.random)() * input.businesses.length)),
+  );
+  return [input.businesses[randomIndex]!.customerId];
 }

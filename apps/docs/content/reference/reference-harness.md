@@ -19,10 +19,12 @@ separately stores its own local conversation history.
 
 The provider exposes separate flight-status, order-status, and flower-order
 skills to demonstrate message continuation. Their canned responses are
-harness behavior, not protocol requirements. The PA client routes by an
-explicit business-name mention, then by skill tags read from each Agent Card,
-then to one thread awaiting a follow-up (the most recently asked first, with
-ties in configured customer-ID order). This is the personal agent's own
+harness behavior, not protocol requirements. If `OPENAI_API_KEY` is set, the
+PA client uses OpenAI for routing with `OPENAI_MODEL` (default
+`gpt-6-luna`). Otherwise it routes by a business-name mention, then by skill
+tags read from each Agent Card, then to one thread awaiting a follow-up (the
+most recently asked first, with ties in configured customer-ID order), and
+finally to a random connected business. This is the personal agent's own
 routing logic; PAC2 does not define routing. An external platform
 can integrate with a different Customer agent as long as it follows the Agent
 Card, JWT, and message contract.
