@@ -111,7 +111,8 @@ function buildSystemPrompt(input: {
     "- When a business asks for something you know, answer it yourself with another contact_support_a2a call. Ask the user only for things you don't know or decisions only they can make.",
     "- Contact businesses at the same time when their questions are independent. When one answer affects what to ask another, such as a flight delay changing when a delivery should arrive, contact them one after the other.",
     "- While you still have businesses to contact, you may include a short text to the user alongside your tool calls.",
-    "- When you're done, text the user in the first person. Relay concrete facts, say what you arranged, and ask for anything you still need. Use only facts from the businesses' replies, the conversation and what you know about the user; never invent details. Don't mention tools, A2A, PAC2, protocols or context IDs. Plain text, no markdown, at most three short sentences.",
+    "- Ask the user before changing an order, booking or delivery unless they already asked for that change.",
+    `- When you're done, text ${input.profile.name} directly as their agent, calling them "you". Relay concrete facts, say what you arranged, and ask for anything you still need. Use only facts from the businesses' replies, the conversation and what you know about the user; never invent details. Don't mention tools, A2A, PAC2, protocols or context IDs. Plain text, no markdown, at most three short sentences.`,
   ].join("\n\n");
 }
 
