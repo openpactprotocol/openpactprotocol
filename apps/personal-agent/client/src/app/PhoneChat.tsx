@@ -1,7 +1,8 @@
 "use client";
 
 import { ArrowUp, AudioLines, Plus } from "lucide-react";
-import { useOptimistic, useRef, type ReactElement } from "react";
+import { useRouter } from "next/navigation";
+import { startTransition, useOptimistic, useRef, type ReactElement } from "react";
 import type { PhoneMessage } from "../lib/conversationStore.js";
 import { sendChatMessage } from "./actions.js";
 
@@ -13,6 +14,7 @@ export function PhoneChat(input: {
   conversationId: string;
   connected: boolean;
 }): ReactElement {
+  const router = useRouter();
   const [pendingText, setPendingText] = useOptimistic<string | undefined, string>(
     undefined,
     (_, text) => text,
@@ -24,7 +26,8 @@ export function PhoneChat(input: {
     if (!text) return;
     setPendingText(text);
     if (textInput.current) textInput.current.value = "";
-    await sendChatMessage(formData);
+    const href = await sendChatMessage(formData);
+    startTransition(() => router.replace(href));
   }
 
   const messages: PhoneMessage[] = pendingText
