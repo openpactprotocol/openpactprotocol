@@ -17,7 +17,7 @@ Agent Card. The customer-specific base is
 | `GET`           | `tasks`                                         | `200` with an empty `ListTasksResponse`                             |
 | `GET`           | `tasks/{id}`                                    | A2A `TASK_NOT_FOUND` error                                          |
 | `POST`          | `tasks/{id}:cancel`                             | A2A `TASK_NOT_FOUND` error                                          |
-| `GET`, `POST`   | `tasks/{id}:subscribe`                          | A2A `UNSUPPORTED_OPERATION` error                                   |
+| `POST`          | `tasks/{id}:subscribe`                          | A2A `UNSUPPORTED_OPERATION` error                                   |
 | `GET`, `POST`   | `tasks/{id}/pushNotificationConfigs`            | A2A `PUSH_NOTIFICATION_NOT_SUPPORTED` error                         |
 | `GET`, `DELETE` | `tasks/{id}/pushNotificationConfigs/{configId}` | A2A `PUSH_NOTIFICATION_NOT_SUPPORTED` error                         |
 | `GET`           | `extendedAgentCard`                             | A2A `UNSUPPORTED_OPERATION` error                                   |
@@ -34,7 +34,7 @@ message body. Authentication failures are empty `401` responses with
 unknown customer gets an empty `404`.
 
 Paths and methods are matched before authentication. Any unlisted path or
-wrong method returns an empty `404`, without an A2A error body. For example,
+wrong method returns a `404` (or `405`) without an A2A error body. For example,
 `POST tasks/{id}` is not the `GET tasks/{id}` operation.
 
 ## Task compatibility routes

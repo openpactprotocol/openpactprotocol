@@ -32,7 +32,7 @@ variables:
 - `PA_ISSUER` and `PA_PRIVATE_JWK`: platform identity and signing key.
 - `PA_PLATFORM_NAME`: optional platform registration name; defaults to
   `demo-pa`.
-- `PA_AUDIENCE`: optional runtime audience override.
+- `PA_AUDIENCE`: runtime JWT audience assigned by the provider.
 - `OPENAI_API_KEY`: optional key for the PA's tool-calling agent loop; without
   it, the PA uses keyword routing and the deterministic fallback.
 - `OPENAI_MODEL`: optional model name; defaults to `gpt-6-luna`.

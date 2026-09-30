@@ -90,14 +90,15 @@ Select the `supportedInterfaces` entry with `protocolBinding` `HTTP+JSON` and
 ## 4. Sign and send a message
 
 Runtime tokens identify the registered platform in `iss`; `sub` is a stable,
-pseudonymous user handle; and `aud` defaults to `$PROVIDER_URL/a2a`. Unlike a
+pseudonymous user handle; and `aud` is the audience assigned by the provider.
+Unlike a
 registration assertion, a runtime token does not require a `jti`.
 
 ```ts
 const runtimeToken = await new SignJWT({ sub: USER_SUB })
   .setProtectedHeader({ alg: "ES256", kid })
   .setIssuer(ISSUER)
-  .setAudience(`${PROVIDER_URL}/a2a`)
+  .setAudience(PA_AUDIENCE)
   .setIssuedAt()
   .setExpirationTime("2m")
   .sign(privateKey);

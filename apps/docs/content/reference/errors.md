@@ -45,8 +45,8 @@ Check that:
 
 - `Authorization` is `Bearer <JWT>` and the JWT is signed by a registered,
   enabled platform's current JWKS key.
-- `iss` exactly matches the registered issuer and `aud` is the registered
-  audience or the provider-wide default `{PROVIDER_URL}/a2a`.
+- `iss` exactly matches the registered issuer and `aud` is the audience the
+  provider assigned at registration.
 - `sub`, `iat`, and `exp` are present, and the token has not expired.
 - The signing algorithm is `RS256` or `ES256`.
 

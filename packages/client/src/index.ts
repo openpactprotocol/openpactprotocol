@@ -162,7 +162,7 @@ export class A2AClient {
       url: string;
       signer: PlatformSigner;
       userId: string;
-      audience?: string;
+      audience: string;
       fetchImpl?: typeof fetch;
     },
   ) {}
@@ -170,8 +170,10 @@ export class A2AClient {
   private async request(path: string, body: unknown): Promise<Message> {
     const baseUrl = this.options.url.replace(/\/+$/, "");
     const url = new URL(`${baseUrl}${path}`);
-    const audience = this.options.audience ?? `${new URL(this.options.url).origin}/a2a`;
-    const token = await this.options.signer.sign({ sub: this.options.userId, aud: audience });
+    const token = await this.options.signer.sign({
+      sub: this.options.userId,
+      aud: this.options.audience,
+    });
     const response = await (this.options.fetchImpl ?? fetch)(url, {
       method: "POST",
       headers: {

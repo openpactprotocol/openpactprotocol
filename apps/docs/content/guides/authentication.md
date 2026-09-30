@@ -17,18 +17,19 @@ JWKS URI.
 
 Runtime tokens must contain `iss`, `sub`, `aud`, `iat`, and `exp`.
 
-| Claim | Meaning                                               |
-| ----- | ----------------------------------------------------- |
-| `iss` | Exact issuer string registered for the platform       |
-| `sub` | Stable, pseudonymous platform user handle             |
-| `aud` | Registered audience override, or `{PROVIDER_URL}/a2a` |
-| `iat` | Issued-at timestamp in seconds                        |
-| `exp` | Expiration timestamp in seconds                       |
+| Claim | Meaning                                           |
+| ----- | ------------------------------------------------- |
+| `iss` | Exact issuer string registered for the platform   |
+| `sub` | Stable, pseudonymous platform user handle         |
+| `aud` | Audience assigned by the provider at registration |
+| `iat` | Issued-at timestamp in seconds                    |
+| `exp` | Expiration timestamp in seconds                   |
 
-One token with the default audience works for every Customer interface on the
-provider. Do not set the audience to the customer-specific Agent Card URL.
-The platform may register an explicit audience override; otherwise the
-provider uses the shared default audience.
+The audience is provider-wide: one token works for every Customer interface
+on the provider. Do not set it to the customer-specific Agent Card URL. The
+provider assigns it when the platform registers (the reference provider uses
+its `A2A_AUDIENCE` unless an override is registered); configure it as
+`PA_AUDIENCE`.
 
 The verifier requires expiration and applies a 30-second clock tolerance. It
 also rejects an `iat` more than 30 seconds in the future. Runtime tokens do

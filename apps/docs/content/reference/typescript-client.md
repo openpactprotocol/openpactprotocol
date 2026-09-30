@@ -81,7 +81,7 @@ pac2 chat
 `register` requires `PROVIDER_URL`, `PA_ISSUER`, and `PA_PRIVATE_JWK`, but not
 `CUSTOMER_ID`. The name defaults to `PA_PLATFORM_NAME`, then `demo-pa`.
 `card`, `send`, and `chat` also need `CUSTOMER_ID`; send and chat require the
-issuer and private JWK. Set `PA_AUDIENCE` to override the runtime audience.
+issuer, private JWK, and `PA_AUDIENCE`.
 `PA_USER_ID` optionally sets the CLI's pseudonymous user subject and defaults
 to `demo-user`.
 

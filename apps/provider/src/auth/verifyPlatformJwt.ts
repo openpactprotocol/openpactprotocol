@@ -28,7 +28,7 @@ export function getRemoteJwks(jwksUri: string): JWTVerifyGetKey {
 
 export async function verifyPlatformJwt(input: {
   authorization: string | null;
-  providerBaseUrl: string;
+  defaultAudience: string;
   db: Db;
   getJwks?: (uri: string) => JWTVerifyGetKey;
   now?: () => Date;
@@ -51,7 +51,7 @@ export async function verifyPlatformJwt(input: {
     });
     if (!platform || !platform.enabled) return reject("unknown or disabled platform");
     const getJwks = input.getJwks ?? getRemoteJwks;
-    const audience = platform.audience ?? `${input.providerBaseUrl}/a2a`;
+    const audience = platform.audience ?? input.defaultAudience;
     const { payload } = await jwtVerify(token, getJwks(platform.jwksUri), {
       algorithms: ["RS256", "ES256"],
       issuer: platform.issuer,

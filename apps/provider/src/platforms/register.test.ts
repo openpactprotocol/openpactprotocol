@@ -104,6 +104,7 @@ async function expectUnauthorized(response: Response): Promise<void> {
 }
 
 beforeAll(async () => {
+  process.env.A2A_AUDIENCE = `${origin}/a2a`;
   keyPair = await generateKeyPair("ES256", { extractable: true });
   const publicJwk = (await exportJWK(keyPair.publicKey)) as JWK;
   kid = await calculateJwkThumbprint(publicJwk);
@@ -131,6 +132,7 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await client.close();
+  delete process.env.A2A_AUDIENCE;
 });
 
 describe("platform registration", () => {

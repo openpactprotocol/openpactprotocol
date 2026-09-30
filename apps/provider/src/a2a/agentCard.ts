@@ -27,7 +27,7 @@ export function buildAgentCard(
           scheme: "Bearer",
           bearerFormat: "JWT",
           description:
-            "JWT signed by a registered Personal Agent platform; aud is the platform's registered audience (default {base}/a2a)",
+            "JWT signed by a registered Personal Agent platform; aud is the audience assigned by the provider at registration",
         },
       },
     },

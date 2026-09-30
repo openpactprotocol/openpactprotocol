@@ -229,6 +229,7 @@ export default async function HomePage({
   const userId = (await cookies()).get(USER_ID_COOKIE)?.value ?? "";
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
+  const audience = process.env.PA_AUDIENCE;
   let conversations: PaConversation[] = [];
   let selectedConversation: PaConversation | undefined;
   const registration = readRegistrationNotice(query);
@@ -316,10 +317,10 @@ export default async function HomePage({
           </button>
         </form>
 
-        {!issuer || !privateJwk ? (
+        {!issuer || !privateJwk || !audience ? (
           <p className="alert">
             <CircleAlert size={16} aria-hidden />
-            Configure PA_ISSUER and PA_PRIVATE_JWK in the server environment.
+            Configure PA_ISSUER, PA_PRIVATE_JWK, and PA_AUDIENCE in the server environment.
           </p>
         ) : null}
         {error ? (

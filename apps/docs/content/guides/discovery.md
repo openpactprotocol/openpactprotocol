@@ -88,8 +88,8 @@ provider.
 2. Use its `url` as the interface base for `message:send` and task
    compatibility routes.
 3. Read `securitySchemes.platformJwt` to learn that the interface uses a
-   bearer JWT. The default audience is provider-wide, `{PROVIDER_URL}/a2a`,
-   rather than the customer-specific `url`.
+   bearer JWT. The audience is provider-wide and assigned at registration,
+   not the customer-specific `url`.
 
 An Agent Card is metadata and does not register or authenticate a platform.
 Continue with the [authentication guide](/guides/authentication) before

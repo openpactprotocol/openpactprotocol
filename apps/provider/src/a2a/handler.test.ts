@@ -159,6 +159,7 @@ describe("A2A handler", () => {
   beforeAll(async () => {
     previousProviderUrl = process.env.PROVIDER_URL;
     process.env.PROVIDER_URL = origin;
+    process.env.A2A_AUDIENCE = defaultAudience;
     const pair = await generateKeyPair("ES256", { extractable: true });
     signingKey = pair.privateKey;
     publicJwk = (await exportJWK(pair.publicKey)) as JWK & { kid: string };
@@ -200,6 +201,7 @@ describe("A2A handler", () => {
 
   afterAll(async () => {
     await pglite.close();
+    delete process.env.A2A_AUDIENCE;
     if (previousProviderUrl === undefined) delete process.env.PROVIDER_URL;
     else process.env.PROVIDER_URL = previousProviderUrl;
   });
@@ -230,7 +232,7 @@ describe("A2A handler", () => {
       },
     ]);
     expect(card.securitySchemes.platformJwt.httpAuthSecurityScheme.description).toBe(
-      "JWT signed by a registered Personal Agent platform; aud is the platform's registered audience (default {base}/a2a)",
+      "JWT signed by a registered Personal Agent platform; aud is the audience assigned by the provider at registration",
     );
     expect(card.name).toBe("Skyline Airways");
     expect(card.description).toBe("Flight status and trip changes.");
@@ -289,6 +291,7 @@ describe("A2A handler", () => {
       ["PUT", "message:send"],
       ["POST", "tasks"],
       ["GET", "tasks/task-1:cancel"],
+      ["GET", "tasks/task-1:subscribe"],
       ["DELETE", "tasks/task-1/pushNotificationConfigs"],
       ["POST", "tasks/task-1/pushNotificationConfigs/config-1"],
     ]) {
@@ -579,7 +582,6 @@ describe("A2A handler", () => {
 
     for (const [method, path] of [
       ["POST", "message:stream"],
-      ["GET", "tasks/task-1:subscribe"],
       ["POST", "tasks/task-1:subscribe"],
       ["GET", "extendedAgentCard"],
     ]) {

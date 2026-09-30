@@ -72,14 +72,12 @@ async function main(): Promise<void> {
     console.log(JSON.stringify(discovered.card, null, 2));
     return;
   }
-  if (!issuer || !privateJwk) throw new Error("Set PA_ISSUER and PA_PRIVATE_JWK");
+  const audience = process.env.PA_AUDIENCE;
+  if (!issuer || !privateJwk || !audience) {
+    throw new Error("Set PA_ISSUER, PA_PRIVATE_JWK, and PA_AUDIENCE");
+  }
   const signer = createPlatformSigner({ issuer, privateJwk });
-  const client = new A2AClient({
-    url: discovered.url,
-    signer,
-    userId,
-    ...(process.env.PA_AUDIENCE ? { audience: process.env.PA_AUDIENCE } : {}),
-  });
+  const client = new A2AClient({ url: discovered.url, signer, userId, audience });
   if (command === "send") {
     const contextIndex = args.indexOf("--context");
     const contextId = contextIndex < 0 ? undefined : args[contextIndex + 1];

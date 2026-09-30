@@ -99,8 +99,8 @@ function matchRoute(method: string, segments: string[]): HandlerRoute | null {
   }
   if (path.length === 2 && path[0] === "tasks" && path[1]) {
     const subscribeId = path[1].match(/^(.+):subscribe$/)?.[1];
-    if (subscribeId && (method === "GET" || method === "POST")) {
-      return { kind: "unsupported" };
+    if (subscribeId) {
+      return method === "POST" ? { kind: "unsupported" } : null;
     }
     const cancelId = path[1].match(/^(.+):cancel$/)?.[1];
     if (cancelId) {
@@ -196,10 +196,11 @@ export function createA2AHandler(options: HandlerOptions): A2AHandler {
       }
     }
 
-    const providerBaseUrl = getProviderBaseUrl(request);
+    const defaultAudience = process.env.A2A_AUDIENCE;
+    if (!defaultAudience) throw new Error("Set A2A_AUDIENCE");
     const auth = await verifyPlatformJwt({
       authorization: request.headers.get("authorization"),
-      providerBaseUrl,
+      defaultAudience,
       db: options.db,
       ...(options.getJwks ? { getJwks: options.getJwks } : {}),
       ...(options.now ? { now: options.now } : {}),

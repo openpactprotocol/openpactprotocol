@@ -2,8 +2,8 @@
 
 `@pac2/client` provides platform JWT signing, Agent Card discovery, message
 sending, and platform registration. `A2AClient.sendMessage(text, { contextId
-})` returns a `Message`; its default audience is `{provider origin}/a2a`, or
-pass `audience` for a platform with an explicit registration override.
+})` returns a `Message`; `audience` is the value the provider assigned at
+registration.
 
 The `pac2` CLI supports:
 
@@ -15,8 +15,8 @@ pnpm --filter @pac2/client pac2 chat
 pnpm --filter @pac2/client pac2 register
 ```
 
-The A2A commands use `PROVIDER_URL`, `CUSTOMER_ID`, `PA_ISSUER`, and
-`PA_PRIVATE_JWK`; registration does not require a customer ID. Set
-`PA_AUDIENCE` only to override the shared default. See the [authentication
+The A2A commands use `PROVIDER_URL`, `CUSTOMER_ID`, `PA_ISSUER`,
+`PA_PRIVATE_JWK`, and `PA_AUDIENCE`; registration does not require a customer
+ID or audience. See the [authentication
 guide](../../apps/docs/content/guides/authentication.md) and [messaging
 guide](../../apps/docs/content/guides/messaging.md) for request and JWT rules.

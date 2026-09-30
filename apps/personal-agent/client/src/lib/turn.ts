@@ -117,6 +117,7 @@ export async function runTurn(
     userId: string;
     issuer: string;
     privateJwk: string;
+    audience: string;
   },
   emit: (event: TurnEvent) => void,
 ): Promise<void> {
@@ -204,7 +205,7 @@ export async function runTurn(
         url: business.url,
         signer,
         userId: input.userId,
-        ...(process.env.PA_AUDIENCE ? { audience: process.env.PA_AUDIENCE } : {}),
+        audience: input.audience,
       });
       const previousThread = conversation.threads.find(
         (thread) => thread.customerId === business.customerId,

@@ -12,7 +12,7 @@ The initial migration creates four tables:
 
 - `customers`: text ULID primary key and unique display name.
 - `agent_platforms`: registered platform name, issuer, JWKS URI, enabled flag,
-  and optional audience. A null audience means `{PROVIDER_URL}/a2a`.
+  and optional audience. A null audience means `A2A_AUDIENCE`.
 - `conversations`: UUID primary key used as `contextId`, customer and
   `{platform}:{sub}` owner, optional agent flow metadata, and timestamps.
 - `messages`: stored user and agent messages with JSON parts and message IDs
@@ -30,8 +30,9 @@ disabled platform.
 
 - `DATABASE_URL`: PostgreSQL connection URL.
 - `PA_ISSUER`: issuer for the seeded PA platform.
-- `PROVIDER_URL`: optional public provider URL used for card URLs and the
-  default runtime JWT audience.
+- `A2A_AUDIENCE`: runtime JWT audience assigned to registered platforms
+  (e.g. `http://localhost:3000/a2a`).
+- `PROVIDER_URL`: optional public provider URL used for card URLs.
 - `DATABASE_POOL_MAX`: use `1` with the local PGlite socket.
 - `OPENAI_API_KEY`: optional; when set, business agents generate replies with
   OpenAI and fall back to their deterministic canned replies on errors or

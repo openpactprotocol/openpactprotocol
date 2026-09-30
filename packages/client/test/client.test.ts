@@ -56,6 +56,7 @@ describe("reference client", () => {
       url: `https://provider.example/a2a/${skylineCustomerId}/`,
       signer,
       userId: "user-1",
+      audience: "https://provider.example/a2a",
       fetchImpl: async (input, init) => {
         requests.push({ url: new URL(input.toString()), init: init ?? {} });
         return Response.json({ message });
@@ -170,6 +171,7 @@ describe("reference client", () => {
       url: `https://provider.example/a2a/${skylineCustomerId}`,
       signer,
       userId: "demo",
+      audience: "https://provider.example/a2a",
       fetchImpl: async () =>
         Response.json(
           {
@@ -201,6 +203,7 @@ describe("reference client", () => {
       url: `https://provider.example/a2a/${skylineCustomerId}`,
       signer,
       userId: "demo",
+      audience: "https://provider.example/a2a",
       fetchImpl: async () => new Response(null, { status: 401 }),
     });
     await expect(httpClient.sendMessage("hello")).rejects.toBeInstanceOf(A2AHttpError);

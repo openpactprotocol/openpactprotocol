@@ -37,7 +37,8 @@ export async function POST(request: Request): Promise<Response> {
   if (!userId) return Response.json({ error: "Missing user ID" }, { status: 400 });
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
-  if (!issuer || !privateJwk) {
+  const audience = process.env.PA_AUDIENCE;
+  if (!issuer || !privateJwk || !audience) {
     return Response.json({ error: "PA signing credentials are not configured" }, { status: 500 });
   }
 
@@ -64,6 +65,7 @@ export async function POST(request: Request): Promise<Response> {
           userId,
           issuer,
           privateJwk,
+          audience,
         },
         emit,
       )

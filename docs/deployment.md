@@ -22,6 +22,7 @@ Configure the provider with:
 
 - `DATABASE_URL`: PostgreSQL connection URL.
 - `PA_ISSUER`: platform issuer used by the seed for `demo-pa` and `disabled-pa`.
+- `A2A_AUDIENCE`: runtime JWT audience assigned to registered platforms.
 - `PROVIDER_URL`: optional public provider base URL; when unset, the provider
   derives it from the request or Vercel production URL.
 
