@@ -17,12 +17,15 @@ export function defaultPlatformName(): string {
 
 export function homePath(input: {
   providerUrl: string;
-  slug: string;
-  task?: string;
+  customerId: string;
+  contextId?: string;
   registration?: RegistrationNotice;
 }): string {
-  const params = new URLSearchParams({ providerUrl: input.providerUrl, slug: input.slug });
-  if (input.task) params.set("task", input.task);
+  const params = new URLSearchParams({
+    providerUrl: input.providerUrl,
+    customerId: input.customerId,
+  });
+  if (input.contextId) params.set("context", input.contextId);
   if (input.registration) {
     params.set("registration", input.registration.status);
     params.set("platformName", input.registration.name);

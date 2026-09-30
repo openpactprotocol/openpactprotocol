@@ -213,14 +213,14 @@ button:disabled {
   font-size: 14px;
   font-weight: 600;
 }
-.task-list {
+.conversation-list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: grid;
   gap: 4px;
 }
-.task {
+.conversation-link {
   display: grid;
   gap: 6px;
   padding: 10px;
@@ -228,11 +228,11 @@ button:disabled {
   color: var(--text);
   border: 1px solid transparent;
 }
-.task:hover {
+.conversation-link:hover {
   background: var(--bg);
   text-decoration: none;
 }
-.task.active {
+.conversation-link.active {
   background: var(--accent-soft);
   border-color: #c7d2fe;
 }
@@ -242,38 +242,12 @@ button:disabled {
   white-space: nowrap;
   font-weight: 500;
 }
-.task-meta {
+.conversation-meta {
   display: flex;
   align-items: center;
   justify-content: space-between;
   color: var(--muted);
   font-size: 12px;
-}
-
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 12px;
-  font-weight: 500;
-  background: #f3f4f6;
-  color: #374151;
-}
-.state-input-required {
-  background: #fffbeb;
-  color: #b45309;
-}
-.state-completed {
-  background: #ecfdf5;
-  color: #047857;
-}
-.state-failed,
-.state-rejected,
-.state-canceled {
-  background: #fef2f2;
-  color: #b91c1c;
 }
 
 .chat {

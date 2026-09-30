@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { A2AClient, A2AHttpError, createPlatformSigner, discoverAgent } from "@pap/client";
-import type { AgentCard, Message, Task, TaskState } from "@pap/protocol";
+import { A2AHttpError, discoverAgent } from "@pap/client";
+import type { AgentCard } from "@pap/protocol";
 import {
   Bot,
   CircleAlert,
   CircleCheck,
   CircleX,
-  Clock,
   Headset,
   Fingerprint,
   KeyRound,
@@ -29,49 +28,14 @@ import {
   USER_ID_COOKIE,
   type RegistrationNotice,
 } from "../lib/session.js";
+import {
+  listConversations,
+  type StoredConversation,
+  type StoredConversationMessage,
+} from "../lib/conversationStore.js";
 import { connect, newUser, registerPersonalAgent, sendChatMessage } from "./actions.js";
 
 export const dynamic = "force-dynamic";
-
-const TERMINAL_STATES: TaskState[] = [
-  "TASK_STATE_COMPLETED",
-  "TASK_STATE_FAILED",
-  "TASK_STATE_CANCELED",
-  "TASK_STATE_REJECTED",
-];
-
-function stateLabel(state: TaskState): string {
-  const words = state.replace("TASK_STATE_", "").toLowerCase().replace(/_/g, " ");
-  return words.charAt(0).toUpperCase() + words.slice(1);
-}
-
-function stateClass(state: TaskState): string {
-  return `pill state-${state.replace("TASK_STATE_", "").toLowerCase().replace(/_/g, "-")}`;
-}
-
-function StateIcon({ state }: { state: TaskState }): ReactElement {
-  if (state === "TASK_STATE_COMPLETED") return <CircleCheck size={12} aria-hidden />;
-  if (TERMINAL_STATES.includes(state)) return <CircleX size={12} aria-hidden />;
-  return <Clock size={12} aria-hidden />;
-}
-
-function StatePill({ state }: { state: TaskState }): ReactElement {
-  return (
-    <span className={stateClass(state)}>
-      <StateIcon state={state} />
-      {stateLabel(state)}
-    </span>
-  );
-}
-
-function messageText(message: Message): string {
-  return message.parts.map((part) => ("text" in part ? part.text : "[non-text part]")).join("\n");
-}
-
-function taskPreview(task: Task): string {
-  const first = task.history?.find((message) => message.role === "ROLE_USER");
-  return first ? messageText(first) : "Untitled conversation";
-}
 
 function formatTime(timestamp: string | undefined): string {
   if (!timestamp) return "";
@@ -121,7 +85,7 @@ function RegistrationResult({ notice }: { notice: RegistrationNotice }): ReactEl
 
 function RegisterPanel(input: {
   providerUrl: string;
-  slug: string;
+  customerId: string;
   issuer: string;
   open: boolean;
   notice: RegistrationNotice | undefined;
@@ -171,7 +135,7 @@ function RegisterPanel(input: {
         </ol>
         <form className="register-form" action={registerPersonalAgent}>
           <input name="providerUrl" type="hidden" value={input.providerUrl} />
-          <input name="slug" type="hidden" value={input.slug} />
+          <input name="customerId" type="hidden" value={input.customerId} />
           <label>
             <span>Platform name</span>
             <input value={defaultPlatformName()} readOnly />
@@ -223,8 +187,8 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{
     providerUrl?: string;
-    slug?: string;
-    task?: string;
+    customerId?: string;
+    context?: string;
     registration?: string;
     platformName?: string;
     registrationError?: string;
@@ -232,27 +196,26 @@ export default async function HomePage({
 }): Promise<ReactElement> {
   const query = await searchParams;
   const providerUrl = query.providerUrl ?? process.env.PROVIDER_URL ?? "http://localhost:3000";
-  const slug = query.slug ?? process.env.CUSTOMER_SLUG ?? "";
+  const customerId = query.customerId ?? process.env.CUSTOMER_ID ?? "";
   const userId = (await cookies()).get(USER_ID_COOKIE)?.value ?? "";
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
   let card: AgentCard | undefined;
-  let tasks: Task[] = [];
-  let selectedTask: Task | undefined;
+  let conversations: StoredConversation[] = [];
+  let selectedConversation: StoredConversation | undefined;
   let error: string | undefined;
   let unauthorized = false;
   const registration = readRegistrationNotice(query);
-  if (slug && userId && issuer && privateJwk) {
+  if (customerId && userId) {
+    conversations = await listConversations({ userId, providerUrl, customerId });
+    selectedConversation = conversations.find(
+      (conversation) => conversation.contextId === query.context,
+    );
+  }
+  if (customerId && issuer && privateJwk) {
     try {
-      const discovery = await discoverAgent(providerUrl, slug);
+      const discovery = await discoverAgent(providerUrl, customerId);
       card = discovery.card;
-      const client = new A2AClient({
-        url: discovery.url,
-        signer: createPlatformSigner({ issuer, privateJwk }),
-        userId,
-      });
-      tasks = (await client.listTasks({ pageSize: 100 })).tasks;
-      if (query.task) selectedTask = await client.getTask(query.task);
     } catch (cause) {
       unauthorized = cause instanceof A2AHttpError && cause.status === 401;
       error = unauthorized
@@ -262,8 +225,7 @@ export default async function HomePage({
           : "Could not connect to the provider.";
     }
   }
-  const messages = selectedTask?.history ?? [];
-  const closed = selectedTask ? TERMINAL_STATES.includes(selectedTask.status.state) : false;
+  const messages: StoredConversationMessage[] = selectedConversation?.messages ?? [];
   const agentInterface = card?.supportedInterfaces[0];
   const auth = card ? authLabel(card) : undefined;
 
@@ -291,8 +253,8 @@ export default async function HomePage({
             <input name="providerUrl" defaultValue={providerUrl} />
           </label>
           <label>
-            <span>Customer slug</span>
-            <input name="slug" defaultValue={slug} placeholder="abc1234_customer" />
+            <span>Customer ID</span>
+            <input name="customerId" defaultValue={customerId} placeholder="01J..." />
           </label>
           <label className="user-field">
             <span>User ID</span>
@@ -331,7 +293,7 @@ export default async function HomePage({
         {issuer && privateJwk ? (
           <RegisterPanel
             providerUrl={providerUrl}
-            slug={slug}
+            customerId={customerId}
             issuer={issuer}
             open={unauthorized || registration !== undefined}
             notice={registration}
@@ -342,28 +304,38 @@ export default async function HomePage({
           <aside className="card sidebar">
             <div className="sidebar-head">
               <h2>Conversations</h2>
-              <Link className="button secondary small" href={homePath({ providerUrl, slug })}>
+              <Link className="button secondary small" href={homePath({ providerUrl, customerId })}>
                 <SquarePen size={14} aria-hidden />
                 New chat
               </Link>
             </div>
-            {tasks.length === 0 ? (
+            {conversations.length === 0 ? (
               <div className="empty">
                 <MessagesSquare size={20} aria-hidden />
                 No conversations yet.
               </div>
             ) : (
-              <ul className="task-list">
-                {tasks.map((task) => (
-                  <li key={task.id}>
+              <ul className="conversation-list">
+                {conversations.map((conversation) => (
+                  <li key={conversation.contextId}>
                     <Link
-                      href={homePath({ providerUrl, slug, task: task.id })}
-                      className={task.id === selectedTask?.id ? "task active" : "task"}
+                      href={homePath({
+                        providerUrl,
+                        customerId,
+                        contextId: conversation.contextId,
+                      })}
+                      className={
+                        conversation.contextId === selectedConversation?.contextId
+                          ? "conversation-link active"
+                          : "conversation-link"
+                      }
                     >
-                      <span className="preview">{taskPreview(task)}</span>
-                      <span className="task-meta">
-                        <StatePill state={task.status.state} />
-                        <span>{formatTime(task.status.timestamp)}</span>
+                      <span className="preview">
+                        {conversation.messages.find((message) => message.role === "ROLE_USER")
+                          ?.text ?? "Untitled conversation"}
+                      </span>
+                      <span className="conversation-meta">
+                        <span>{formatTime(conversation.updatedAt)}</span>
                       </span>
                     </Link>
                   </li>
@@ -407,14 +379,17 @@ export default async function HomePage({
               <header className="agent">
                 <div className="agent-body">
                   <h2>Not connected</h2>
-                  <p>Enter a provider URL and customer slug, then connect.</p>
+                  <p>Enter a provider URL and customer ID, then connect.</p>
                 </div>
               </header>
             )}
 
             <div className="thread-head">
-              <h3>{selectedTask ? `Task ${selectedTask.id.slice(0, 8)}` : "New conversation"}</h3>
-              {selectedTask ? <StatePill state={selectedTask.status.state} /> : null}
+              <h3>
+                {selectedConversation
+                  ? `Conversation ${selectedConversation.contextId.slice(0, 8)}`
+                  : "New conversation"}
+              </h3>
             </div>
 
             <div className="thread">
@@ -424,47 +399,37 @@ export default async function HomePage({
                   Ask about hours, location, parking, or insurance.
                 </div>
               ) : (
-                messages.map((message) => (
+                messages.map((message, index) => (
                   <article
                     className={message.role === "ROLE_USER" ? "bubble user" : "bubble agent-msg"}
-                    key={message.messageId}
+                    key={`${message.at}-${index}`}
                   >
                     <span className="author">
                       {message.role === "ROLE_USER" ? "You" : (card?.name ?? "Agent")}
                     </span>
-                    <p>{messageText(message)}</p>
+                    <p>{message.text}</p>
                   </article>
                 ))
               )}
             </div>
 
-            {closed ? (
-              <p className="closed">
-                <CircleCheck size={16} aria-hidden />
-                <span>
-                  This conversation is complete.{" "}
-                  <Link href={homePath({ providerUrl, slug })}>Start a new one</Link>.
-                </span>
-              </p>
-            ) : (
-              <form className="composer" action={sendChatMessage}>
-                <input name="providerUrl" type="hidden" value={providerUrl} />
-                <input name="slug" type="hidden" value={slug} />
-                <input name="taskId" type="hidden" value={selectedTask?.id ?? ""} />
-                <textarea
-                  name="text"
-                  required
-                  rows={2}
-                  placeholder={selectedTask ? "Reply…" : "Write a message…"}
-                  aria-label="Message"
-                  disabled={!card}
-                />
-                <button type="submit" className="primary" disabled={!card}>
-                  <SendHorizontal size={16} aria-hidden />
-                  Send
-                </button>
-              </form>
-            )}
+            <form className="composer" action={sendChatMessage}>
+              <input name="providerUrl" type="hidden" value={providerUrl} />
+              <input name="customerId" type="hidden" value={customerId} />
+              <input name="contextId" type="hidden" value={selectedConversation?.contextId ?? ""} />
+              <textarea
+                name="text"
+                required
+                rows={2}
+                placeholder={selectedConversation ? "Reply…" : "Write a message…"}
+                aria-label="Message"
+                disabled={!card}
+              />
+              <button type="submit" className="primary" disabled={!card}>
+                <SendHorizontal size={16} aria-hidden />
+                Send
+              </button>
+            </form>
           </section>
         </div>
       </main>
