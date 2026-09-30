@@ -24,3 +24,4 @@ jobs:
       - run: pnpm format:check
       - run: pnpm --filter @pap/provider build
       - run: pnpm --filter @pap/personal-agent-client build
+      - run: pnpm --filter @pap/docs build
