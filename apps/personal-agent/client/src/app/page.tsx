@@ -29,14 +29,15 @@ import type { ReactElement } from "react";
 import {
   defaultPlatformName,
   homePath,
+  parseCustomerIds,
   readRegistrationNotice,
   USER_ID_COOKIE,
   type RegistrationNotice,
 } from "../lib/session.js";
 import {
   listConversations,
-  type StoredConversation,
-  type StoredConversationMessage,
+  type PaConversation,
+  type PhoneMessage,
 } from "../lib/conversationStore.js";
 import { connect, newUser, registerPersonalAgent, sendChatMessage } from "./actions.js";
 
@@ -66,9 +67,9 @@ function formatClock(timestamp: string | undefined): string {
   return new Date(timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-function lastUserIndex(messages: StoredConversationMessage[]): number {
+function lastUserIndex(messages: PhoneMessage[]): number {
   for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index]?.role === "ROLE_USER") return index;
+    if (messages[index]?.role === "user") return index;
   }
   return -1;
 }
@@ -115,7 +116,7 @@ function RegistrationResult({ notice }: { notice: RegistrationNotice }): ReactEl
 
 function RegisterPanel(input: {
   providerUrl: string;
-  customerId: string;
+  customerIds: string[];
   issuer: string;
   open: boolean;
   notice: RegistrationNotice | undefined;
@@ -165,7 +166,7 @@ function RegisterPanel(input: {
         </ol>
         <form className="register-form" action={registerPersonalAgent}>
           <input name="providerUrl" type="hidden" value={input.providerUrl} />
-          <input name="customerId" type="hidden" value={input.customerId} />
+          <input name="customerIds" type="hidden" value={input.customerIds.join(",")} />
           <label>
             <span>Platform name</span>
             <input value={defaultPlatformName()} readOnly />
@@ -217,8 +218,8 @@ export default async function HomePage({
 }: {
   searchParams: Promise<{
     providerUrl?: string;
-    customerId?: string;
-    context?: string;
+    customerIds?: string;
+    conversation?: string;
     registration?: string;
     platformName?: string;
     registrationError?: string;
@@ -226,25 +227,26 @@ export default async function HomePage({
 }): Promise<ReactElement> {
   const query = await searchParams;
   const providerUrl = query.providerUrl ?? process.env.PROVIDER_URL ?? "http://localhost:3000";
-  const customerId = query.customerId ?? process.env.CUSTOMER_ID ?? "";
+  const customerIds = parseCustomerIds(query.customerIds ?? process.env.CUSTOMER_IDS);
+  const firstCustomerId = customerIds[0];
   const userId = (await cookies()).get(USER_ID_COOKIE)?.value ?? "";
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
   let card: AgentCard | undefined;
-  let conversations: StoredConversation[] = [];
-  let selectedConversation: StoredConversation | undefined;
+  let conversations: PaConversation[] = [];
+  let selectedConversation: PaConversation | undefined;
   let error: string | undefined;
   let unauthorized = false;
   const registration = readRegistrationNotice(query);
-  if (customerId && userId) {
-    conversations = await listConversations({ userId, providerUrl, customerId });
+  if (userId) {
+    conversations = await listConversations({ userId, providerUrl });
     selectedConversation = conversations.find(
-      (conversation) => conversation.contextId === query.context,
+      (conversation) => conversation.id === query.conversation,
     );
   }
-  if (customerId && issuer && privateJwk) {
+  if (firstCustomerId && issuer && privateJwk) {
     try {
-      const discovery = await discoverAgent(providerUrl, customerId);
+      const discovery = await discoverAgent(providerUrl, firstCustomerId);
       card = discovery.card;
     } catch (cause) {
       unauthorized = cause instanceof A2AHttpError && cause.status === 401;
@@ -255,7 +257,7 @@ export default async function HomePage({
           : "Could not connect to the provider.";
     }
   }
-  const messages: StoredConversationMessage[] = selectedConversation?.messages ?? [];
+  const messages: PhoneMessage[] = selectedConversation?.messages ?? [];
   const agentInterface = card?.supportedInterfaces[0];
   const auth = card ? authLabel(card) : undefined;
 
@@ -283,8 +285,12 @@ export default async function HomePage({
             <input name="providerUrl" defaultValue={providerUrl} />
           </label>
           <label>
-            <span>Customer ID</span>
-            <input name="customerId" defaultValue={customerId} placeholder="01J..." />
+            <span>Businesses</span>
+            <input
+              name="customerIds"
+              defaultValue={customerIds.join(",")}
+              placeholder="Customer IDs"
+            />
           </label>
           <label className="user-field">
             <span>User ID</span>
@@ -323,7 +329,7 @@ export default async function HomePage({
         {issuer && privateJwk ? (
           <RegisterPanel
             providerUrl={providerUrl}
-            customerId={customerId}
+            customerIds={customerIds}
             issuer={issuer}
             open={unauthorized || registration !== undefined}
             notice={registration}
@@ -365,7 +371,7 @@ export default async function HomePage({
                   </div>
                 </div>
               ) : (
-                <p className="muted-text">Enter a provider URL and customer ID, then connect.</p>
+                <p className="muted-text">Enter a provider URL and business IDs, then connect.</p>
               )}
             </section>
 
@@ -374,7 +380,7 @@ export default async function HomePage({
                 <h2>Conversations</h2>
                 <Link
                   className="button secondary small"
-                  href={homePath({ providerUrl, customerId })}
+                  href={homePath({ providerUrl, customerIds })}
                 >
                   <SquarePen size={14} aria-hidden />
                   New chat
@@ -388,26 +394,26 @@ export default async function HomePage({
               ) : (
                 <ul className="conversation-list">
                   {conversations.map((conversation) => (
-                    <li key={conversation.contextId}>
+                    <li key={conversation.id}>
                       <Link
                         href={homePath({
                           providerUrl,
-                          customerId,
-                          contextId: conversation.contextId,
+                          customerIds,
+                          conversationId: conversation.id,
                         })}
                         className={
-                          conversation.contextId === selectedConversation?.contextId
+                          conversation.id === selectedConversation?.id
                             ? "conversation-link active"
                             : "conversation-link"
                         }
                       >
                         <span className="preview">
-                          {conversation.messages.find((message) => message.role === "ROLE_USER")
-                            ?.text ?? "Untitled conversation"}
+                          {conversation.messages.find((message) => message.role === "user")?.text ??
+                            "Untitled conversation"}
                         </span>
                         <span className="conversation-meta">
                           <span>{formatTime(conversation.updatedAt)}</span>
-                          <code>{conversation.contextId.slice(0, 8)}</code>
+                          <code>{conversation.id.slice(0, 8)}</code>
                         </span>
                       </Link>
                     </li>
@@ -433,7 +439,7 @@ export default async function HomePage({
                 <header className="contact">
                   <Link
                     className="round-button"
-                    href={homePath({ providerUrl, customerId })}
+                    href={homePath({ providerUrl, customerIds })}
                     aria-label="New conversation"
                     title="New conversation"
                   >
@@ -451,7 +457,7 @@ export default async function HomePage({
                   {card ? (
                     <a
                       className="round-button"
-                      href={agentCardUrl(providerUrl, customerId)}
+                      href={firstCustomerId ? agentCardUrl(providerUrl, firstCustomerId) : "#"}
                       target="_blank"
                       rel="noreferrer"
                       aria-label={`Open ${card.name} Agent Card`}
@@ -470,10 +476,10 @@ export default async function HomePage({
                       <span>
                         {card ? (
                           <>
-                            Connected to <strong>{card.name}</strong> via PAC2
+                            Connected to <strong>{customerIds.length} businesses</strong> via PAC2
                           </>
                         ) : (
-                          "Not connected to a support agent"
+                          "Not connected to any business"
                         )}
                       </span>
                       {card ? (
@@ -486,31 +492,41 @@ export default async function HomePage({
                     {messages.length === 0 ? null : (
                       <>
                         <p className="timestamp">{formatDay(messages[0]?.at)}</p>
-                        {messages.map((message, index) => (
-                          <div
-                            className={
-                              message.role === "ROLE_USER" ? "row outgoing" : "row incoming"
-                            }
-                            key={`${message.at}-${index}`}
-                          >
-                            {message.role !== "ROLE_USER" &&
-                            messages[index - 1]?.role !== message.role ? (
-                              <span className="sender">{card?.name ?? "Support agent"}</span>
-                            ) : null}
-                            <p className="bubble">{message.text}</p>
-                            {message.role === "ROLE_USER" && index === lastUserIndex(messages) ? (
-                              <span className="receipt">
-                                {messages[index + 1] ? (
-                                  <>
-                                    <strong>Read</strong> {formatClock(messages[index + 1]?.at)}
-                                  </>
-                                ) : (
-                                  "Delivered"
-                                )}
-                              </span>
-                            ) : null}
-                          </div>
-                        ))}
+                        {messages.map((message, index) => {
+                          const previousMessage = messages[index - 1];
+                          const showSender =
+                            message.role !== "user" &&
+                            (previousMessage?.role !== message.role ||
+                              (message.role === "business" &&
+                                previousMessage?.role === "business" &&
+                                previousMessage.businessName !== message.businessName));
+                          return (
+                            <div
+                              className={message.role === "user" ? "row outgoing" : "row incoming"}
+                              key={`${message.at}-${index}`}
+                            >
+                              {showSender ? (
+                                <span className="sender">
+                                  {message.role === "business"
+                                    ? message.businessName
+                                    : "Personal Agent"}
+                                </span>
+                              ) : null}
+                              <p className="bubble">{message.text}</p>
+                              {message.role === "user" && index === lastUserIndex(messages) ? (
+                                <span className="receipt">
+                                  {messages[index + 1] ? (
+                                    <>
+                                      <strong>Read</strong> {formatClock(messages[index + 1]?.at)}
+                                    </>
+                                  ) : (
+                                    "Delivered"
+                                  )}
+                                </span>
+                              ) : null}
+                            </div>
+                          );
+                        })}
                       </>
                     )}
                   </div>
@@ -518,11 +534,11 @@ export default async function HomePage({
 
                 <form className="composer" action={sendChatMessage}>
                   <input name="providerUrl" type="hidden" value={providerUrl} />
-                  <input name="customerId" type="hidden" value={customerId} />
+                  <input name="customerIds" type="hidden" value={customerIds.join(",")} />
                   <input
-                    name="contextId"
+                    name="conversationId"
                     type="hidden"
-                    value={selectedConversation?.contextId ?? ""}
+                    value={selectedConversation?.id ?? ""}
                   />
                   <div className="composer-pill">
                     <input

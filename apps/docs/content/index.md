@@ -37,6 +37,6 @@ task-specific operations report `TASK_NOT_FOUND`.
 
 {% callout type="note" %}
 This site documents the protocol and the reference harness separately. The
-harness's FAQ answers and local setup are examples, not requirements for a
+harness's canned business profiles and local setup are examples, not requirements for a
 Customer's production support agent.
 {% /callout %}

@@ -2,40 +2,54 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
-export type StoredConversationMessage = {
+export type PhoneMessage =
+  | { role: "user"; text: string; at: string }
+  | { role: "business"; customerId: string; businessName: string; text: string; at: string }
+  | { role: "personal-agent"; text: string; at: string };
+
+export type ThreadMessage = {
   role: "ROLE_USER" | "ROLE_AGENT";
   text: string;
   at: string;
 };
 
-export type StoredConversation = {
+export type BusinessThread = {
+  customerId: string;
+  businessName: string;
+  contextId: string;
+  messages: ThreadMessage[];
+  awaitingReply: boolean;
+};
+
+export type PaConversation = {
+  id: string;
   userId: string;
   providerUrl: string;
-  customerId: string;
-  contextId: string;
-  messages: StoredConversationMessage[];
+  messages: PhoneMessage[];
+  threads: BusinessThread[];
+  createdAt: string;
   updatedAt: string;
 };
 
-const storePath = resolve(process.cwd(), ".data/conversations.json");
+const storePath = resolve(process.cwd(), ".data/pa-conversations.json");
 let writeQueue: Promise<void> = Promise.resolve();
 
 function normalizeProviderUrl(providerUrl: string): string {
   return providerUrl.replace(/\/+$/, "");
 }
 
-async function readStore(): Promise<StoredConversation[]> {
+async function readStore(): Promise<PaConversation[]> {
   try {
     const contents = await readFile(storePath, "utf8");
     const entries: unknown = JSON.parse(contents);
-    return Array.isArray(entries) ? (entries as StoredConversation[]) : [];
+    return Array.isArray(entries) ? (entries as PaConversation[]) : [];
   } catch (error) {
     if (error instanceof Error && "code" in error && error.code === "ENOENT") return [];
     throw error;
   }
 }
 
-async function writeStore(entries: StoredConversation[]): Promise<void> {
+async function writeStore(entries: PaConversation[]): Promise<void> {
   await mkdir(dirname(storePath), { recursive: true });
   const temporaryPath = `${storePath}.${randomUUID()}.tmp`;
   await writeFile(temporaryPath, JSON.stringify(entries, null, 2), "utf8");
@@ -54,54 +68,42 @@ function serializeWrite<T>(operation: () => Promise<T>): Promise<T> {
 export async function listConversations(input: {
   userId: string;
   providerUrl: string;
-  customerId: string;
-}): Promise<StoredConversation[]> {
+}): Promise<PaConversation[]> {
   const providerUrl = normalizeProviderUrl(input.providerUrl);
   const entries = await readStore();
   return entries
     .filter(
       (entry) =>
-        entry.userId === input.userId &&
-        normalizeProviderUrl(entry.providerUrl) === providerUrl &&
-        entry.customerId === input.customerId,
+        entry.userId === input.userId && normalizeProviderUrl(entry.providerUrl) === providerUrl,
     )
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 }
 
-export function saveConversationTurn(input: {
+export async function getConversation(input: {
   userId: string;
   providerUrl: string;
-  customerId: string;
-  contextId: string;
-  userText: string;
-  agentText: string;
-}): Promise<void> {
+  id: string;
+}): Promise<PaConversation | undefined> {
+  const providerUrl = normalizeProviderUrl(input.providerUrl);
+  const entries = await readStore();
+  return entries.find(
+    (entry) =>
+      entry.id === input.id &&
+      entry.userId === input.userId &&
+      normalizeProviderUrl(entry.providerUrl) === providerUrl,
+  );
+}
+
+export function saveConversation(conversation: PaConversation): Promise<void> {
   return serializeWrite(async () => {
     const entries = await readStore();
-    const providerUrl = normalizeProviderUrl(input.providerUrl);
-    const existingIndex = entries.findIndex(
-      (entry) =>
-        entry.userId === input.userId &&
-        normalizeProviderUrl(entry.providerUrl) === providerUrl &&
-        entry.customerId === input.customerId &&
-        entry.contextId === input.contextId,
-    );
-    const now = Date.now();
-    const turnMessages: StoredConversationMessage[] = [
-      { role: "ROLE_USER", text: input.userText, at: new Date(now).toISOString() },
-      { role: "ROLE_AGENT", text: input.agentText, at: new Date(now + 1).toISOString() },
-    ];
-    const previous = existingIndex < 0 ? undefined : entries[existingIndex];
-    const conversation: StoredConversation = {
-      userId: input.userId,
-      providerUrl,
-      customerId: input.customerId,
-      contextId: input.contextId,
-      messages: [...(previous?.messages ?? []), ...turnMessages],
-      updatedAt: turnMessages[1]!.at,
+    const normalized = {
+      ...conversation,
+      providerUrl: normalizeProviderUrl(conversation.providerUrl),
     };
-    if (existingIndex < 0) entries.push(conversation);
-    else entries[existingIndex] = conversation;
+    const existingIndex = entries.findIndex((entry) => entry.id === conversation.id);
+    if (existingIndex < 0) entries.push(normalized);
+    else entries[existingIndex] = normalized;
     await writeStore(entries);
   });
 }

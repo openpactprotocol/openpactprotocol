@@ -9,6 +9,8 @@ import {
   registerPlatform,
 } from "../src/index.js";
 
+const skylineCustomerId = "01M3R53Q5SZQ6FQSMSDBSSREAA";
+
 describe("reference client", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -48,10 +50,10 @@ describe("reference client", () => {
       messageId: "agent-message",
       contextId: "00000000-0000-4000-8000-000000000000",
       role: "ROLE_AGENT",
-      parts: [{ text: "Open until 5 PM." }],
+      parts: [{ text: "I can check that. What's your confirmation code?" }],
     };
     const client = new A2AClient({
-      url: "https://provider.example/a2a/acme/",
+      url: `https://provider.example/a2a/${skylineCustomerId}/`,
       signer,
       userId: "user-1",
       fetchImpl: async (input, init) => {
@@ -60,15 +62,17 @@ describe("reference client", () => {
       },
     });
 
-    expect(await client.sendMessage("hours", { contextId: message.contextId })).toEqual(message);
-    expect(await client.sendMessage("parking")).toEqual(message);
+    expect(
+      await client.sendMessage("Is my Friday flight on time?", { contextId: message.contextId }),
+    ).toEqual(message);
+    expect(await client.sendMessage("ABC123")).toEqual(message);
     expect(signed).toEqual([
       { sub: "user-1", aud: "https://provider.example/a2a" },
       { sub: "user-1", aud: "https://provider.example/a2a" },
     ]);
     expect(requests.map(({ url }) => `${url.pathname}${url.search}`)).toEqual([
-      "/a2a/acme/message:send",
-      "/a2a/acme/message:send",
+      `/a2a/${skylineCustomerId}/message:send`,
+      `/a2a/${skylineCustomerId}/message:send`,
     ]);
     expect(requests[0]?.init).toMatchObject({
       method: "POST",
@@ -82,7 +86,7 @@ describe("reference client", () => {
       message: {
         contextId: message.contextId,
         role: "ROLE_USER",
-        parts: [{ text: "hours", mediaType: "text/plain" }],
+        parts: [{ text: "Is my Friday flight on time?", mediaType: "text/plain" }],
       },
     });
     expect(JSON.parse(String(requests[0]?.init.body)).message).not.toHaveProperty("taskId");
@@ -118,11 +122,11 @@ describe("reference client", () => {
   it("discovers a card using a customer ID", async () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({
-        name: "Acme",
-        description: "Support",
+        name: "Skyline Airways",
+        description: "Flight status and trip changes for Skyline Airways.",
         supportedInterfaces: [
           {
-            url: "https://provider.example/a2a/01ABC",
+            url: `https://provider.example/a2a/${skylineCustomerId}`,
             protocolBinding: "HTTP+JSON",
             protocolVersion: "1.0",
           },
@@ -131,21 +135,39 @@ describe("reference client", () => {
         capabilities: {},
         defaultInputModes: ["text/plain"],
         defaultOutputModes: ["text/plain"],
-        skills: [],
+        skills: [
+          {
+            id: "flight-status",
+            name: "Flight status",
+            description: "Check departure and arrival times for a booked flight.",
+            tags: [
+              "flight",
+              "flights",
+              "airline",
+              "delay",
+              "delayed",
+              "departure",
+              "boarding",
+              "gate",
+              "trip",
+            ],
+            examples: ["Is my Friday flight on time?"],
+          },
+        ],
       }),
     );
     const { discoverAgent } = await import("../src/index.js");
-    const discovered = await discoverAgent("https://provider.example/", "01ABC");
+    const discovered = await discoverAgent("https://provider.example/", skylineCustomerId);
     expect(fetchSpy).toHaveBeenCalledWith(
-      "https://provider.example/a2a/01ABC/.well-known/agent-card.json",
+      `https://provider.example/a2a/${skylineCustomerId}/.well-known/agent-card.json`,
     );
-    expect(discovered.url).toBe("https://provider.example/a2a/01ABC");
+    expect(discovered.url).toBe(`https://provider.example/a2a/${skylineCustomerId}`);
   });
 
   it("parses AIP-193 errors and preserves bare HTTP errors", async () => {
     const signer = { issuer: "https://pa.example", sign: async () => "token" };
     const a2aClient = new A2AClient({
-      url: "https://provider.example/a2a/acme",
+      url: `https://provider.example/a2a/${skylineCustomerId}`,
       signer,
       userId: "demo",
       fetchImpl: async () =>
@@ -176,7 +198,7 @@ describe("reference client", () => {
     });
 
     const httpClient = new A2AClient({
-      url: "https://provider.example/a2a/acme",
+      url: `https://provider.example/a2a/${skylineCustomerId}`,
       signer,
       userId: "demo",
       fetchImpl: async () => new Response(null, { status: 401 }),

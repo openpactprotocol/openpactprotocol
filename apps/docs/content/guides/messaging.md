@@ -84,7 +84,7 @@ original user message has no stored reply yet, the provider returns
 the retry-safe pattern is to repeat both the context and message ID.
 
 {% callout type="note" %}
-Do not depend on a particular answer format or FAQ skill. Agent behavior is
+Do not depend on a particular answer format or sample skill. Agent behavior is
 defined by each Customer's support agent; PAC2 defines the message and
 conversation boundary.
 {% /callout %}

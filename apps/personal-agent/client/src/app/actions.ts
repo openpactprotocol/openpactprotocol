@@ -7,13 +7,26 @@ import { redirect } from "next/navigation";
 import {
   defaultPlatformName,
   homePath,
+  parseCustomerIds,
   USER_ID_COOKIE,
   USER_ID_COOKIE_OPTIONS,
   type RegistrationNotice,
 } from "../lib/session.js";
-import { saveConversationTurn } from "../lib/conversationStore.js";
+import {
+  getConversation,
+  saveConversation,
+  type BusinessThread,
+  type PaConversation,
+} from "../lib/conversationStore.js";
+import { routeMessage } from "../lib/router.js";
 
-type Connection = { providerUrl: string; customerId: string };
+type Connection = { providerUrl: string; customerIds: string[] };
+type DiscoveredBusiness = {
+  customerId: string;
+  name: string;
+  url: string;
+  keywords: string[];
+};
 
 function readConnection(formData: FormData): Connection {
   return {
@@ -21,8 +34,49 @@ function readConnection(formData: FormData): Connection {
       String(formData.get("providerUrl") ?? "").trim() ||
       process.env.PROVIDER_URL ||
       "http://localhost:3000",
-    customerId: String(formData.get("customerId") ?? "").trim() || process.env.CUSTOMER_ID || "",
+    customerIds: parseCustomerIds(
+      String(formData.get("customerIds") ?? process.env.CUSTOMER_IDS ?? ""),
+    ),
   };
+}
+
+function createTimestampGenerator(previousTimestamp: string): () => string {
+  let previousTime = Date.parse(previousTimestamp);
+  return () => {
+    const now = Date.now();
+    previousTime = Math.max(now, Number.isFinite(previousTime) ? previousTime + 1 : now);
+    return new Date(previousTime).toISOString();
+  };
+}
+
+function lastAgentTimestamp(thread: BusinessThread): string {
+  for (let index = thread.messages.length - 1; index >= 0; index -= 1) {
+    const message = thread.messages[index];
+    if (message?.role === "ROLE_AGENT") return message.at;
+  }
+  return "";
+}
+
+function orderedAwaitingCustomerIds(conversation: PaConversation, customerIds: string[]): string[] {
+  const customerOrder = new Map(customerIds.map((customerId, index) => [customerId, index]));
+  return conversation.threads
+    .filter((thread) => thread.awaitingReply)
+    .sort((first, second) => {
+      const byMostRecentQuestion = lastAgentTimestamp(second).localeCompare(
+        lastAgentTimestamp(first),
+      );
+      if (byMostRecentQuestion !== 0) return byMostRecentQuestion;
+      return (
+        (customerOrder.get(first.customerId) ?? Number.MAX_SAFE_INTEGER) -
+        (customerOrder.get(second.customerId) ?? Number.MAX_SAFE_INTEGER)
+      );
+    })
+    .map((thread) => thread.customerId);
+}
+
+function joinNames(names: string[]): string {
+  if (names.length < 2) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
 async function setUserId(userId: string): Promise<void> {
@@ -64,31 +118,161 @@ export async function registerPersonalAgent(formData: FormData): Promise<void> {
 
 export async function sendChatMessage(formData: FormData): Promise<void> {
   const connection = readConnection(formData);
-  const text = String(formData.get("text") ?? "").trim();
-  const contextId = String(formData.get("contextId") ?? "");
+  const text = String(formData.get("text") ?? "");
+  const requestedConversationId = String(formData.get("conversationId") ?? "");
   const userId = (await cookies()).get(USER_ID_COOKIE)?.value;
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
   if (!userId) throw new Error("Missing user ID");
   if (!issuer || !privateJwk)
     throw new Error("Set PA_ISSUER and PA_PRIVATE_JWK in the server environment");
-  if (!text) redirect(homePath({ ...connection, ...(contextId ? { contextId } : {}) }));
-  const discovered = await discoverAgent(connection.providerUrl, connection.customerId);
-  const client = new A2AClient({
-    url: discovered.url,
-    signer: createPlatformSigner({ issuer, privateJwk }),
-    userId,
-    ...(process.env.PA_AUDIENCE ? { audience: process.env.PA_AUDIENCE } : {}),
+  let conversation = requestedConversationId
+    ? await getConversation({
+        userId,
+        providerUrl: connection.providerUrl,
+        id: requestedConversationId,
+      })
+    : undefined;
+  if (!conversation) {
+    const createdAt = new Date().toISOString();
+    conversation = {
+      id: randomUUID(),
+      userId,
+      providerUrl: connection.providerUrl.replace(/\/+$/, ""),
+      messages: [],
+      threads: [],
+      createdAt,
+      updatedAt: createdAt,
+    };
+  }
+  if (!text.trim()) {
+    redirect(
+      homePath({
+        ...connection,
+        ...(requestedConversationId ? { conversationId: conversation.id } : {}),
+      }),
+    );
+  }
+
+  const discoveries = await Promise.all(
+    connection.customerIds.map(async (customerId): Promise<DiscoveredBusiness | undefined> => {
+      try {
+        const discovery = await discoverAgent(connection.providerUrl, customerId);
+        return {
+          customerId,
+          name: discovery.card.name,
+          url: discovery.url,
+          keywords: [...new Set(discovery.card.skills.flatMap((skill) => skill.tags))],
+        };
+      } catch {
+        return undefined;
+      }
+    }),
+  );
+  const businesses = discoveries.filter(
+    (business): business is DiscoveredBusiness => business !== undefined,
+  );
+  const routes = routeMessage({
+    text,
+    businesses: businesses.map(({ customerId, name, keywords }) => ({
+      customerId,
+      name,
+      keywords,
+    })),
+    awaitingCustomerIds: orderedAwaitingCustomerIds(conversation, connection.customerIds),
   });
-  const message = await client.sendMessage(text, contextId ? { contextId } : {});
-  if (!message.contextId) throw new Error("Agent response is missing contextId");
-  await saveConversationTurn({
-    userId,
-    providerUrl: connection.providerUrl,
-    customerId: connection.customerId,
-    contextId: message.contextId,
-    userText: text,
-    agentText: message.parts.map((part) => ("text" in part ? part.text : "")).join("\n"),
+  const nextTimestamp = createTimestampGenerator(conversation.updatedAt);
+  const userAt = nextTimestamp();
+  conversation.messages.push({ role: "user", text, at: userAt });
+
+  if (routes.length === 0) {
+    const responseText =
+      businesses.length > 0
+        ? `I can reach ${joinNames(businesses.map((business) => business.name))}. Which one should I ask?`
+        : "No businesses are connected.";
+    const responseAt = nextTimestamp();
+    conversation.messages.push({ role: "personal-agent", text: responseText, at: responseAt });
+    conversation.updatedAt = responseAt;
+    await saveConversation(conversation);
+    redirect(homePath({ ...connection, conversationId: conversation.id }));
+  }
+
+  const targets = routes.flatMap((customerId) => {
+    const business = businesses.find((candidate) => candidate.customerId === customerId);
+    return business ? [business] : [];
   });
-  redirect(homePath({ ...connection, contextId: message.contextId }));
+  const signer = createPlatformSigner({ issuer, privateJwk });
+  const outcomes = await Promise.all(
+    targets.map(async (business) => {
+      const thread = conversation.threads.find(
+        (candidate) => candidate.customerId === business.customerId,
+      );
+      try {
+        const client = new A2AClient({
+          url: business.url,
+          signer,
+          userId,
+          ...(process.env.PA_AUDIENCE ? { audience: process.env.PA_AUDIENCE } : {}),
+        });
+        const message = await client.sendMessage(
+          text,
+          thread ? { contextId: thread.contextId } : {},
+        );
+        if (!message.contextId) throw new Error("Agent response is missing contextId");
+        return { business, message } as const;
+      } catch (cause) {
+        const error = cause instanceof Error ? cause : new Error("Request failed");
+        return { business, error } as const;
+      }
+    }),
+  );
+  const successfulOutcomes = outcomes.filter((outcome) => !("error" in outcome));
+  const threadReplyAt = successfulOutcomes.length > 0 ? nextTimestamp() : undefined;
+
+  for (const outcome of outcomes) {
+    if ("error" in outcome) {
+      const at = nextTimestamp();
+      conversation.messages.push({
+        role: "personal-agent",
+        text: `Couldn't reach ${outcome.business.name}: ${outcome.error.message}`,
+        at,
+      });
+      conversation.updatedAt = at;
+      continue;
+    }
+
+    const replyText = outcome.message.parts
+      .map((part) => ("text" in part ? part.text : ""))
+      .join("\n");
+    const at = nextTimestamp();
+    conversation.messages.push({
+      role: "business",
+      customerId: outcome.business.customerId,
+      businessName: outcome.business.name,
+      text: replyText,
+      at,
+    });
+
+    const existingIndex = conversation.threads.findIndex(
+      (thread) => thread.customerId === outcome.business.customerId,
+    );
+    const previousThread = existingIndex < 0 ? undefined : conversation.threads[existingIndex];
+    const updatedThread: BusinessThread = {
+      customerId: outcome.business.customerId,
+      businessName: outcome.business.name,
+      contextId: outcome.message.contextId!,
+      messages: [
+        ...(previousThread?.messages ?? []),
+        { role: "ROLE_USER", text, at: userAt },
+        { role: "ROLE_AGENT", text: replyText, at: threadReplyAt! },
+      ],
+      awaitingReply: replyText.trimEnd().endsWith("?"),
+    };
+    if (existingIndex < 0) conversation.threads.push(updatedThread);
+    else conversation.threads[existingIndex] = updatedThread;
+    conversation.updatedAt = at;
+  }
+
+  await saveConversation(conversation);
+  redirect(homePath({ ...connection, conversationId: conversation.id }));
 }

@@ -27,7 +27,8 @@ conversations remain anonymous and continue through a context ID.
 1. Install dependencies and generate local keys: `pnpm install && pnpm gen-keys`.
 2. Start JWKS, PGlite, provider, and PA client; see the [local development guide](docs/local-development.md).
 3. Run provider migrations and seed the local customer IDs.
-4. Set `CUSTOMER_ID` and local signing values in the PA client's ignored `.env.local`.
+4. Set `CUSTOMER_IDS` (comma-separated) and local signing values in the PA
+   client's ignored `.env.local`.
 5. Open `http://localhost:3001`, register the platform if needed, and start a chat.
 
 See [deployment notes](docs/deployment.md) for the Vercel setup.

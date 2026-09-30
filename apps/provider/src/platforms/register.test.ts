@@ -27,7 +27,7 @@ const registrationAudience = `${origin}/api/platforms`;
 
 let client: PGlite;
 let testDb: Db;
-let customerIds: { acmeId: string; globexId: string };
+let customerIds: { skylineId: string; loomId: string; bloomId: string };
 let keyPair: GenerateKeyPairResult;
 let kid: string;
 let localJwks: JWTVerifyGetKey;
@@ -153,7 +153,7 @@ describe("platform registration", () => {
       audience: `${origin}/a2a`,
     });
     const messageResponse = await a2aHandler(
-      new Request(`${origin}/a2a/${customerIds.acmeId}/message:send`, {
+      new Request(`${origin}/a2a/${customerIds.skylineId}/message:send`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${a2aToken}`,
@@ -164,11 +164,11 @@ describe("platform registration", () => {
           message: {
             role: "ROLE_USER",
             messageId: crypto.randomUUID(),
-            parts: [{ text: "What are your hours?" }],
+            parts: [{ text: "Is my Friday flight on time?" }],
           },
         }),
       }),
-      customerIds.acmeId,
+      customerIds.skylineId,
       ["message:send"],
     );
     expect(messageResponse.status).toBe(200);

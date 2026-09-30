@@ -15,17 +15,28 @@ export function defaultPlatformName(): string {
   return process.env.PA_PLATFORM_NAME || "demo-pa";
 }
 
+export function parseCustomerIds(value: string | undefined): string[] {
+  return [
+    ...new Set(
+      (value ?? "")
+        .split(/[,\s]+/)
+        .map((id) => id.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
 export function homePath(input: {
   providerUrl: string;
-  customerId: string;
-  contextId?: string;
+  customerIds: string[];
+  conversationId?: string;
   registration?: RegistrationNotice;
 }): string {
   const params = new URLSearchParams({
     providerUrl: input.providerUrl,
-    customerId: input.customerId,
+    customerIds: input.customerIds.join(","),
   });
-  if (input.contextId) params.set("context", input.contextId);
+  if (input.conversationId) params.set("conversation", input.conversationId);
   if (input.registration) {
     params.set("registration", input.registration.status);
     params.set("platformName", input.registration.name);

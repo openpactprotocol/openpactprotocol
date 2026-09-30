@@ -1,4 +1,5 @@
 import { AgentCardSchema, type AgentCard } from "@pac2/protocol";
+import { businessProfile } from "../agent/index.js";
 import type { customers } from "../db/schema.js";
 
 export function buildAgentCard(
@@ -6,9 +7,10 @@ export function buildAgentCard(
   baseUrl: string,
 ): AgentCard {
   const base = baseUrl.replace(/\/+$/, "");
+  const profile = businessProfile(customer.name);
   return AgentCardSchema.parse({
-    name: `${customer.name} Support`,
-    description: `A2A support agent for ${customer.name}.`,
+    name: customer.name,
+    description: profile.description,
     supportedInterfaces: [
       {
         url: `${base}/a2a/${customer.id}`,
@@ -32,13 +34,6 @@ export function buildAgentCard(
     securityRequirements: [{ schemes: { platformJwt: { list: [] } } }],
     defaultInputModes: ["text/plain"],
     defaultOutputModes: ["text/plain"],
-    skills: [
-      {
-        id: "faq",
-        name: "FAQ",
-        description: "Answer questions about hours, location, parking, and insurance.",
-        tags: ["faq"],
-      },
-    ],
+    skills: [profile.skill],
   });
 }

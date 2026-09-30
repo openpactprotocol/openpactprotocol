@@ -26,10 +26,14 @@ Configure the provider with:
   derives it from the request or Vercel production URL.
 
 After deployment, apply the migration and run the provider seed against the
-intended database. The seed prints the Acme Health and Globex Clinic ULID
-customer IDs. Protect the private PA key: it belongs in the trusted client or
+intended database. It seeds Skyline Airways (`01M3R53Q5SZQ6FQSMSDBSSREAA`),
+Loom & Co. (`01M3R53Q5WKZ7A0GY4PZ8Y39TB`), and Bloom & Stem
+(`01M3R53Q5WHQ1APYDKBW3NCDG3`). Protect the private PA key: it belongs in the trusted client or
 test runner, never in the provider project. Public JWKS files contain only
 public keys.
+
+The local PA client accepts these IDs in its `CUSTOMER_IDS` comma-separated
+setting. The protocol CLI continues to use `CUSTOMER_ID` for one business.
 
 Set `SEED_DEMO_PLATFORM=false` when seeding an environment intended to
 demonstrate self-service platform registration. The disabled platform is

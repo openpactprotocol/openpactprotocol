@@ -24,8 +24,9 @@ const defaultAudience = `${origin}/a2a`;
 let pglite: PGlite;
 let testDb: Db;
 let handler: A2AHandler;
-let acmeId = "";
-let globexId = "";
+let skylineId = "";
+let loomId = "";
+let bloomId = "";
 let signingKey: CryptoKey;
 let publicJwk: JWK & { kid: string };
 let rsaSigningKey: CryptoKey;
@@ -182,8 +183,9 @@ describe("A2A handler", () => {
     });
     testDb = database as unknown as Db;
     const seeded = await seedDatabase(testDb, issuer);
-    acmeId = seeded.acmeId;
-    globexId = seeded.globexId;
+    skylineId = seeded.skylineId;
+    loomId = seeded.loomId;
+    bloomId = seeded.bloomId;
     rsaIssuer = `${issuer}/rsa-platform`;
     await testDb.insert(agentPlatforms).values({
       name: "rsa-platform",
@@ -202,13 +204,18 @@ describe("A2A handler", () => {
     else process.env.PROVIDER_URL = previousProviderUrl;
   });
 
-  it("seeds ULID customers and serves a public Agent Card with the default audience contract", async () => {
+  it("seeds ULID customers and serves the Skyline Airways Agent Card", async () => {
+    expect({ skylineId, loomId, bloomId }).toEqual({
+      skylineId: "01M3R53Q5SZQ6FQSMSDBSSREAA",
+      loomId: "01M3R53Q5WKZ7A0GY4PZ8Y39TB",
+      bloomId: "01M3R53Q5WHQ1APYDKBW3NCDG3",
+    });
     const customer = await testDb.query.customers.findFirst({
-      where: eq(customers.id, acmeId),
+      where: eq(customers.id, skylineId),
     });
     expect(customer?.id).toMatch(/^[0-9A-HJKMNP-TV-Z]{26}$/);
-    expect(customer?.name).toBe("Acme Health");
-    const response = await call(acmeId, ".well-known/agent-card.json", "GET", undefined, {
+    expect(customer?.name).toBe("Skyline Airways");
+    const response = await call(skylineId, ".well-known/agent-card.json", "GET", undefined, {
       token: null,
     });
     expect(response.status).toBe(200);
@@ -217,7 +224,7 @@ describe("A2A handler", () => {
     const card = await response.json();
     expect(card.supportedInterfaces).toEqual([
       {
-        url: `${origin}/a2a/${acmeId}`,
+        url: `${origin}/a2a/${skylineId}`,
         protocolBinding: "HTTP+JSON",
         protocolVersion: "1.0",
       },
@@ -225,12 +232,25 @@ describe("A2A handler", () => {
     expect(card.securitySchemes.platformJwt.httpAuthSecurityScheme.description).toBe(
       "JWT signed by a registered Personal Agent platform; aud is the platform's registered audience (default {base}/a2a)",
     );
+    expect(card.name).toBe("Skyline Airways");
+    expect(card.description).toBe("Flight status and trip changes for Skyline Airways.");
     expect(card.skills).toEqual([
       {
-        id: "faq",
-        name: "FAQ",
-        description: "Answer questions about hours, location, parking, and insurance.",
-        tags: ["faq"],
+        id: "flight-status",
+        name: "Flight status",
+        description: "Check departure and arrival times for a booked flight.",
+        tags: [
+          "flight",
+          "flights",
+          "airline",
+          "delay",
+          "delayed",
+          "departure",
+          "boarding",
+          "gate",
+          "trip",
+        ],
+        examples: ["Is my Friday flight on time?"],
       },
     ]);
     const unknown = await call(
@@ -246,6 +266,20 @@ describe("A2A handler", () => {
     expect(await unknown.text()).toBe("");
   });
 
+  it("lists each seeded business profile skill on its Agent Card", async () => {
+    for (const [customerId, expectedSkill] of [
+      [skylineId, "flight-status"],
+      [loomId, "order-status"],
+      [bloomId, "flower-orders"],
+    ] as const) {
+      const response = await call(customerId, ".well-known/agent-card.json", "GET", undefined, {
+        token: null,
+      });
+      expect(response.status).toBe(200);
+      expect((await response.json()).skills[0]?.id).toBe(expectedSkill);
+    }
+  });
+
   it("returns bare 404s for unknown route and method combinations before authentication", async () => {
     for (const [method, path] of [
       ["GET", "unknown"],
@@ -258,45 +292,45 @@ describe("A2A handler", () => {
       ["DELETE", "tasks/task-1/pushNotificationConfigs"],
       ["POST", "tasks/task-1/pushNotificationConfigs/config-1"],
     ]) {
-      const response = await call(acmeId, path, method, undefined, { token: null });
+      const response = await call(skylineId, path, method, undefined, { token: null });
       expect(response.status).toBe(404);
       expect(await response.text()).toBe("");
     }
   });
 
   it("authenticates before looking up customers and supports platform-wide audiences", async () => {
-    const missingToken = await call(acmeId, "tasks", "GET", undefined, { token: null });
+    const missingToken = await call(skylineId, "tasks", "GET", undefined, { token: null });
     await expectUnauthorized(missingToken);
-    await expectUnauthorized(await call(acmeId, "message:send", "POST", "{", { token: null }));
+    await expectUnauthorized(await call(skylineId, "message:send", "POST", "{", { token: null }));
 
     const otherPair = await generateKeyPair("ES256", { extractable: true });
-    const badSignature = await call(acmeId, "tasks", "GET", undefined, {
+    const badSignature = await call(skylineId, "tasks", "GET", undefined, {
       token: await signToken({ signingKey: otherPair.privateKey }),
     });
     await expectUnauthorized(badSignature);
 
-    const wrongAudience = await call(acmeId, "tasks", "GET", undefined, {
-      audience: `${origin}/a2a/${acmeId}`,
+    const wrongAudience = await call(skylineId, "tasks", "GET", undefined, {
+      audience: `${origin}/a2a/${skylineId}`,
     });
     await expectUnauthorized(wrongAudience);
 
     const now = Math.floor(Date.now() / 1000);
-    const futureIssued = await call(acmeId, "tasks", "GET", undefined, {
+    const futureIssued = await call(skylineId, "tasks", "GET", undefined, {
       token: await signToken({ iat: now + 31, exp: now + 151 }),
     });
     await expectUnauthorized(futureIssued);
 
-    const expired = await call(acmeId, "tasks", "GET", undefined, {
+    const expired = await call(skylineId, "tasks", "GET", undefined, {
       token: await signToken({ iat: now - 200, exp: now - 100 }),
     });
     await expectUnauthorized(expired);
 
-    const disabled = await call(acmeId, "tasks", "GET", undefined, {
+    const disabled = await call(skylineId, "tasks", "GET", undefined, {
       issuer: `${issuer}/disabled-pa`,
     });
     await expectUnauthorized(disabled);
 
-    const hmac = await call(acmeId, "tasks", "GET", undefined, {
+    const hmac = await call(skylineId, "tasks", "GET", undefined, {
       token: await signToken({
         algorithm: "HS256",
         signingKey: new TextEncoder().encode("not-an-allowed-platform-key"),
@@ -304,7 +338,7 @@ describe("A2A handler", () => {
     });
     await expectUnauthorized(hmac);
 
-    const acceptedRs256 = await call(acmeId, "tasks", "GET", undefined, {
+    const acceptedRs256 = await call(skylineId, "tasks", "GET", undefined, {
       issuer: rsaIssuer,
       token: await signToken({
         issuer: rsaIssuer,
@@ -316,10 +350,10 @@ describe("A2A handler", () => {
     expect(acceptedRs256.status).toBe(200);
 
     const sameToken = await signToken();
-    expect((await call(acmeId, "tasks", "GET", undefined, { token: sameToken })).status).toBe(200);
-    expect((await call(globexId, "tasks", "GET", undefined, { token: sameToken })).status).toBe(
+    expect((await call(skylineId, "tasks", "GET", undefined, { token: sameToken })).status).toBe(
       200,
     );
+    expect((await call(loomId, "tasks", "GET", undefined, { token: sameToken })).status).toBe(200);
 
     const unknownCustomer = await call("missing-customer", "tasks", "GET", undefined, {
       token: sameToken,
@@ -335,10 +369,10 @@ describe("A2A handler", () => {
       .set({ audience: customAudience })
       .where(eq(agentPlatforms.name, "demo-pa"));
     expect(
-      (await call(acmeId, "tasks", "GET", undefined, { audience: defaultAudience })).status,
+      (await call(skylineId, "tasks", "GET", undefined, { audience: defaultAudience })).status,
     ).toBe(401);
     expect(
-      (await call(acmeId, "tasks", "GET", undefined, { audience: customAudience })).status,
+      (await call(skylineId, "tasks", "GET", undefined, { audience: customAudience })).status,
     ).toBe(200);
     await testDb
       .update(agentPlatforms)
@@ -348,8 +382,8 @@ describe("A2A handler", () => {
 
   it("returns a Message, accepts missing protocol headers, and makes message retries idempotent", async () => {
     const messageId = randomUUID();
-    const requestBody = sendBody("What are your hours?", { messageId });
-    const first = await call(acmeId, "message:send", "POST", requestBody, {
+    const requestBody = sendBody("Is my Friday flight on time?", { messageId });
+    const first = await call(skylineId, "message:send", "POST", requestBody, {
       version: null,
       contentType: "text/plain",
     });
@@ -364,24 +398,24 @@ describe("A2A handler", () => {
     expect(firstMessage).not.toHaveProperty("taskId");
     const beforeRetry = await testDb.select().from(messages);
     const retry = await call(
-      acmeId,
+      skylineId,
       "message:send",
       "POST",
-      sendBody("What are your hours?", { messageId, contextId: firstMessage.contextId }),
+      sendBody("Is my Friday flight on time?", { messageId, contextId: firstMessage.contextId }),
     );
     const retryMessage = await readMessage(retry);
     expect(retryMessage.messageId).toBe(firstMessage.messageId);
     expect(await testDb.select().from(messages)).toHaveLength(beforeRetry.length);
 
     const retryWithoutContext = await call(
-      acmeId,
+      skylineId,
       "message:send",
       "POST",
-      sendBody("What are your hours?", { messageId }),
+      sendBody("Is my Friday flight on time?", { messageId }),
     );
     expect((await readMessage(retryWithoutContext)).contextId).not.toBe(firstMessage.contextId);
 
-    const unsupportedHeaders = await call(acmeId, "message:send", "POST", sendBody("hours"), {
+    const unsupportedHeaders = await call(skylineId, "message:send", "POST", sendBody("flight"), {
       version: "2.0",
       contentType: "text/plain",
     });
@@ -393,7 +427,7 @@ describe("A2A handler", () => {
     const messageId = randomUUID();
     await testDb.insert(conversations).values({
       id: contextId,
-      customerId: acmeId,
+      customerId: skylineId,
       userId: "demo-pa:retry-owner",
       metadata: { flow: {} },
     });
@@ -401,10 +435,10 @@ describe("A2A handler", () => {
       conversationId: contextId,
       messageId,
       role: "ROLE_USER",
-      parts: [{ text: "hours" }],
+      parts: [{ text: "flight" }],
     });
     await expectA2AError(
-      await call(acmeId, "message:send", "POST", sendBody("hours", { messageId, contextId }), {
+      await call(skylineId, "message:send", "POST", sendBody("flight", { messageId, contextId }), {
         subject: "retry-owner",
       }),
       "INVALID_PARAMS",
@@ -412,67 +446,69 @@ describe("A2A handler", () => {
     );
   });
 
-  it("keeps FAQ flow in a context across the topic prompt and answer", async () => {
+  it("keeps the flight-detail follow-up in a context", async () => {
     const first = await call(
-      acmeId,
+      skylineId,
       "message:send",
       "POST",
-      sendBody("Do you have pediatric cardiology?"),
+      sendBody("Is my Friday flight on time?"),
     );
     const prompt = await readMessage(first);
-    expect(prompt.parts).toEqual([
-      { text: "Which would you like to know about: hours, location, parking, or insurance?" },
-    ]);
+    expect(prompt.parts).toEqual([{ text: "I can check that. What's your confirmation code?" }]);
     const second = await call(
-      acmeId,
+      skylineId,
       "message:send",
       "POST",
-      sendBody("hours", { contextId: prompt.contextId }),
+      sendBody("ABC123", { contextId: prompt.contextId }),
     );
     const answer = await readMessage(second);
     expect(answer.contextId).toBe(prompt.contextId);
-    expect(answer.parts[0]).toMatchObject({ text: expect.stringContaining("8:00 AM") });
+    expect(answer.parts).toEqual([
+      {
+        text: "Flight SK 482 on Friday is delayed 4.5 hours. It now leaves SFO at 2:40 PM and lands at O'Hare at 8:50 PM.",
+      },
+    ]);
   });
 
   it("hides missing, foreign-user, and foreign-customer contexts behind INVALID_PARAMS", async () => {
-    const original = await call(acmeId, "message:send", "POST", sendBody("hours"), {
+    const original = await call(skylineId, "message:send", "POST", sendBody("flight"), {
       subject: "owner",
     });
     const originalMessage = await readMessage(original);
     for (const [customerId, subject] of [
-      [acmeId, "another-user"],
-      [globexId, "owner"],
+      [skylineId, "another-user"],
+      [loomId, "owner"],
     ] as const) {
       const response = await call(
         customerId,
         "message:send",
         "POST",
-        sendBody("hours", { contextId: originalMessage.contextId }),
+        sendBody("flight", { contextId: originalMessage.contextId }),
         { subject },
       );
       await expectA2AError(response, "INVALID_PARAMS", "Unknown contextId");
     }
     const unknownContext = await call(
-      acmeId,
+      skylineId,
       "message:send",
       "POST",
-      sendBody("hours", { contextId: randomUUID() }),
+      sendBody("flight", { contextId: randomUUID() }),
       { subject: "owner" },
     );
     await expectA2AError(unknownContext, "INVALID_PARAMS", "Unknown contextId");
     const foreignUser = await call(
-      acmeId,
+      skylineId,
       "message:send",
       "POST",
-      sendBody("hours", { contextId: originalMessage.contextId }),
+      sendBody("flight", { contextId: originalMessage.contextId }),
       { subject: "another-user" },
     );
     await expectA2AError(foreignUser, "INVALID_PARAMS", "Unknown contextId");
     const foreignCustomer = await call(
-      globexId,
+      loomId,
       "message:send",
       "POST",
-      sendBody("hours", { contextId: originalMessage.contextId }),
+      sendBody("flight", { contextId: originalMessage.contextId }),
       { subject: "owner" },
     );
     await expectA2AError(foreignCustomer, "INVALID_PARAMS", "Unknown contextId");
@@ -480,34 +516,34 @@ describe("A2A handler", () => {
 
   it("rejects task IDs, invalid bodies, non-text parts, and blank text with protocol errors", async () => {
     await expectA2AError(
-      await call(acmeId, "message:send", "POST", sendBody("hours", { taskId: "task-1" })),
+      await call(skylineId, "message:send", "POST", sendBody("flight", { taskId: "task-1" })),
       "TASK_NOT_FOUND",
       "Task not found",
     );
-    await expectA2AError(await call(acmeId, "message:send", "POST", "{"), "INVALID_PARAMS");
+    await expectA2AError(await call(skylineId, "message:send", "POST", "{"), "INVALID_PARAMS");
     await expectA2AError(
-      await call(acmeId, "message:send", "POST", { message: { role: "ROLE_USER" } }),
+      await call(skylineId, "message:send", "POST", { message: { role: "ROLE_USER" } }),
       "INVALID_PARAMS",
     );
     await expectA2AError(
-      await call(acmeId, "message:send", "POST", sendBody("hours", { role: "ROLE_AGENT" })),
+      await call(skylineId, "message:send", "POST", sendBody("flight", { role: "ROLE_AGENT" })),
       "INVALID_PARAMS",
       "Message role must be ROLE_USER",
     );
     await expectA2AError(
-      await call(acmeId, "message:send", "POST", sendBody(" ", { messageId: randomUUID() })),
+      await call(skylineId, "message:send", "POST", sendBody(" ", { messageId: randomUUID() })),
       "INVALID_PARAMS",
       "Message text must not be blank",
     );
     await expectA2AError(
-      await call(acmeId, "message:send", "POST", sendBody("", { parts: [{ raw: "aGVsbG8=" }] })),
+      await call(skylineId, "message:send", "POST", sendBody("", { parts: [{ raw: "aGVsbG8=" }] })),
       "CONTENT_TYPE_NOT_SUPPORTED",
       "Content type not supported",
     );
   });
 
   it("returns an empty task list and validates pageSize", async () => {
-    const listed = await call(acmeId, "tasks?pageSize=12&status=ignored", "GET");
+    const listed = await call(skylineId, "tasks?pageSize=12&status=ignored", "GET");
     expect(listed.status).toBe(200);
     expect(listed.headers.get("content-type")).toBe("application/a2a+json");
     expect(await listed.json()).toEqual({
@@ -516,16 +552,16 @@ describe("A2A handler", () => {
       pageSize: 12,
       totalSize: 0,
     });
-    expect(await (await call(acmeId, "tasks", "GET")).json()).toMatchObject({ pageSize: 50 });
+    expect(await (await call(skylineId, "tasks", "GET")).json()).toMatchObject({ pageSize: 50 });
     for (const value of ["0", "101", "1.5", "NaN"]) {
       await expectA2AError(
-        await call(acmeId, `tasks?pageSize=${value}`, "GET"),
+        await call(skylineId, `tasks?pageSize=${value}`, "GET"),
         "INVALID_PARAMS",
         "Invalid pageSize",
       );
     }
     await expectA2AError(
-      await call(acmeId, "tasks?pageSize=1&pageSize=2", "GET"),
+      await call(skylineId, "tasks?pageSize=1&pageSize=2", "GET"),
       "INVALID_PARAMS",
       "Invalid pageSize",
     );
@@ -533,10 +569,10 @@ describe("A2A handler", () => {
 
   it("maps missing task, unsupported, and push notification routes to their A2A errors", async () => {
     const taskId = randomUUID();
-    const missingTask = await call(acmeId, `tasks/${taskId}`, "GET");
+    const missingTask = await call(skylineId, `tasks/${taskId}`, "GET");
     await expectA2AError(missingTask, "TASK_NOT_FOUND", `Task not found: ${taskId}`);
     await expectA2AError(
-      await call(acmeId, `tasks/${taskId}:cancel`, "POST"),
+      await call(skylineId, `tasks/${taskId}:cancel`, "POST"),
       "TASK_NOT_FOUND",
       `Task not found: ${taskId}`,
     );
@@ -547,7 +583,7 @@ describe("A2A handler", () => {
       ["POST", "tasks/task-1:subscribe"],
       ["GET", "extendedAgentCard"],
     ]) {
-      await expectA2AError(await call(acmeId, path, method), "UNSUPPORTED_OPERATION");
+      await expectA2AError(await call(skylineId, path, method), "UNSUPPORTED_OPERATION");
     }
     for (const [method, path] of [
       ["POST", "tasks/task-1/pushNotificationConfigs"],
@@ -555,12 +591,12 @@ describe("A2A handler", () => {
       ["GET", "tasks/task-1/pushNotificationConfigs/config-1"],
       ["DELETE", "tasks/task-1/pushNotificationConfigs/config-1"],
     ]) {
-      await expectA2AError(await call(acmeId, path, method), "PUSH_NOTIFICATION_NOT_SUPPORTED");
+      await expectA2AError(await call(skylineId, path, method), "PUSH_NOTIFICATION_NOT_SUPPORTED");
     }
   });
 
   it("matches percent-encoded operation colons", async () => {
-    const response = await call(acmeId, "message%3Asend", "POST", sendBody("hours"));
+    const response = await call(skylineId, "message%3Asend", "POST", sendBody("flight"));
     expect(response.status).toBe(200);
     expect((await readMessage(response)).role).toBe("ROLE_AGENT");
   });

@@ -15,16 +15,16 @@ customer ID returns an empty `404`.
 
 ## Example card
 
-This example reflects the current reference card builder. Display names and
-the harness-specific skill text vary by Customer.
+This example reflects the Skyline Airways card returned by the reference
+provider.
 
 ```json
 {
-  "name": "Acme Health Support",
-  "description": "A2A support agent for Acme Health.",
+  "name": "Skyline Airways",
+  "description": "Flight status and trip changes for Skyline Airways.",
   "supportedInterfaces": [
     {
-      "url": "https://provider.example.com/a2a/01J6SWAJRTM4E5P7J9K2F4V6B8",
+      "url": "https://provider.example.com/a2a/01M3R53Q5SZQ6FQSMSDBSSREAA",
       "protocolBinding": "HTTP+JSON",
       "protocolVersion": "1.0"
     }
@@ -61,10 +61,21 @@ the harness-specific skill text vary by Customer.
   "defaultOutputModes": ["text/plain"],
   "skills": [
     {
-      "id": "faq",
-      "name": "FAQ",
-      "description": "Answer questions about hours, location, parking, and insurance.",
-      "tags": ["faq"]
+      "id": "flight-status",
+      "name": "Flight status",
+      "description": "Check departure and arrival times for a booked flight.",
+      "tags": [
+        "flight",
+        "flights",
+        "airline",
+        "delay",
+        "delayed",
+        "departure",
+        "boarding",
+        "gate",
+        "trip"
+      ],
+      "examples": ["Is my Friday flight on time?"]
     }
   ]
 }

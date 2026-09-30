@@ -26,7 +26,7 @@ function requiredEnv(name: string): string {
 
 const providerUrl = (process.env.PROVIDER_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 let customerId = "";
-let globexId = "";
+let otherCustomerId = "";
 let issuer = "";
 let privateJwk: (JWK & { kid: string }) | undefined;
 let cardResult: DiscoveredAgent | undefined;
@@ -149,7 +149,7 @@ function client(userId: string): A2AClient {
 describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
   beforeAll(() => {
     customerId = requiredEnv("CUSTOMER_ID");
-    globexId = requiredEnv("GLOBEX_ID");
+    otherCustomerId = requiredEnv("OTHER_CUSTOMER_ID");
     issuer = requiredEnv("PA_ISSUER");
     privateJwk = JSON.parse(requiredEnv("PA_PRIVATE_JWK")) as JWK & { kid: string };
   });
@@ -169,12 +169,25 @@ describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
       "httpAuthSecurityScheme.description",
       "JWT signed by a registered Personal Agent platform; aud is the platform's registered audience (default {base}/a2a)",
     );
+    expect(cardResult.card.name).toBe("Skyline Airways");
+    expect(cardResult.card.description).toBe("Flight status and trip changes for Skyline Airways.");
     expect(cardResult.card.skills).toEqual([
       {
-        id: "faq",
-        name: "FAQ",
-        description: "Answer questions about hours, location, parking, and insurance.",
-        tags: ["faq"],
+        id: "flight-status",
+        name: "Flight status",
+        description: "Check departure and arrival times for a booked flight.",
+        tags: [
+          "flight",
+          "flights",
+          "airline",
+          "delay",
+          "delayed",
+          "departure",
+          "boarding",
+          "gate",
+          "trip",
+        ],
+        examples: ["Is my Friday flight on time?"],
       },
     ]);
     const unknown = await rawRequest(".well-known/agent-card.json", {
@@ -185,25 +198,27 @@ describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
     expect(await unknown.text()).toBe("");
   });
 
-  it("returns Message replies and continues FAQ flow by contextId", async () => {
-    const faq = await client("faq-user").sendMessage("What are your hours?");
-    expect(faq).toMatchObject({
+  it("returns Message replies and continues the flight-detail flow by contextId", async () => {
+    const reply = await client("flight-user").sendMessage("Is my Friday flight on time?");
+    expect(reply).toMatchObject({
       role: "ROLE_AGENT",
       contextId: expect.any(String),
-      parts: [{ text: expect.any(String) }],
+      parts: [{ text: "I can check that. What's your confirmation code?" }],
     });
-    expect(faq).not.toHaveProperty("taskId");
+    expect(reply).not.toHaveProperty("taskId");
 
     multiTurnClient = client("multi-turn-user");
-    const prompt = await multiTurnClient.sendMessage("Do you offer pediatric cardiology?");
-    expect(prompt.parts).toEqual([
-      { text: "Which would you like to know about: hours, location, parking, or insurance?" },
-    ]);
+    const prompt = await multiTurnClient.sendMessage("Is my Friday flight on time?");
+    expect(prompt.parts).toEqual([{ text: "I can check that. What's your confirmation code?" }]);
     const contextId = prompt.contextId;
     if (!contextId) throw new Error("The clarification reply did not include a contextId");
-    const answer = await multiTurnClient.sendMessage("hours", { contextId });
+    const answer = await multiTurnClient.sendMessage("ABC123", { contextId });
     expect(answer.contextId).toBe(contextId);
-    expect(answer.parts[0]).toMatchObject({ text: expect.stringContaining("8:00 AM") });
+    expect(answer.parts).toEqual([
+      {
+        text: "Flight SK 482 on Friday is delayed 4.5 hours. It now leaves SFO at 2:40 PM and lands at O'Hare at 8:50 PM.",
+      },
+    ]);
   });
 
   it("returns the same reply for a duplicate messageId", async () => {
@@ -212,13 +227,13 @@ describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
     const first = await rawRequest("message:send", {
       method: "POST",
       subject,
-      body: messageBody("What are your hours?", { messageId }),
+      body: messageBody("Is my Friday flight on time?", { messageId }),
     });
     const firstMessage = (await first.json()).message as { messageId: string; contextId: string };
     const retry = await rawRequest("message:send", {
       method: "POST",
       subject,
-      body: messageBody("What are your hours?", {
+      body: messageBody("Is my Friday flight on time?", {
         messageId,
         contextId: firstMessage.contextId,
       }),
@@ -229,18 +244,18 @@ describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
   });
 
   it("rejects contexts owned by another user or customer", async () => {
-    const owner = await client("context-owner").sendMessage("hours");
+    const owner = await client("context-owner").sendMessage("flight");
     const contextId = owner.contextId;
     if (!contextId) throw new Error("The owner reply did not include a contextId");
     for (const [customer, subject] of [
       [customerId, "another-user"],
-      [globexId, "context-owner"],
+      [otherCustomerId, "context-owner"],
     ] as const) {
       const response = await rawRequest("message:send", {
         customer,
         method: "POST",
         subject,
-        body: messageBody("hours", { contextId }),
+        body: messageBody("flight", { contextId }),
       });
       await expectA2AError(response, {
         httpStatus: 400,
@@ -312,7 +327,7 @@ describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
   it("accepts application/a2a+json and does not require A2A-Version", async () => {
     const response = await rawRequest("message:send", {
       method: "POST",
-      body: messageBody("hours"),
+      body: messageBody("flight"),
       contentType: "application/a2a+json",
       version: null,
     });
@@ -320,7 +335,7 @@ describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
     expect(response.headers.get("content-type")).toBe("application/a2a+json");
     const ignoredHeaders = await rawRequest("message:send", {
       method: "POST",
-      body: messageBody("hours"),
+      body: messageBody("flight"),
       contentType: "text/plain",
       version: "2.0",
     });
@@ -396,9 +411,9 @@ describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
 
     const tokenWithoutJti = await signedToken();
     expect((await rawRequest("tasks", { token: tokenWithoutJti })).status).toBe(200);
-    expect((await rawRequest("tasks", { customer: globexId, token: tokenWithoutJti })).status).toBe(
-      200,
-    );
+    expect(
+      (await rawRequest("tasks", { customer: otherCustomerId, token: tokenWithoutJti })).status,
+    ).toBe(200);
     const unknownCustomer = await rawRequest("tasks", {
       customer: `missing-${crypto.randomUUID()}`,
       token: tokenWithoutJti,
@@ -411,7 +426,7 @@ describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
     await expectA2AError(
       await rawRequest("message:send", {
         method: "POST",
-        body: messageBody("hours", { taskId: "task-1" }),
+        body: messageBody("flight", { taskId: "task-1" }),
       }),
       {
         httpStatus: 404,

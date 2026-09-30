@@ -10,15 +10,25 @@ reference TypeScript client and CLI, a local PA client UI, and live HTTP
 tests.
 
 The provider uses four tables: customers, registered agent platforms,
-conversations, and messages. Customer IDs are ULIDs. Conversation UUIDs are
-the A2A `contextId`, with ownership scoped to the Customer and
-`{platform}:{sub}`. The PA client separately stores its own local conversation
-history.
+conversations, and messages. Customer IDs are ULIDs. The demo seeds Skyline
+Airways (`01M3R53Q5SZQ6FQSMSDBSSREAA`), Loom & Co.
+(`01M3R53Q5WKZ7A0GY4PZ8Y39TB`), and Bloom & Stem
+(`01M3R53Q5WHQ1APYDKBW3NCDG3`). Conversation UUIDs are the A2A `contextId`,
+with ownership scoped to the Customer and `{platform}:{sub}`. The PA client
+separately stores its own local conversation history.
 
-The sample provider includes a small FAQ agent to demonstrate message
-continuation. Its wording and skills are harness behavior, not protocol
-requirements. An external platform can integrate with a different Customer
-agent as long as it follows the Agent Card, JWT, and message contract.
+The provider exposes separate flight-status, order-status, and flower-order
+skills to demonstrate message continuation. Their canned responses are
+harness behavior, not protocol requirements. The PA client routes by an
+explicit business-name mention, then by skill tags read from each Agent Card,
+then to one thread awaiting a follow-up (the most recently asked first, with
+ties in configured customer-ID order). This is the personal agent's own
+routing logic; PAC2 does not define routing. An external platform
+can integrate with a different Customer agent as long as it follows the Agent
+Card, JWT, and message contract.
+
+Configure the PA client with `CUSTOMER_IDS`, a comma-separated list of
+customer ULIDs. The protocol CLI continues to take one `CUSTOMER_ID` at a time.
 
 ## Run the harness
 

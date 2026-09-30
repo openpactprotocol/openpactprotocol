@@ -1,22 +1,26 @@
 import { eq } from "drizzle-orm";
-import { ulid } from "ulid";
 import { closeDb, getDb, type Db } from "./client.js";
 import { agentPlatforms, customers } from "./schema.js";
+
+export const DEMO_CUSTOMERS = [
+  { name: "Skyline Airways", id: "01M3R53Q5SZQ6FQSMSDBSSREAA" },
+  { name: "Loom & Co.", id: "01M3R53Q5WKZ7A0GY4PZ8Y39TB" },
+  { name: "Bloom & Stem", id: "01M3R53Q5WHQ1APYDKBW3NCDG3" },
+] as const;
 
 export async function seedDatabase(
   db: Db,
   paIssuer: string,
   options: { seedDemoPlatform?: boolean } = {},
-): Promise<{ acmeId: string; globexId: string }> {
+): Promise<{ skylineId: string; loomId: string; bloomId: string }> {
   const issuer = paIssuer.replace(/\/+$/, "");
   if (!issuer) throw new Error("PA_ISSUER is required");
 
   const customerRows: Record<string, typeof customers.$inferSelect> = {};
-  for (const name of ["Acme Health", "Globex Clinic"]) {
+  for (const { name, id } of DEMO_CUSTOMERS) {
     const existing = await db.query.customers.findFirst({ where: eq(customers.name, name) });
     let customer = existing;
     if (!customer) {
-      const id = ulid();
       const [created] = await db.insert(customers).values({ id, name }).returning();
       if (!created) throw new Error(`Failed to seed customer ${name}`);
       customer = created;
@@ -54,8 +58,9 @@ export async function seedDatabase(
   }
 
   return {
-    acmeId: customerRows["Acme Health"]!.id,
-    globexId: customerRows["Globex Clinic"]!.id,
+    skylineId: customerRows["Skyline Airways"]!.id,
+    loomId: customerRows["Loom & Co."]!.id,
+    bloomId: customerRows["Bloom & Stem"]!.id,
   };
 }
 
@@ -64,8 +69,9 @@ if (process.argv[1] && import.meta.url.endsWith(process.argv[1].replace(/\\/g, "
   if (!paIssuer) throw new Error("PA_ISSUER is required");
   try {
     const ids = await seedDatabase(getDb(), paIssuer);
-    console.log(`Acme Health id: ${ids.acmeId}`);
-    console.log(`Globex Clinic id: ${ids.globexId}`);
+    console.log(`Skyline Airways id: ${ids.skylineId}`);
+    console.log(`Loom & Co. id: ${ids.loomId}`);
+    console.log(`Bloom & Stem id: ${ids.bloomId}`);
   } finally {
     await closeDb();
   }
