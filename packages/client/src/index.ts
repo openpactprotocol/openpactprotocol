@@ -1,18 +1,33 @@
 import { randomUUID } from "node:crypto";
 import { importJWK, SignJWT, type JWTPayload } from "jose";
-import { AgentCardSchema, type AgentCard } from "@pap/protocol";
-import type { ListTasksResponse, Task } from "@pap/protocol";
+import {
+  A2A_VERSION,
+  A2AErrorResponseSchema,
+  AgentCardSchema,
+  CancelTaskRequestSchema,
+  ListTasksResponseSchema,
+  SendMessageResponseSchema,
+  TaskSchema,
+  type A2AErrorResponse,
+  type AgentCard,
+  type ListTasksResponse,
+  type Task,
+} from "@pap/protocol";
 
 type PrivateJwk = Parameters<typeof importJWK>[0];
+type A2AStatus = A2AErrorResponse["error"]["status"];
+type A2AErrorDetails = A2AErrorResponse["error"]["details"];
 
-export class A2ARpcError extends Error {
+export class A2AError extends Error {
   constructor(
-    readonly code: number,
+    readonly httpStatus: number,
+    readonly status: A2AStatus,
+    readonly reason: string,
     message: string,
-    readonly data: unknown,
+    readonly details: A2AErrorDetails,
   ) {
     super(message);
-    this.name = "A2ARpcError";
+    this.name = "A2AError";
   }
 }
 
@@ -69,16 +84,13 @@ export async function discoverAgent(
   if (!result.ok) throw new A2AHttpError(result.status, await result.text());
   const card = AgentCardSchema.parse(await result.json());
   const agentInterface = card.supportedInterfaces.find(
-    (candidate) => candidate.protocolBinding === "JSONRPC" && candidate.protocolVersion === "1.0",
+    (candidate) => candidate.protocolBinding === "HTTP+JSON" && candidate.protocolVersion === "1.0",
   );
-  if (!agentInterface) throw new Error("Agent does not expose a JSONRPC 1.0 interface");
+  if (!agentInterface) throw new Error("Agent does not expose an HTTP+JSON 1.0 interface");
   return { card, url: agentInterface.url };
 }
 
-export interface RpcOptions {
-  token?: string;
-  headers?: HeadersInit;
-}
+type QueryValue = string | number | boolean | undefined;
 
 export class A2AClient {
   constructor(
@@ -90,67 +102,84 @@ export class A2AClient {
     },
   ) {}
 
-  async rpc<T = unknown>(
-    method: string,
-    params: unknown = {},
-    options: RpcOptions = {},
+  private async request<T>(
+    method: "GET" | "POST",
+    path: string,
+    options: { query?: Record<string, QueryValue>; body?: unknown } = {},
   ): Promise<T> {
-    const token =
-      options.token ??
-      (await this.options.signer.sign({ sub: this.options.userId, aud: this.options.url }));
-    const fetchImpl = this.options.fetchImpl ?? fetch;
-    const result = await fetchImpl(this.options.url, {
-      method: "POST",
+    const baseUrl = this.options.url.replace(/\/+$/, "");
+    const url = new URL(`${baseUrl}${path}`);
+    for (const [key, value] of Object.entries(options.query ?? {})) {
+      if (value !== undefined) url.searchParams.set(key, String(value));
+    }
+    const token = await this.options.signer.sign({ sub: this.options.userId, aud: baseUrl });
+    const response = await (this.options.fetchImpl ?? fetch)(url, {
+      method,
       headers: {
-        "Content-Type": "application/json",
-        "A2A-Version": "1.0",
+        "A2A-Version": A2A_VERSION,
         Authorization: `Bearer ${token}`,
-        ...options.headers,
+        ...(options.body === undefined ? {} : { "Content-Type": "application/json" }),
       },
-      body: JSON.stringify({ jsonrpc: "2.0", id: randomUUID(), method, params }),
+      ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
     });
-    const body: unknown = await result.json().catch(async () => await result.text());
-    if (!result.ok) throw new A2AHttpError(result.status, body);
-    if (typeof body === "object" && body !== null && "error" in body) {
-      const error = body.error;
-      if (
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        typeof error.code === "number" &&
-        "message" in error &&
-        typeof error.message === "string"
-      ) {
-        throw new A2ARpcError(error.code, error.message, "data" in error ? error.data : undefined);
+    const text = await response.text();
+    let body: unknown = text;
+    if (text) {
+      try {
+        body = JSON.parse(text) as unknown;
+      } catch {
+        body = text;
       }
     }
-    if (typeof body === "object" && body !== null && "result" in body) return body.result as T;
-    throw new Error("Invalid JSON-RPC response");
+    if (!response.ok) {
+      const parsedError = A2AErrorResponseSchema.safeParse(body);
+      if (parsedError.success) {
+        const error = parsedError.data.error;
+        throw new A2AError(
+          response.status,
+          error.status,
+          error.details[0]?.reason ?? "",
+          error.message,
+          error.details,
+        );
+      }
+      throw new A2AHttpError(response.status, body);
+    }
+    return body as T;
   }
 
   async sendMessage(
     text: string,
     options: { taskId?: string; contextId?: string; historyLength?: number } = {},
   ): Promise<{ task: Task }> {
-    return this.rpc("SendMessage", {
-      message: {
-        messageId: randomUUID(),
-        ...(options.taskId ? { taskId: options.taskId } : {}),
-        ...(options.contextId === undefined ? {} : { contextId: options.contextId }),
-        role: "ROLE_USER",
-        parts: [{ text, mediaType: "text/plain" }],
+    const body = await this.request<unknown>("POST", "/message:send", {
+      body: {
+        message: {
+          messageId: randomUUID(),
+          ...(options.taskId ? { taskId: options.taskId } : {}),
+          ...(options.contextId === undefined ? {} : { contextId: options.contextId }),
+          role: "ROLE_USER",
+          parts: [{ text, mediaType: "text/plain" }],
+        },
+        ...(options.historyLength === undefined
+          ? {}
+          : { configuration: { historyLength: options.historyLength } }),
       },
-      ...(options.historyLength === undefined
-        ? {}
-        : { configuration: { historyLength: options.historyLength } }),
     });
+    const parsed = SendMessageResponseSchema.parse(body);
+    if (!("task" in parsed)) throw new Error("Expected SendMessage to return a task");
+    return { task: parsed.task };
   }
 
-  getTask(id: string, historyLength?: number): Promise<Task> {
-    return this.rpc("GetTask", { id, ...(historyLength === undefined ? {} : { historyLength }) });
+  async getTask(id: string, historyLength?: number): Promise<Task> {
+    return TaskSchema.parse(
+      await this.request("GET", `/tasks/${encodeURIComponent(id)}`, {
+        query: { historyLength },
+      }),
+    );
   }
 
-  listTasks(
+  async listTasks(
     options: {
       contextId?: string;
       status?: string;
@@ -161,10 +190,15 @@ export class A2AClient {
       includeArtifacts?: boolean;
     } = {},
   ): Promise<ListTasksResponse> {
-    return this.rpc("ListTasks", options);
+    return ListTasksResponseSchema.parse(await this.request("GET", "/tasks", { query: options }));
   }
 
-  cancelTask(id: string): Promise<unknown> {
-    return this.rpc("CancelTask", { id });
+  async cancelTask(id: string): Promise<Task> {
+    const parsedBody = CancelTaskRequestSchema.parse({ id });
+    return TaskSchema.parse(
+      await this.request("POST", `/tasks/${encodeURIComponent(id)}:cancel`, {
+        body: parsedBody,
+      }),
+    );
   }
 }

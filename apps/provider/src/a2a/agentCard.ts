@@ -12,7 +12,7 @@ export function buildAgentCard(
     supportedInterfaces: [
       {
         url: `${base}/a2a/${customer.slug}`,
-        protocolBinding: "JSONRPC",
+        protocolBinding: "HTTP+JSON",
         protocolVersion: "1.0",
       },
     ],

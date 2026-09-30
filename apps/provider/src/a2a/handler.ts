@@ -1,12 +1,12 @@
 import { randomUUID } from "node:crypto";
 import {
-  A2A_ERROR_CODES,
-  A2A_METHODS,
+  A2A_ERRORS,
   A2A_VERSION,
   CancelTaskRequestSchema,
   GetTaskRequestSchema,
   ListTasksRequestSchema,
   SendMessageRequestSchema,
+  TaskStateSchema,
   type Message,
   type Task,
   type TaskState,
@@ -16,64 +16,19 @@ import type { JWTVerifyGetKey } from "jose";
 import { runAgentTurn } from "../agent/index.js";
 import { verifyPlatformJwt } from "../auth/verifyPlatformJwt.js";
 import type { Db } from "../db/client.js";
-import { conversations, messages } from "../db/schema.js";
+import { conversations, customers, messages } from "../db/schema.js";
+import { buildAgentCard } from "./agentCard.js";
 import { getProviderBaseUrl } from "./providerBaseUrl.js";
 
-type RpcId = string | number | null;
-type ErrorPayload = {
-  jsonrpc: "2.0";
-  id: RpcId;
-  error: { code: number; message: string; data?: unknown };
-};
-
-function response(body: unknown, status = 200, headers?: HeadersInit): Response {
-  return Response.json(body, { status, ...(headers ? { headers } : {}) });
-}
-
-function a2aError(
-  id: RpcId,
-  code: number,
-  message: string,
-  reason?: string,
-  extra?: unknown,
-): ErrorPayload {
-  let data: unknown;
-  if (reason) {
-    data = [
-      {
-        "@type": "type.googleapis.com/google.rpc.ErrorInfo",
-        reason,
-        domain: "a2a-protocol.org",
-      },
-    ];
-  } else if (extra !== undefined) {
-    data = extra;
-  }
-  return {
-    jsonrpc: "2.0",
-    id,
-    error: { code, message, ...(data === undefined ? {} : { data }) },
-  };
-}
-
-function decodePageToken(token: string): { u: string; id: string } | null {
-  try {
-    const value: unknown = JSON.parse(Buffer.from(token, "base64url").toString("utf8"));
-    if (
-      typeof value === "object" &&
-      value !== null &&
-      "u" in value &&
-      typeof value.u === "string" &&
-      "id" in value &&
-      typeof value.id === "string"
-    ) {
-      return { u: value.u, id: value.id };
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
+type A2AErrorReason = keyof typeof A2A_ERRORS;
+type HandlerRoute =
+  | { kind: "agentCard" }
+  | { kind: "sendMessage" }
+  | { kind: "getTask"; id: string }
+  | { kind: "listTasks" }
+  | { kind: "cancelTask"; id: string }
+  | { kind: "unsupported" }
+  | { kind: "extendedAgentCard" };
 
 type HandlerOptions = {
   db: Db;
@@ -81,127 +36,264 @@ type HandlerOptions = {
   now?: () => Date;
 };
 
+function response(body: unknown, status = 200, headers?: HeadersInit): Response {
+  return Response.json(body, { status, ...(headers ? { headers } : {}) });
+}
+
+function a2aError(reason: A2AErrorReason, message: string): Response {
+  const { httpStatus, status } = A2A_ERRORS[reason];
+  return response(
+    {
+      error: {
+        code: httpStatus,
+        status,
+        message,
+        details: [
+          {
+            "@type": "type.googleapis.com/google.rpc.ErrorInfo",
+            reason,
+            domain: "a2a-protocol.org",
+          },
+        ],
+      },
+    },
+    httpStatus,
+  );
+}
+
+class HandlerError extends Error {
+  constructor(
+    readonly reason: A2AErrorReason,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+function notFound(): Response {
+  return new Response(null, { status: 404 });
+}
+
+function matchRoute(method: string, segments: string[]): HandlerRoute | null {
+  const path = segments.map((segment) => segment.replace(/%3a/gi, ":"));
+  if (
+    method === "GET" &&
+    path.length === 2 &&
+    path[0] === ".well-known" &&
+    path[1] === "agent-card.json"
+  )
+    return { kind: "agentCard" };
+  if (method === "POST" && path.length === 1 && path[0] === "message:send")
+    return { kind: "sendMessage" };
+  if (method === "POST" && path.length === 1 && path[0] === "message:stream")
+    return { kind: "unsupported" };
+  if (method === "GET" && path.length === 1 && path[0] === "tasks") return { kind: "listTasks" };
+  if (method === "POST" && path.length === 2 && path[0] === "tasks") {
+    const cancelMatch = path[1]?.match(/^(.+):cancel$/);
+    if (cancelMatch?.[1]) return { kind: "cancelTask", id: cancelMatch[1] };
+    if (path[1]?.match(/^.+:subscribe$/)) return { kind: "unsupported" };
+  }
+  if (
+    (method === "GET" || method === "POST") &&
+    path.length === 2 &&
+    path[0] === "tasks" &&
+    path[1]?.match(/^.+:subscribe$/)
+  ) {
+    return { kind: "unsupported" };
+  }
+  if (method === "GET" && path.length === 2 && path[0] === "tasks" && path[1])
+    return { kind: "getTask", id: path[1] };
+  if (
+    (method === "GET" || method === "POST" || method === "DELETE") &&
+    path.length >= 3 &&
+    path[0] === "tasks" &&
+    path[1] &&
+    path[2] === "pushNotificationConfigs"
+  ) {
+    return { kind: "unsupported" };
+  }
+  if (method === "GET" && path.length === 1 && path[0] === "extendedAgentCard")
+    return { kind: "extendedAgentCard" };
+  return null;
+}
+
+function unsupportedOperation(): Response {
+  return a2aError("UNSUPPORTED_OPERATION", "Unsupported operation");
+}
+
+function requireContentType(request: Request): void {
+  const contentType = request.headers.get("content-type")?.split(";")[0]?.trim().toLowerCase();
+  if (contentType !== "application/json" && contentType !== "application/a2a+json") {
+    throw new HandlerError("CONTENT_TYPE_NOT_SUPPORTED", "Content type not supported");
+  }
+}
+
+async function readJsonBody(request: Request): Promise<unknown> {
+  requireContentType(request);
+  try {
+    return await request.json();
+  } catch {
+    throw new HandlerError("INVALID_ARGUMENT", "Invalid JSON request body");
+  }
+}
+
+function queryValue(url: URL, name: string): string | undefined {
+  const values = url.searchParams.getAll(name);
+  if (values.length > 1)
+    throw new HandlerError("INVALID_ARGUMENT", `Invalid query parameter: ${name}`);
+  return values[0];
+}
+
+function integerQuery(url: URL, name: string): number | undefined {
+  const value = queryValue(url, name);
+  if (value === undefined) return undefined;
+  if (!/^\d+$/.test(value)) {
+    throw new HandlerError("INVALID_ARGUMENT", `Invalid integer query parameter: ${name}`);
+  }
+  const parsed = Number(value);
+  if (!Number.isSafeInteger(parsed)) {
+    throw new HandlerError("INVALID_ARGUMENT", `Invalid integer query parameter: ${name}`);
+  }
+  return parsed;
+}
+
+function getTaskQuery(url: URL, id: string): { id: string; historyLength?: number } {
+  const historyLength = integerQuery(url, "historyLength");
+  const request = {
+    id,
+    ...(historyLength === undefined ? {} : { historyLength }),
+  };
+  const parsed = GetTaskRequestSchema.safeParse(request);
+  if (!parsed.success) throw new HandlerError("INVALID_ARGUMENT", "Invalid query parameters");
+  return {
+    id: parsed.data.id,
+    ...(parsed.data.historyLength === undefined
+      ? {}
+      : { historyLength: parsed.data.historyLength }),
+  };
+}
+
+function listTasksQuery(url: URL) {
+  const status = queryValue(url, "status");
+  if (status !== undefined && !TaskStateSchema.safeParse(status).success) {
+    throw new HandlerError("INVALID_ARGUMENT", "Invalid status query parameter");
+  }
+  const includeArtifacts = queryValue(url, "includeArtifacts");
+  if (
+    includeArtifacts !== undefined &&
+    includeArtifacts !== "true" &&
+    includeArtifacts !== "false"
+  ) {
+    throw new HandlerError("INVALID_ARGUMENT", "Invalid boolean query parameter: includeArtifacts");
+  }
+  const contextId = queryValue(url, "contextId");
+  const pageSize = integerQuery(url, "pageSize");
+  const pageToken = queryValue(url, "pageToken");
+  const historyLength = integerQuery(url, "historyLength");
+  const statusTimestampAfter = queryValue(url, "statusTimestampAfter");
+  const request = {
+    ...(contextId === undefined ? {} : { contextId }),
+    ...(status === undefined ? {} : { status }),
+    ...(pageSize === undefined ? {} : { pageSize }),
+    ...(pageToken === undefined ? {} : { pageToken }),
+    ...(historyLength === undefined ? {} : { historyLength }),
+    ...(statusTimestampAfter === undefined ? {} : { statusTimestampAfter }),
+    ...(includeArtifacts === undefined ? {} : { includeArtifacts: includeArtifacts === "true" }),
+  };
+  const parsed = ListTasksRequestSchema.safeParse(request);
+  if (!parsed.success) throw new HandlerError("INVALID_ARGUMENT", "Invalid query parameters");
+  return parsed.data;
+}
+
+function decodePageToken(token: string): { updatedAt: Date; id: string } | null {
+  try {
+    const value: unknown = JSON.parse(Buffer.from(token, "base64url").toString("utf8"));
+    if (
+      typeof value !== "object" ||
+      value === null ||
+      !("u" in value) ||
+      typeof value.u !== "string" ||
+      !("id" in value) ||
+      typeof value.id !== "string"
+    ) {
+      return null;
+    }
+    const updatedAt = new Date(value.u);
+    if (Number.isNaN(updatedAt.getTime())) return null;
+    return { updatedAt, id: value.id };
+  } catch {
+    return null;
+  }
+}
+
 export function createA2AHandler(
   options: HandlerOptions,
-): (request: Request, slug: string) => Promise<Response> {
-  return async (request, slug) => {
-    if (request.method !== "POST")
-      return new Response("Method not allowed", { status: 405, headers: { Allow: "POST" } });
+): (request: Request, slug: string, pathSegments?: string[]) => Promise<Response> {
+  return async (request, slug, pathSegments = []) => {
+    const route = matchRoute(request.method, pathSegments);
+    if (!route) return notFound();
+
+    if (route.kind === "agentCard") {
+      try {
+        const customer = await options.db.query.customers.findFirst({
+          where: eq(customers.slug, slug),
+        });
+        if (!customer) return notFound();
+        const card = buildAgentCard(customer, getProviderBaseUrl(request));
+        return response(card, 200, {
+          "Cache-Control": "public, max-age=60",
+          "Access-Control-Allow-Origin": "*",
+        });
+      } catch (error) {
+        console.error("A2A agent card request failed", error);
+        return response({ error: "Internal error" }, 500);
+      }
+    }
+
     const baseUrl = getProviderBaseUrl(request);
-    const url = new URL(request.url);
-    const audience = `${baseUrl}/a2a/${slug}`;
     const auth = await verifyPlatformJwt({
       authorization: request.headers.get("authorization"),
       slug,
-      expectedAud: audience,
+      expectedAud: `${baseUrl}/a2a/${slug}`,
       db: options.db,
       ...(options.getJwks ? { getJwks: options.getJwks } : {}),
       ...(options.now ? { now: options.now } : {}),
     });
     if (!auth) {
-      return response(a2aError(null, A2A_ERROR_CODES.serverError, "Unauthorized"), 401, {
-        "WWW-Authenticate": 'Bearer realm="a2a"',
+      return new Response(null, {
+        status: 401,
+        headers: { "WWW-Authenticate": 'Bearer realm="a2a"' },
       });
     }
-    let rawBody: unknown;
-    try {
-      rawBody = await request.json();
-    } catch {
-      return response(a2aError(null, A2A_ERROR_CODES.parseError, "Invalid JSON payload"));
-    }
-    if (Array.isArray(rawBody)) {
-      return response(
-        a2aError(null, A2A_ERROR_CODES.invalidRequest, "Request payload validation error"),
-      );
-    }
-    if (
-      typeof rawBody !== "object" ||
-      rawBody === null ||
-      !("jsonrpc" in rawBody) ||
-      rawBody.jsonrpc !== "2.0" ||
-      !("id" in rawBody) ||
-      !("method" in rawBody) ||
-      typeof rawBody.method !== "string" ||
-      !rawBody.method ||
-      ("params" in rawBody &&
-        rawBody.params !== undefined &&
-        (typeof rawBody.params !== "object" ||
-          rawBody.params === null ||
-          Array.isArray(rawBody.params)))
-    ) {
-      return response(
-        a2aError(null, A2A_ERROR_CODES.invalidRequest, "Request payload validation error"),
-      );
-    }
-    const rpcId =
-      typeof rawBody.id === "string" || typeof rawBody.id === "number" || rawBody.id === null
-        ? rawBody.id
-        : null;
-    if (
-      !(typeof rawBody.id === "string" || typeof rawBody.id === "number" || rawBody.id === null)
-    ) {
-      return response(
-        a2aError(null, A2A_ERROR_CODES.invalidRequest, "Request payload validation error"),
-      );
-    }
-    const version = request.headers.get("A2A-Version") ?? url.searchParams.get("A2A-Version");
-    if (version !== A2A_VERSION) {
-      return response(
-        a2aError(
-          rpcId,
-          A2A_ERROR_CODES.versionNotSupported,
-          "Version not supported",
-          "VERSION_NOT_SUPPORTED",
-        ),
-      );
-    }
-    const method = rawBody.method;
-    const supported = new Set<string>(Object.values(A2A_METHODS));
-    if (!supported.has(method))
-      return response(a2aError(rpcId, A2A_ERROR_CODES.methodNotFound, "Method not found"));
-    const params = "params" in rawBody ? rawBody.params : undefined;
 
-    if (method === A2A_METHODS.sendMessage) {
-      const parsed = SendMessageRequestSchema.safeParse(params);
-      if (!parsed.success) {
-        return response(
-          a2aError(
-            rpcId,
-            A2A_ERROR_CODES.invalidParams,
-            "Invalid parameters",
-            undefined,
-            parsed.error.issues,
-          ),
-        );
-      }
-      const requestMessage = parsed.data.message;
-      if (requestMessage.role !== "ROLE_USER") {
-        return response(a2aError(rpcId, A2A_ERROR_CODES.invalidParams, "Invalid parameters"));
-      }
-      if (requestMessage.parts.some((part) => !("text" in part))) {
-        return response(
-          a2aError(
-            rpcId,
-            A2A_ERROR_CODES.contentTypeNotSupported,
-            "Content type not supported",
-            "CONTENT_TYPE_NOT_SUPPORTED",
-          ),
-        );
-      }
-      if (
-        parsed.data.configuration?.returnImmediately === true ||
-        parsed.data.configuration?.taskPushNotificationConfig !== undefined
-      ) {
-        return response(
-          a2aError(
-            rpcId,
-            A2A_ERROR_CODES.unsupportedOperation,
-            "Unsupported operation",
-            "UNSUPPORTED_OPERATION",
-          ),
-        );
-      }
-      try {
+    if (request.headers.get("A2A-Version") !== A2A_VERSION) {
+      return a2aError("VERSION_NOT_SUPPORTED", "Version not supported");
+    }
+
+    if (route.kind === "unsupported") return unsupportedOperation();
+    if (route.kind === "extendedAgentCard") {
+      return a2aError("EXTENDED_AGENT_CARD_NOT_CONFIGURED", "Extended agent card not configured");
+    }
+
+    try {
+      if (route.kind === "sendMessage") {
+        const rawBody = await readJsonBody(request);
+        const parsed = SendMessageRequestSchema.safeParse(rawBody);
+        if (!parsed.success) throw new HandlerError("INVALID_ARGUMENT", "Invalid request body");
+        const requestMessage = parsed.data.message;
+        if (requestMessage.role !== "ROLE_USER") {
+          throw new HandlerError("INVALID_ARGUMENT", "Message role must be ROLE_USER");
+        }
+        if (requestMessage.parts.some((part) => !("text" in part))) {
+          throw new HandlerError("CONTENT_TYPE_NOT_SUPPORTED", "Content type not supported");
+        }
+        if (
+          parsed.data.configuration?.returnImmediately === true ||
+          parsed.data.configuration?.taskPushNotificationConfig !== undefined
+        ) {
+          return unsupportedOperation();
+        }
+
         const task = await options.db.transaction(async (tx) => {
           const transactionDb = tx as unknown as Db;
           let conversation: typeof conversations.$inferSelect;
@@ -217,17 +309,14 @@ export function createA2AHandler(
                 ),
               )
               .for("update");
-            if (!found)
-              throw new RpcFailure(
-                A2A_ERROR_CODES.taskNotFound,
-                "Task not found",
-                "TASK_NOT_FOUND",
-              );
+            if (!found) {
+              throw new HandlerError("TASK_NOT_FOUND", "Task not found");
+            }
             if (
               requestMessage.contextId !== undefined &&
               requestMessage.contextId !== found.metadata.contextId
             ) {
-              throw new RpcFailure(A2A_ERROR_CODES.invalidParams, "Invalid parameters");
+              throw new HandlerError("INVALID_ARGUMENT", "Context ID does not match the task");
             }
             if (
               [
@@ -237,19 +326,14 @@ export function createA2AHandler(
                 "TASK_STATE_REJECTED",
               ].includes(found.state)
             ) {
-              throw new RpcFailure(
-                A2A_ERROR_CODES.unsupportedOperation,
-                "Unsupported operation",
-                "UNSUPPORTED_OPERATION",
-              );
+              throw new HandlerError("UNSUPPORTED_OPERATION", "Unsupported operation");
             }
             conversation = found;
           } else {
-            const id = randomUUID();
             const [created] = await transactionDb
               .insert(conversations)
               .values({
-                id,
+                id: randomUUID(),
                 customerId: auth.customer.id,
                 userId: auth.paUserId,
                 state: "TASK_STATE_SUBMITTED",
@@ -264,6 +348,7 @@ export function createA2AHandler(
             if (!created) throw new Error("Conversation insert returned no row");
             conversation = created;
           }
+
           const duplicate = await transactionDb
             .select({ id: messages.id })
             .from(messages)
@@ -274,8 +359,10 @@ export function createA2AHandler(
               ),
             )
             .limit(1);
-          if (duplicate.length)
-            throw new RpcFailure(A2A_ERROR_CODES.invalidParams, "Invalid parameters");
+          if (duplicate.length) {
+            throw new HandlerError("INVALID_ARGUMENT", "Message ID was already used");
+          }
+
           const [lastMessage] = await transactionDb
             .select({ createdAt: messages.createdAt })
             .from(messages)
@@ -301,14 +388,14 @@ export function createA2AHandler(
             parts: userMessage.parts,
             createdAt: messageCreatedAt,
           });
-          const flow = conversation.metadata.flow ?? {};
+
           const inputText = requestMessage.parts
             .map((part) => ("text" in part ? part.text : ""))
             .join("\n");
           const turn = await runAgentTurn({
             customerName: auth.customer.name,
             initialText: inputText,
-            previousFlow: flow,
+            previousFlow: conversation.metadata.flow ?? {},
           });
           const updatedAt = options.now?.() ?? new Date();
           const agentMessage: Message = {
@@ -335,12 +422,13 @@ export function createA2AHandler(
             .where(eq(conversations.id, conversation.id))
             .returning();
           if (!updated) throw new Error("Conversation update returned no row");
-          const history = await transactionDb
+
+          const historyRows = await transactionDb
             .select()
             .from(messages)
             .where(eq(messages.conversationId, conversation.id))
             .orderBy(messages.createdAt, messages.id);
-          const mappedHistory = history.map(
+          const history = historyRows.map(
             (message): Message => ({
               messageId: message.messageId,
               ...(updated.metadata.contextId === undefined
@@ -351,13 +439,13 @@ export function createA2AHandler(
               parts: message.parts as Message["parts"],
             }),
           );
-          const limitLength = parsed.data.configuration?.historyLength;
+          const historyLength = parsed.data.configuration?.historyLength;
           const boundedHistory =
-            limitLength === 0
+            historyLength === 0
               ? []
-              : limitLength === undefined
-                ? mappedHistory
-                : mappedHistory.slice(-limitLength);
+              : historyLength === undefined
+                ? history
+                : history.slice(-historyLength);
           const result: Task = {
             id: updated.id,
             ...(updated.metadata.contextId === undefined
@@ -372,185 +460,123 @@ export function createA2AHandler(
           };
           return result;
         });
-        return response({ jsonrpc: "2.0", id: rpcId, result: { task } });
-      } catch (error) {
-        if (error instanceof RpcFailure) {
-          return response(a2aError(rpcId, error.code, error.message, error.reason));
-        }
-        if (
-          error instanceof Error &&
-          error.message.includes("messages_conversation_message_unique")
-        ) {
-          return response(a2aError(rpcId, A2A_ERROR_CODES.invalidParams, "Invalid parameters"));
-        }
-        console.error("A2A SendMessage failed", error);
-        return response(a2aError(rpcId, A2A_ERROR_CODES.internalError, "Internal error"));
+        return response({ task });
       }
-    }
 
-    if (method === A2A_METHODS.getTask) {
-      const parsed = GetTaskRequestSchema.safeParse(params);
-      if (!parsed.success)
-        return response(
-          a2aError(
-            rpcId,
-            A2A_ERROR_CODES.invalidParams,
-            "Invalid parameters",
-            undefined,
-            parsed.error.issues,
-          ),
-        );
-      const task = await loadTask(
-        options.db,
-        parsed.data.id,
-        auth.customer.id,
-        auth.paUserId,
-        parsed.data.historyLength,
-      );
-      if (!task)
-        return response(
-          a2aError(rpcId, A2A_ERROR_CODES.taskNotFound, "Task not found", "TASK_NOT_FOUND"),
-        );
-      return response({ jsonrpc: "2.0", id: rpcId, result: task });
-    }
-    if (method === A2A_METHODS.listTasks) {
-      const parsed = ListTasksRequestSchema.safeParse(params);
-      if (!parsed.success)
-        return response(
-          a2aError(
-            rpcId,
-            A2A_ERROR_CODES.invalidParams,
-            "Invalid parameters",
-            undefined,
-            parsed.error.issues,
-          ),
-        );
-      const pageSize = parsed.data.pageSize ?? 50;
-      const filter = and(
-        eq(conversations.customerId, auth.customer.id),
-        eq(conversations.userId, auth.paUserId),
-        ...(parsed.data.contextId === undefined
-          ? []
-          : [sql`${conversations.metadata}->>'contextId' = ${parsed.data.contextId}`]),
-        ...(parsed.data.status ? [eq(conversations.state, parsed.data.status)] : []),
-        ...(parsed.data.statusTimestampAfter
-          ? [gt(conversations.updatedAt, new Date(parsed.data.statusTimestampAfter))]
-          : []),
-      );
-      const cursor = parsed.data.pageToken ? decodePageToken(parsed.data.pageToken) : null;
-      if (parsed.data.pageToken && !cursor) {
-        return response(a2aError(rpcId, A2A_ERROR_CODES.invalidParams, "Invalid parameters"));
-      }
-      const cursorFilter =
-        cursor === null
-          ? undefined
-          : or(
-              lt(conversations.updatedAt, new Date(cursor.u)),
-              and(eq(conversations.updatedAt, new Date(cursor.u)), lt(conversations.id, cursor.id)),
-            );
-      const rows = await options.db
-        .select()
-        .from(conversations)
-        .where(cursorFilter ? and(filter, cursorFilter) : filter)
-        .orderBy(desc(conversations.updatedAt), desc(conversations.id))
-        .limit(pageSize + 1);
-      const totalResult = await options.db
-        .select({ value: sql<number>`count(*)::int` })
-        .from(conversations)
-        .where(filter);
-      const more = rows.length > pageSize;
-      const pageRows = rows.slice(0, pageSize);
-      const tasks: Task[] = [];
-      for (const row of pageRows) {
+      if (route.kind === "getTask") {
+        const query = getTaskQuery(new URL(request.url), route.id);
         const task = await loadTask(
           options.db,
-          row.id,
+          query.id,
           auth.customer.id,
           auth.paUserId,
-          parsed.data.historyLength,
-          parsed.data.includeArtifacts,
+          query.historyLength,
         );
-        if (task) tasks.push(task);
+        if (!task) throw new HandlerError("TASK_NOT_FOUND", "Task not found");
+        return response(task);
       }
-      const last = pageRows.at(-1);
-      const nextPageToken =
-        more && last
-          ? Buffer.from(JSON.stringify({ u: last.updatedAt.toISOString(), id: last.id })).toString(
-              "base64url",
-            )
-          : "";
-      return response({
-        jsonrpc: "2.0",
-        id: rpcId,
-        result: {
+
+      if (route.kind === "listTasks") {
+        const query = listTasksQuery(new URL(request.url));
+        const pageSize = query.pageSize ?? 50;
+        const filter = and(
+          eq(conversations.customerId, auth.customer.id),
+          eq(conversations.userId, auth.paUserId),
+          ...(query.contextId === undefined
+            ? []
+            : [sql`${conversations.metadata}->>'contextId' = ${query.contextId}`]),
+          ...(query.status ? [eq(conversations.state, query.status)] : []),
+          ...(query.statusTimestampAfter
+            ? [gt(conversations.updatedAt, new Date(query.statusTimestampAfter))]
+            : []),
+        );
+        const cursor = query.pageToken ? decodePageToken(query.pageToken) : null;
+        if (query.pageToken && !cursor) {
+          throw new HandlerError("INVALID_ARGUMENT", "Invalid page token");
+        }
+        const cursorFilter =
+          cursor === null
+            ? undefined
+            : or(
+                lt(conversations.updatedAt, cursor.updatedAt),
+                and(eq(conversations.updatedAt, cursor.updatedAt), lt(conversations.id, cursor.id)),
+              );
+        const rows = await options.db
+          .select()
+          .from(conversations)
+          .where(cursorFilter ? and(filter, cursorFilter) : filter)
+          .orderBy(desc(conversations.updatedAt), desc(conversations.id))
+          .limit(pageSize + 1);
+        const totalResult = await options.db
+          .select({ value: sql<number>`count(*)::int` })
+          .from(conversations)
+          .where(filter);
+        const more = rows.length > pageSize;
+        const pageRows = rows.slice(0, pageSize);
+        const tasks: Task[] = [];
+        for (const row of pageRows) {
+          const task = await loadTask(
+            options.db,
+            row.id,
+            auth.customer.id,
+            auth.paUserId,
+            query.historyLength,
+            query.includeArtifacts,
+          );
+          if (task) tasks.push(task);
+        }
+        const last = pageRows.at(-1);
+        const nextPageToken =
+          more && last
+            ? Buffer.from(
+                JSON.stringify({ u: last.updatedAt.toISOString(), id: last.id }),
+              ).toString("base64url")
+            : "";
+        return response({
           tasks,
           nextPageToken,
           pageSize,
           totalSize: totalResult[0]?.value ?? 0,
-        },
-      });
-    }
-    if (method === A2A_METHODS.cancelTask) {
-      const parsed = CancelTaskRequestSchema.safeParse(params);
-      if (!parsed.success)
-        return response(
-          a2aError(
-            rpcId,
-            A2A_ERROR_CODES.invalidParams,
-            "Invalid parameters",
-            undefined,
-            parsed.error.issues,
-          ),
-        );
-      return response(
-        a2aError(
-          rpcId,
-          A2A_ERROR_CODES.taskNotCancelable,
-          "Task not cancelable",
-          "TASK_NOT_CANCELABLE",
-        ),
-      );
-    }
-    if (method === A2A_METHODS.getExtendedAgentCard) {
-      return response(
-        a2aError(
-          rpcId,
-          A2A_ERROR_CODES.extendedAgentCardNotConfigured,
-          "Extended agent card not configured",
-          "EXTENDED_AGENT_CARD_NOT_CONFIGURED",
-        ),
-      );
-    }
-    const unsupportedMethods = new Set<string>([
-      A2A_METHODS.sendStreamingMessage,
-      A2A_METHODS.subscribeToTask,
-      A2A_METHODS.createTaskPushNotificationConfig,
-      A2A_METHODS.getTaskPushNotificationConfig,
-      A2A_METHODS.listTaskPushNotificationConfigs,
-      A2A_METHODS.deleteTaskPushNotificationConfig,
-    ]);
-    if (unsupportedMethods.has(method)) {
-      return response(
-        a2aError(
-          rpcId,
-          A2A_ERROR_CODES.unsupportedOperation,
-          "Unsupported operation",
-          "UNSUPPORTED_OPERATION",
-        ),
-      );
-    }
-    return response(a2aError(rpcId, A2A_ERROR_CODES.methodNotFound, "Method not found"));
-  };
-}
+        });
+      }
 
-class RpcFailure extends Error {
-  constructor(
-    readonly code: number,
-    message: string,
-    readonly reason?: string,
-  ) {
-    super(message);
-  }
+      if (route.kind === "cancelTask") {
+        const rawBody = await readJsonBody(request);
+        if (typeof rawBody !== "object" || rawBody === null || Array.isArray(rawBody)) {
+          throw new HandlerError("INVALID_ARGUMENT", "Invalid cancel request body");
+        }
+        const parsed = CancelTaskRequestSchema.safeParse({ ...rawBody, id: route.id });
+        if (!parsed.success) {
+          throw new HandlerError("INVALID_ARGUMENT", "Invalid cancel request body");
+        }
+        const [task] = await options.db
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(
+            and(
+              eq(conversations.id, route.id),
+              eq(conversations.customerId, auth.customer.id),
+              eq(conversations.userId, auth.paUserId),
+            ),
+          )
+          .limit(1);
+        if (!task) throw new HandlerError("TASK_NOT_FOUND", "Task not found");
+        return a2aError("TASK_NOT_CANCELABLE", "Task not cancelable");
+      }
+    } catch (error) {
+      if (error instanceof HandlerError) return a2aError(error.reason, error.message);
+      if (
+        error instanceof Error &&
+        error.message.includes("messages_conversation_message_unique")
+      ) {
+        return a2aError("INVALID_ARGUMENT", "Message ID was already used");
+      }
+      console.error("A2A request failed", error);
+      return a2aError("INTERNAL", "Internal error");
+    }
+
+    return notFound();
+  };
 }
 
 async function loadTask(

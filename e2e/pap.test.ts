@@ -2,6 +2,7 @@ import { generateKeyPair, importJWK, SignJWT, type JWK } from "jose";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
+import { A2AErrorResponseSchema } from "@pap/protocol";
 import { A2AClient, createPlatformSigner, discoverAgent } from "@pap/client";
 
 function readLocalEnv(): void {
@@ -54,20 +55,40 @@ async function signedToken(input: {
     .sign(key);
 }
 
-async function rawRpc(
+async function rawRequest(
   url: string,
-  token: string | undefined,
-  params: unknown,
-  method = "ListTasks",
+  input: {
+    method?: string;
+    token?: string;
+    body?: unknown;
+    version?: string | null;
+    contentType?: string;
+  } = {},
 ): Promise<Response> {
+  const headers = new Headers();
+  if (input.token) headers.set("Authorization", `Bearer ${input.token}`);
+  if (input.version === undefined) headers.set("A2A-Version", "1.0");
+  else if (input.version !== null) headers.set("A2A-Version", input.version);
+  if (input.body !== undefined || input.contentType) {
+    headers.set("Content-Type", input.contentType ?? "application/json");
+  }
   return fetch(url, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "A2A-Version": "1.0",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-    body: JSON.stringify({ jsonrpc: "2.0", id: crypto.randomUUID(), method, params }),
+    method: input.method ?? "GET",
+    headers,
+    ...(input.body === undefined ? {} : { body: JSON.stringify(input.body) }),
+  });
+}
+
+async function expectA2AError(
+  response: Response,
+  expected: { httpStatus: number; status: string; reason: string },
+): Promise<void> {
+  const parsed = A2AErrorResponseSchema.parse(await response.json());
+  expect(response.status).toBe(expected.httpStatus);
+  expect(parsed.error).toMatchObject({
+    code: expected.httpStatus,
+    status: expected.status,
+    details: [{ reason: expected.reason, domain: "a2a-protocol.org" }],
   });
 }
 
@@ -80,7 +101,7 @@ function client(userId: string): A2AClient {
   });
 }
 
-describe.sequential("Personal Agent Protocol full E2E", () => {
+describe.sequential("Personal Agent Protocol HTTP+JSON E2E", () => {
   beforeAll(() => {
     slug = requiredEnv("CUSTOMER_SLUG");
     globexSlug = requiredEnv("GLOBEX_SLUG");
@@ -88,8 +109,13 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     jwk = JSON.parse(requiredEnv("PA_PRIVATE_JWK")) as JWK & { kid: string };
   });
 
-  it("discovers the protocol-core agent card", async () => {
+  it("discovers the HTTP+JSON card with bearer auth and a single FAQ skill", async () => {
     cardResult = await discoverAgent(providerUrl, slug);
+    expect(cardResult.card.supportedInterfaces[0]).toMatchObject({
+      url: `${providerUrl}/a2a/${slug}`,
+      protocolBinding: "HTTP+JSON",
+      protocolVersion: "1.0",
+    });
     expect(cardResult.card.securitySchemes?.paPlatformJwt).toHaveProperty(
       "httpAuthSecurityScheme.scheme",
       "Bearer",
@@ -118,12 +144,11 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     });
   });
 
-  it("continues an unknown question into the same FAQ task", async () => {
+  it("continues an unrecognized question into the same FAQ task", async () => {
     multiTurnClient = client(`e2e-multiturn-${crypto.randomUUID()}`);
     const started = await multiTurnClient.sendMessage("Can you help me?");
     expect(started.task.status.state).toBe("TASK_STATE_INPUT_REQUIRED");
     expect(started.task).not.toHaveProperty("contextId");
-    expect(started.task.status.message).not.toHaveProperty("contextId");
     expect(started.task.status.message?.parts[0]).toMatchObject({
       text: "Which would you like to know about: hours, location, parking, or insurance?",
     });
@@ -137,7 +162,7 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     expect(answered.task.history?.every((message) => !("contextId" in message))).toBe(true);
   });
 
-  it("round-trips and filters a supplied context ID", async () => {
+  it("round-trips context IDs, filters tasks, and rejects context mismatches", async () => {
     const sub = `e2e-context-${crypto.randomUUID()}`;
     const contextId = `context-${crypto.randomUUID()}`;
     const contextClient = client(sub);
@@ -155,17 +180,16 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
     const fetched = await contextClient.getTask(answered.task.id);
     expect(fetched.contextId).toBe(contextId);
     expect(fetched.history?.every((message) => message.contextId === contextId)).toBe(true);
-
     const matching = await contextClient.listTasks({ contextId });
     expect(matching.tasks.map((task) => task.id)).toContain(answered.task.id);
     const filteredOut = await contextClient.listTasks({ contextId: `${contextId}-other` });
     expect(filteredOut.tasks.map((task) => task.id)).not.toContain(answered.task.id);
 
     const token = await signedToken({ aud: cardResult!.url, sub });
-    const mismatch = await rawRpc(
-      cardResult!.url,
+    const mismatch = await rawRequest(`${cardResult!.url}/message:send`, {
+      method: "POST",
       token,
-      {
+      body: {
         message: {
           messageId: crypto.randomUUID(),
           taskId: answered.task.id,
@@ -174,29 +198,129 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
           parts: [{ text: "parking" }],
         },
       },
-      "SendMessage",
-    );
-    expect(await mismatch.json()).toMatchObject({ error: { code: -32602 } });
+    });
+    await expectA2AError(mismatch, {
+      httpStatus: 400,
+      status: "INVALID_ARGUMENT",
+      reason: "INVALID_ARGUMENT",
+    });
   });
 
-  it("scopes GetTask and ListTasks to the caller and rejects cancellation", async () => {
+  it("scopes task reads and cancellation to the caller", async () => {
     if (!multiTurnClient || !multiTurnTaskId) throw new Error("Multi-turn task was not created");
     const differentCaller = client(`e2e-other-${crypto.randomUUID()}`);
-    await expect(differentCaller.getTask(multiTurnTaskId)).rejects.toMatchObject({ code: -32001 });
+    await expect(differentCaller.getTask(multiTurnTaskId)).rejects.toMatchObject({
+      httpStatus: 404,
+      status: "NOT_FOUND",
+      reason: "TASK_NOT_FOUND",
+    });
     const otherTasks = await differentCaller.listTasks();
     expect(otherTasks.tasks.some((task) => task.id === multiTurnTaskId)).toBe(false);
     await expect(multiTurnClient.cancelTask(multiTurnTaskId)).rejects.toMatchObject({
-      code: -32002,
+      httpStatus: 409,
+      status: "FAILED_PRECONDITION",
+      reason: "TASK_NOT_CANCELABLE",
     });
   });
 
-  it("rejects requests without a bearer token", async () => {
-    const response = await rawRpc(cardResult!.url, undefined, {});
-    expect(response.status).toBe(401);
-    expect(response.headers.get("www-authenticate")).toBe('Bearer realm="a2a"');
-    expect(await response.json()).toMatchObject({
-      error: { code: -32000, message: "Unauthorized" },
+  it("returns AIP-193 errors for unsupported operations and invalid query values", async () => {
+    const taskId = crypto.randomUUID();
+    const cases = [
+      ["POST", "/message:stream", undefined, 400, "UNIMPLEMENTED", "UNSUPPORTED_OPERATION"],
+      [
+        "GET",
+        `/tasks/${taskId}:subscribe`,
+        undefined,
+        400,
+        "UNIMPLEMENTED",
+        "UNSUPPORTED_OPERATION",
+      ],
+      ["POST", `/tasks/${taskId}:subscribe`, {}, 400, "UNIMPLEMENTED", "UNSUPPORTED_OPERATION"],
+      [
+        "GET",
+        `/tasks/${taskId}/pushNotificationConfigs`,
+        undefined,
+        400,
+        "UNIMPLEMENTED",
+        "UNSUPPORTED_OPERATION",
+      ],
+      [
+        "POST",
+        `/tasks/${taskId}/pushNotificationConfigs`,
+        {},
+        400,
+        "UNIMPLEMENTED",
+        "UNSUPPORTED_OPERATION",
+      ],
+      [
+        "DELETE",
+        `/tasks/${taskId}/pushNotificationConfigs/config-1`,
+        undefined,
+        400,
+        "UNIMPLEMENTED",
+        "UNSUPPORTED_OPERATION",
+      ],
+      [
+        "GET",
+        "/extendedAgentCard",
+        undefined,
+        400,
+        "FAILED_PRECONDITION",
+        "EXTENDED_AGENT_CARD_NOT_CONFIGURED",
+      ],
+      ["GET", "/tasks?pageSize=1.5", undefined, 400, "INVALID_ARGUMENT", "INVALID_ARGUMENT"],
+      ["GET", "/tasks?includeArtifacts=1", undefined, 400, "INVALID_ARGUMENT", "INVALID_ARGUMENT"],
+    ] as const;
+    for (const [method, path, body, httpStatus, status, reason] of cases) {
+      const response = await rawRequest(`${cardResult!.url}${path}`, {
+        method,
+        token: await signedToken({ aud: cardResult!.url }),
+        body,
+      });
+      await expectA2AError(response, { httpStatus, status, reason });
+    }
+
+    const unknownTask = await rawRequest(`${cardResult!.url}/tasks/${taskId}`, {
+      token: await signedToken({ aud: cardResult!.url }),
     });
+    await expectA2AError(unknownTask, {
+      httpStatus: 404,
+      status: "NOT_FOUND",
+      reason: "TASK_NOT_FOUND",
+    });
+    const unsupportedContent = await rawRequest(`${cardResult!.url}/message:send`, {
+      method: "POST",
+      token: await signedToken({ aud: cardResult!.url }),
+      contentType: "text/plain",
+      body: {},
+    });
+    await expectA2AError(unsupportedContent, {
+      httpStatus: 415,
+      status: "INVALID_ARGUMENT",
+      reason: "CONTENT_TYPE_NOT_SUPPORTED",
+    });
+  });
+
+  it("returns empty 404s for unknown routes and wrong methods before auth", async () => {
+    for (const [method, path] of [
+      ["GET", "/unknown"],
+      ["POST", "/unknown"],
+      ["PUT", "/message:send"],
+      ["GET", "/message:send"],
+    ] as const) {
+      const response = await rawRequest(`${providerUrl}/a2a/${slug}${path}`, {
+        method,
+      });
+      expect(response.status).toBe(404);
+      expect(await response.text()).toBe("");
+    }
+  });
+
+  it("returns a bare 401 for missing credentials", async () => {
+    const response = await rawRequest(`${cardResult!.url}/tasks`);
+    expect(response.status).toBe(401);
+    expect(await response.text()).toBe("");
+    expect(response.headers.get("www-authenticate")).toBe('Bearer realm="a2a"');
   });
 
   it("rejects a bad signature", async () => {
@@ -206,25 +330,25 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
       signKey: privateKey,
       kid: jwk!.kid,
     });
-    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
+    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
   });
 
   it("rejects a token with the wrong audience for the Globex slug", async () => {
     const token = await signedToken({ aud: cardResult!.url });
-    const globexUrl = `${providerUrl}/a2a/${globexSlug}`;
-    expect((await rawRpc(globexUrl, token, {})).status).toBe(401);
+    const globexUrl = `${providerUrl}/a2a/${globexSlug}/tasks`;
+    expect((await rawRequest(globexUrl, { token })).status).toBe(401);
   });
 
   it("rejects expired tokens", async () => {
     const now = Math.floor(Date.now() / 1000);
     const token = await signedToken({ aud: cardResult!.url, iat: now - 200, exp: now - 100 });
-    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
+    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
   });
 
   it("rejects tokens with lifetimes over 300 seconds", async () => {
     const now = Math.floor(Date.now() / 1000);
     const token = await signedToken({ aud: cardResult!.url, iat: now, exp: now + 301 });
-    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
+    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
   });
 
   it("rejects an unknown platform issuer", async () => {
@@ -232,13 +356,13 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
       aud: cardResult!.url,
       iss: `${issuer}/not-registered`,
     });
-    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
+    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
   });
 
   it("rejects replayed JWT IDs", async () => {
     const token = await signedToken({ aud: cardResult!.url });
-    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(200);
-    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
+    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(200);
+    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
   });
 
   it("rejects the disabled PA platform", async () => {
@@ -246,16 +370,19 @@ describe.sequential("Personal Agent Protocol full E2E", () => {
       aud: cardResult!.url,
       iss: `${issuer}/disabled-pa`,
     });
-    expect((await rawRpc(cardResult!.url, token, {})).status).toBe(401);
+    expect((await rawRequest(`${cardResult!.url}/tasks`, { token })).status).toBe(401);
   });
 
-  it("returns version error -32009 when A2A-Version is missing", async () => {
+  it("requires the A2A-Version header after successful authentication", async () => {
     const token = await signedToken({ aud: cardResult!.url });
-    const response = await fetch(cardResult!.url, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "ListTasks", params: {} }),
+    const response = await rawRequest(`${cardResult!.url}/tasks`, {
+      token,
+      version: null,
     });
-    expect((await response.json()).error.code).toBe(-32009);
+    await expectA2AError(response, {
+      httpStatus: 400,
+      status: "UNIMPLEMENTED",
+      reason: "VERSION_NOT_SUPPORTED",
+    });
   });
 });

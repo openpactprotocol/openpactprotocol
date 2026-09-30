@@ -2,35 +2,42 @@ import { z } from "zod";
 
 export const A2A_VERSION = "1.0";
 
-export const A2A_METHODS = {
-  sendMessage: "SendMessage",
-  sendStreamingMessage: "SendStreamingMessage",
-  getTask: "GetTask",
-  listTasks: "ListTasks",
-  cancelTask: "CancelTask",
-  subscribeToTask: "SubscribeToTask",
-  createTaskPushNotificationConfig: "CreateTaskPushNotificationConfig",
-  getTaskPushNotificationConfig: "GetTaskPushNotificationConfig",
-  listTaskPushNotificationConfigs: "ListTaskPushNotificationConfigs",
-  deleteTaskPushNotificationConfig: "DeleteTaskPushNotificationConfig",
-  getExtendedAgentCard: "GetExtendedAgentCard",
+export const A2A_ERRORS = {
+  TASK_NOT_FOUND: { httpStatus: 404, status: "NOT_FOUND" },
+  TASK_NOT_CANCELABLE: { httpStatus: 409, status: "FAILED_PRECONDITION" },
+  UNSUPPORTED_OPERATION: { httpStatus: 400, status: "UNIMPLEMENTED" },
+  CONTENT_TYPE_NOT_SUPPORTED: { httpStatus: 415, status: "INVALID_ARGUMENT" },
+  EXTENDED_AGENT_CARD_NOT_CONFIGURED: {
+    httpStatus: 400,
+    status: "FAILED_PRECONDITION",
+  },
+  VERSION_NOT_SUPPORTED: { httpStatus: 400, status: "UNIMPLEMENTED" },
+  INVALID_ARGUMENT: { httpStatus: 400, status: "INVALID_ARGUMENT" },
+  INTERNAL: { httpStatus: 500, status: "INTERNAL" },
 } as const;
 
-export const A2A_ERROR_CODES = {
-  parseError: -32700,
-  invalidRequest: -32600,
-  methodNotFound: -32601,
-  invalidParams: -32602,
-  internalError: -32603,
-  serverError: -32000,
-  taskNotFound: -32001,
-  taskNotCancelable: -32002,
-  pushNotificationNotSupported: -32003,
-  unsupportedOperation: -32004,
-  contentTypeNotSupported: -32005,
-  extendedAgentCardNotConfigured: -32007,
-  versionNotSupported: -32009,
-} as const;
+export const A2AErrorResponseSchema = z.object({
+  error: z.object({
+    code: z.number().int(),
+    status: z.enum([
+      "NOT_FOUND",
+      "FAILED_PRECONDITION",
+      "UNIMPLEMENTED",
+      "INVALID_ARGUMENT",
+      "INTERNAL",
+    ]),
+    message: z.string(),
+    details: z.array(
+      z
+        .object({
+          "@type": z.literal("type.googleapis.com/google.rpc.ErrorInfo"),
+          reason: z.string(),
+          domain: z.literal("a2a-protocol.org"),
+        })
+        .passthrough(),
+    ),
+  }),
+});
 
 export const RoleSchema = z.enum(["ROLE_UNSPECIFIED", "ROLE_USER", "ROLE_AGENT"]);
 export const TaskStateSchema = z.enum([
@@ -241,32 +248,6 @@ export const AgentCardSchema = z.object({
   iconUrl: z.string().url().optional(),
 });
 
-export const JsonRpcRequestSchema = z.object({
-  jsonrpc: z.literal("2.0"),
-  id: z.union([z.string(), z.number(), z.null()]),
-  method: z.string().min(1),
-  params: z.unknown().optional(),
-});
-
-export const JsonRpcErrorSchema = z.object({
-  code: z.number().int(),
-  message: z.string(),
-  data: z.unknown().optional(),
-});
-
-export const JsonRpcResponseSchema = z.union([
-  z.object({
-    jsonrpc: z.literal("2.0"),
-    id: z.union([z.string(), z.number(), z.null()]),
-    result: z.unknown(),
-  }),
-  z.object({
-    jsonrpc: z.literal("2.0"),
-    id: z.union([z.string(), z.number(), z.null()]),
-    error: JsonRpcErrorSchema,
-  }),
-]);
-
 export const PlatformJwtClaimsSchema = z.object({
   iss: z.string(),
   sub: z.string().min(1),
@@ -298,7 +279,5 @@ export type AgentCapabilities = z.infer<typeof AgentCapabilitiesSchema>;
 export type AgentExtension = z.infer<typeof AgentExtensionSchema>;
 export type AgentSkill = z.infer<typeof AgentSkillSchema>;
 export type AgentCard = z.infer<typeof AgentCardSchema>;
-export type JsonRpcRequest = z.infer<typeof JsonRpcRequestSchema>;
-export type JsonRpcError = z.infer<typeof JsonRpcErrorSchema>;
-export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>;
+export type A2AErrorResponse = z.infer<typeof A2AErrorResponseSchema>;
 export type PlatformJwtClaims = z.infer<typeof PlatformJwtClaimsSchema>;

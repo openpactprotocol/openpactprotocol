@@ -9,14 +9,6 @@ const nextConfig: NextConfig = {
     };
     return config;
   },
-  async rewrites() {
-    return [
-      {
-        source: "/a2a/:slug/.well-known/agent-card.json",
-        destination: "/api/agent-card/:slug",
-      },
-    ];
-  },
 };
 
 export default nextConfig;

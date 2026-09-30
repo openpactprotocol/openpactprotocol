@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@pap/client": "workspace:*",
+    "@pap/protocol": "workspace:*",
     "jose": "6.1.0",
     "vitest": "3.2.4"
   }

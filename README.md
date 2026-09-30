@@ -1,6 +1,6 @@
 # Personal Agent Protocol · Phase 1 harness
 
-An internal end-to-end test harness for the A2A 1.0 JSON-RPC agent channel. The provider is a deliberately small Decagon-like dummy FAQ agent, and the personal-agent (PA) app signs platform JWTs server-side. Nothing in this repository is a public product or a general-purpose service.
+An internal end-to-end test harness for the A2A 1.0 HTTP+JSON agent channel. The provider is a deliberately small Decagon-like dummy FAQ agent, and the personal-agent (PA) app signs platform JWTs server-side. Nothing in this repository is a public product or a general-purpose service.
 
 The hand-written protocol dispatcher follows the A2A 1.0.0 proto and specification provided with this repository's initial implementation brief. Proto field names and enum spellings are authoritative; in particular, AgentCard uses `securityRequirements`.
 
@@ -9,7 +9,7 @@ The hand-written protocol dispatcher follows the A2A 1.0.0 proto and specificati
 - `apps/provider`: Next.js App Router provider, PostgreSQL persistence, A2A dispatcher, and FAQ agent.
 - `apps/personal-agent/server`: static Vercel site serving the PA platform public JWKS.
 - `apps/personal-agent/client`: local-only Next.js chat UI. Private-key signing happens only in server components/actions.
-- `packages/protocol`: Zod schemas and A2A constants.
+- `packages/protocol`: Zod schemas, HTTP error definitions, and A2A constants.
 - `packages/client`: reference client, JWT signer, and `pap` CLI.
 - `scripts/gen-keys.ts`: local ES256 key generation.
 - `e2e`: Vitest end-to-end suite for an already-running provider and JWKS server.
@@ -29,6 +29,59 @@ The provider stores only the protocol core in five tables:
 The dummy agent has one static FAQ skill. Known hours, location, parking, or insurance topics complete immediately. Unrecognized questions ask the user to pick a topic and can be continued on the same task; requests for a human get an `INPUT_REQUIRED` follow-up response.
 
 A2A context IDs are optional. The provider preserves and echoes a context ID when supplied; tasks without one omit the `contextId` field from Task and Message responses.
+
+## A2A HTTP+JSON binding
+
+The Agent Card advertises the per-customer interface base URL `{PROVIDER_URL}/a2a/{slug}` and `protocolBinding: "HTTP+JSON"`. All JWTs use that exact interface URL as `aud`, regardless of the operation. Authenticated requests include `A2A-Version: 1.0`; request bodies may use `application/json` or `application/a2a+json`, and responses use `application/json`.
+
+| Method                  | Path relative to the interface URL         | Behavior                                                                                                                               |
+| ----------------------- | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`                   | `.well-known/agent-card.json`              | Public Agent Card; unknown customer slugs return 404.                                                                                  |
+| `POST`                  | `message:send`                             | Send a message; returns HTTP 200 `{ "task": ... }`.                                                                                    |
+| `POST`                  | `message:stream`                           | Returns `UNSUPPORTED_OPERATION`.                                                                                                       |
+| `GET`                   | `tasks/{id}`                               | Returns the Task; supports `historyLength`.                                                                                            |
+| `GET`                   | `tasks`                                    | Lists Tasks; supports `contextId`, `status`, `pageSize`, `pageToken`, `historyLength`, `statusTimestampAfter`, and `includeArtifacts`. |
+| `POST`                  | `tasks/{id}:cancel`                        | Returns `TASK_NOT_CANCELABLE` for owned tasks.                                                                                         |
+| `GET`, `POST`           | `tasks/{id}:subscribe`                     | Returns `UNSUPPORTED_OPERATION`.                                                                                                       |
+| `GET`, `POST`, `DELETE` | `tasks/{id}/pushNotificationConfigs[/...]` | Returns `UNSUPPORTED_OPERATION`.                                                                                                       |
+| `GET`                   | `extendedAgentCard`                        | Returns `EXTENDED_AGENT_CARD_NOT_CONFIGURED`.                                                                                          |
+
+Unknown paths or unsupported methods return an empty-body 404 before authentication. Matched A2A operations authenticate first; invalid credentials return an empty-body 401 before request bodies are read.
+
+Errors use the AIP-193 shape `{"error":{"code":<HTTP status>,"status":"<gRPC status>","message":"...","details":[{"@type":"type.googleapis.com/google.rpc.ErrorInfo","reason":"...","domain":"a2a-protocol.org"}]}}`.
+
+| Reason                               | HTTP status | Status                |
+| ------------------------------------ | ----------: | --------------------- |
+| `TASK_NOT_FOUND`                     |         404 | `NOT_FOUND`           |
+| `TASK_NOT_CANCELABLE`                |         409 | `FAILED_PRECONDITION` |
+| `UNSUPPORTED_OPERATION`              |         400 | `UNIMPLEMENTED`       |
+| `CONTENT_TYPE_NOT_SUPPORTED`         |         415 | `INVALID_ARGUMENT`    |
+| `EXTENDED_AGENT_CARD_NOT_CONFIGURED` |         400 | `FAILED_PRECONDITION` |
+| `VERSION_NOT_SUPPORTED`              |         400 | `UNIMPLEMENTED`       |
+| `INVALID_ARGUMENT`                   |         400 | `INVALID_ARGUMENT`    |
+| `INTERNAL`                           |         500 | `INTERNAL`            |
+
+To call the send route directly, sign a fresh JWT whose audience is the interface URL, then send:
+
+```sh
+curl -X POST "$PROVIDER_URL/a2a/$CUSTOMER_SLUG/message:send" \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "A2A-Version: 1.0" \
+  -H "Content-Type: application/json" \
+  -d '{"message":{"messageId":"message-1","role":"ROLE_USER","parts":[{"text":"What are your hours?"}]}}'
+```
+
+The reference client signs each request and the CLI commands remain:
+
+```sh
+pnpm --filter @pap/client pap card
+pnpm --filter @pap/client pap send "what are your hours?"
+pnpm --filter @pap/client pap send "hours" --task <task-id>
+pnpm --filter @pap/client pap get <task-id>
+pnpm --filter @pap/client pap list
+pnpm --filter @pap/client pap cancel <task-id>
+pnpm --filter @pap/client pap chat
+```
 
 ## Local development
 
