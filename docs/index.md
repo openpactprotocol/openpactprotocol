@@ -57,9 +57,9 @@ the Brand's business.
 
 ## Next
 
-- [Quickstart](/quickstart) — first message in five minutes (PA side).
-- [Specification](/spec) — the normative text; Providers start at
-  [§7.1](/spec#71-implementing-a-provider-identity).
-- [Reference implementation](/reference-implementation) — Provider, demo PA,
+- [Quickstart](quickstart.md) — first message in five minutes (PA side).
+- [Specification](spec.md) — the normative text; Providers start at
+  [§7.1](spec.md#71-implementing-a-provider-identity).
+- [Reference implementation](reference-implementation.md) — Provider, demo PA,
   and conformance suite in this repository.
-- [TypeScript client](/typescript-client) — `@pac2/client` and the `pac2` CLI.
+- [TypeScript client](typescript-client.md) — `@pac2/client` and the `pac2` CLI.

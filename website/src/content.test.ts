@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Node } from "@markdoc/markdoc";
 import { allContentFiles, readDocContent, validateContent } from "./content";
-import { navigationPages } from "./nav";
+import { hrefForMarkdownLink, navigationPages } from "./nav";
 import { plainText, slugifyHeading } from "./markdoc";
 
 const pages = navigationPages.map((page) => ({
@@ -40,9 +40,11 @@ describe("developer documentation content", () => {
       const markdownLinks = content.markdown.matchAll(/\]\(([^)\s]+)(?:\s+[^)]*)?\)/g);
       for (const match of markdownLinks) {
         const target = match[1];
-        if (!target || (!target.startsWith("/") && !target.startsWith("#"))) continue;
+        if (!target || /^[a-z][a-z0-9+.-]*:/.test(target)) continue;
+        expect(target, `${navigation.file} links to ${target}`).not.toMatch(/^\//);
 
-        const [rawPath = "", rawFragment] = target.split("#", 2);
+        const [rawPath = "", rawFragment] = hrefForMarkdownLink(target).split("#", 2);
+        expect(rawPath, `${navigation.file} links to ${target}`).not.toMatch(/\.md$/);
         const pathname = rawPath ? decodeURIComponent(rawPath) : navigation.href;
         const destination = pathname === "/" ? "/" : pathname.replace(/\/+$/, "");
         const targetContent = pagesByHref.get(destination);

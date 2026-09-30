@@ -4,7 +4,7 @@ description: Publish a key, onboard, find a Brand's agent, send a message.
 ---
 
 You need a Provider that speaks PAC2 and a Brand ID on it. To try it locally
-first, run the [reference implementation](/reference-implementation); it ships
+first, run the [reference implementation](reference-implementation.md); it ships
 three demo Brands.
 
 ```sh
@@ -36,7 +36,7 @@ Once per Provider, not per User or Brand. Give the Provider `ISSUER` and
 `JWKS_URI`; it gives you `PA_AUDIENCE`. How is up to the Provider — usually a
 partner form or a contact, not an API; some Providers accept any issuer that
 serves a JWKS. (The reference Provider has a self-service endpoint; see
-[Reference implementation](/reference-implementation#self-service-registration).)
+[Reference implementation](reference-implementation.md#self-service-registration).)
 
 ## 3. Find the Brand's agent
 
@@ -96,7 +96,7 @@ Send the next message with the `contextId`:
 ```
 
 Same `contextId` + same `messageId` is a safe retry; you get the stored reply.
-See [Specification §4](/spec#4-messages).
+See [Specification §4](spec.md#4-messages).
 
 Your JWT says which PA is calling, not who the User is. When the agent needs
 to know, it asks in conversation (order number, email, …) and you relay the
@@ -115,7 +115,7 @@ X-A2A-User-Delegation: Bearer $DELEGATION_TOKEN
 ```
 
 Everything else is the same. See
-[Specification §5](/spec#5-delegated-authority).
+[Specification §5](spec.md#5-delegated-authority).
 
 ## Same thing in TypeScript
 
@@ -131,4 +131,4 @@ const next = await client.sendMessage("Order 4471", { contextId: first.contextId
 ```
 
 Or from a shell: `pac2 card`, `pac2 send "Where is my order?"`, `pac2 chat` —
-see [TypeScript client](/typescript-client).
+see [TypeScript client](typescript-client.md).

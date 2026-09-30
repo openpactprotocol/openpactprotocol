@@ -4,7 +4,7 @@ description: Use @pac2/client — signer, Agent Card discovery, A2AClient, error
 ---
 
 `@pac2/client` (`packages/client`) is the PA side of the
-[specification](/spec). Small enough to read; copy it or import it.
+[specification](spec.md). Small enough to read; copy it or import it.
 
 ## Sign
 
@@ -54,7 +54,7 @@ const { created, platform } = await registerPlatform({ providerUrl, name: "my-pl
 ```
 
 Calls the reference Provider's self-service endpoint
-([Reference implementation](/reference-implementation#self-service-registration)).
+([Reference implementation](reference-implementation.md#self-service-registration)).
 `jwksUri` defaults to `{issuer}/.well-known/jwks.json`; `created` is `true`
 on `201`, `false` on an idempotent `200`. Not needed for Providers that onboard
 out of band.

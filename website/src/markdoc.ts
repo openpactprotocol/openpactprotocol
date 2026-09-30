@@ -1,4 +1,5 @@
 import Markdoc, { Tag, type Config, type Node } from "@markdoc/markdoc";
+import { hrefForMarkdownLink } from "./nav";
 
 export type TableOfContentsItem = {
   title: string;
@@ -46,6 +47,16 @@ export const markdocConfig: Config = {
         const level = Number(node.attributes.level);
         const id = slugifyHeading(plainText(node));
         return new Tag(`h${level}`, { id }, node.transformChildren(config));
+      },
+    },
+    link: {
+      ...Markdoc.nodes.link,
+      transform(node, config) {
+        const href = String(node.attributes.href ?? "");
+        const attributes = /^[a-z0-9-]+\.md(#.*)?$/.test(href)
+          ? { ...node.attributes, href: hrefForMarkdownLink(href) }
+          : node.attributes;
+        return new Tag("a", attributes, node.transformChildren(config));
       },
     },
     fence: {

@@ -4,7 +4,7 @@ description: Run the reference Provider, the demo PA, and the conformance suite 
 ---
 
 Everything outside `docs/` is a runnable reference implementation of the
-[specification](/spec)'s **Identity** profile. Delegated authority (§5) is not
+[specification](spec.md)'s **Identity** profile. Delegated authority (§5) is not
 implemented here yet. Seed data, demo agents, and UI are not protocol. The
 code and env vars call Brands `customers` (`CUSTOMER_ID`); that is the same
 thing.

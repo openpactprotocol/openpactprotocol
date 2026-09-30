@@ -487,7 +487,7 @@ This is PAC2 **1.0**. Breaking changes to either profile bump that number.
    `messageId` (§4.3). Answer the other A2A operations per §2.2.
 6. Use the §6 envelope for A2A errors and plain HTTP for everything else.
 7. Run `e2e/` against yourself with `E2E_PROVIDER=any`; see
-   [Reference implementation](/reference-implementation#conformance-tests).
+   [Reference implementation](reference-implementation.md#conformance-tests).
 
 For Delegated, add §5: scopes and login per Brand, the OAuth device-code
 server under `{interfaceUrl}/oauth/`, delegation-token checks, step-up, and

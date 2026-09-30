@@ -40,6 +40,18 @@ export function findPageByHref(href: string): DocNavigationPage | undefined {
   return navigationPages.find((page) => page.href === href);
 }
 
+export function findPageByFile(file: string): DocNavigationPage | undefined {
+  return navigationPages.find((page) => page.file === file);
+}
+
+/** Maps a docs-relative markdown link (`spec.md#4-messages`) to its site route. */
+export function hrefForMarkdownLink(target: string): string {
+  const [file = "", fragment] = target.split("#", 2);
+  const page = findPageByFile(file);
+  if (!page) return target;
+  return fragment ? `${page.href}#${fragment}` : page.href;
+}
+
 export function pageNeighbors(href: string): {
   previous?: DocNavigationPage;
   next?: DocNavigationPage;
