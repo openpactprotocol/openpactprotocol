@@ -1,10 +1,16 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { A2AClient, createPlatformSigner, discoverAgent } from "@pap/client";
+import { A2AClient, createPlatformSigner, discoverAgent, registerPlatform } from "@pap/client";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { homePath, USER_ID_COOKIE, USER_ID_COOKIE_OPTIONS } from "../lib/session.js";
+import {
+  defaultPlatformName,
+  homePath,
+  USER_ID_COOKIE,
+  USER_ID_COOKIE_OPTIONS,
+  type RegistrationNotice,
+} from "../lib/session.js";
 
 type Connection = { providerUrl: string; slug: string };
 
@@ -31,6 +37,28 @@ export async function connect(formData: FormData): Promise<void> {
 export async function newUser(formData: FormData): Promise<void> {
   await setUserId(randomUUID());
   redirect(homePath(readConnection(formData)));
+}
+
+export async function registerPersonalAgent(formData: FormData): Promise<void> {
+  const connection = readConnection(formData);
+  const name = String(formData.get("platformName") ?? "").trim() || defaultPlatformName();
+  const issuer = process.env.PA_ISSUER;
+  const privateJwk = process.env.PA_PRIVATE_JWK;
+  if (!issuer || !privateJwk)
+    throw new Error("Set PA_ISSUER and PA_PRIVATE_JWK in the server environment");
+  let registration: RegistrationNotice;
+  try {
+    const result = await registerPlatform({
+      providerUrl: connection.providerUrl,
+      name,
+      signer: createPlatformSigner({ issuer, privateJwk }),
+    });
+    registration = { status: result.created ? "created" : "existing", name };
+  } catch (cause) {
+    const message = cause instanceof Error ? cause.message : "Registration failed";
+    registration = { status: "error", name, message };
+  }
+  redirect(homePath({ ...connection, registration }));
 }
 
 export async function sendChatMessage(formData: FormData): Promise<void> {

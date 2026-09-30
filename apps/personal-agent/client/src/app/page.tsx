@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { A2AClient, createPlatformSigner, discoverAgent } from "@pap/client";
+import { A2AClient, A2AHttpError, createPlatformSigner, discoverAgent } from "@pap/client";
 import type { AgentCard, Message, Task, TaskState } from "@pap/protocol";
 import {
   Bot,
@@ -8,6 +8,7 @@ import {
   CircleX,
   Clock,
   Headset,
+  KeyRound,
   Link as LinkIcon,
   Lock,
   MessageCircle,
@@ -20,8 +21,14 @@ import {
 } from "lucide-react";
 import { cookies } from "next/headers";
 import type { ReactElement } from "react";
-import { homePath, USER_ID_COOKIE } from "../lib/session.js";
-import { connect, newUser, sendChatMessage } from "./actions.js";
+import {
+  defaultPlatformName,
+  homePath,
+  readRegistrationNotice,
+  USER_ID_COOKIE,
+  type RegistrationNotice,
+} from "../lib/session.js";
+import { connect, newUser, registerPersonalAgent, sendChatMessage } from "./actions.js";
 
 export const dynamic = "force-dynamic";
 
@@ -85,10 +92,115 @@ function authLabel(card: AgentCard): string | undefined {
   return undefined;
 }
 
+function RegistrationResult({ notice }: { notice: RegistrationNotice }): ReactElement {
+  if (notice.status === "error") {
+    return (
+      <p className="notice error" role="alert">
+        <CircleX size={16} aria-hidden />
+        Registration of <code>{notice.name}</code> failed: {notice.message}
+      </p>
+    );
+  }
+  return (
+    <p className="notice success">
+      <CircleCheck size={16} aria-hidden />
+      {notice.status === "created" ? (
+        <span>
+          Registered <code>{notice.name}</code> with the provider. It is enabled and can call
+          customer agents now.
+        </span>
+      ) : (
+        <span>
+          <code>{notice.name}</code> is already registered with the provider.
+        </span>
+      )}
+    </p>
+  );
+}
+
+function RegisterPanel(input: {
+  providerUrl: string;
+  slug: string;
+  issuer: string;
+  open: boolean;
+  notice: RegistrationNotice | undefined;
+}): ReactElement {
+  const provider = input.providerUrl.replace(/\/+$/, "");
+  const jwksUri = `${input.issuer}/.well-known/jwks.json`;
+  return (
+    <details className="card register" open={input.open}>
+      <summary>
+        <KeyRound size={16} aria-hidden />
+        <span>Register personal agent</span>
+        <span className="summary-hint">One-time onboarding of this platform with the provider</span>
+      </summary>
+      <div className="register-body">
+        <ol className="steps">
+          <li>
+            <strong>Publish public keys</strong>
+            <span>
+              The platform hosts its JWKS on its own origin:{" "}
+              <a href={jwksUri} target="_blank" rel="noreferrer">
+                <code>{jwksUri}</code>
+              </a>
+            </span>
+          </li>
+          <li>
+            <strong>Sign a registration assertion</strong>
+            <span>
+              An ES256 JWT, valid for at most five minutes. The private key never leaves this
+              client.
+            </span>
+            <dl className="claims">
+              <dt>iss, sub</dt>
+              <dd>{input.issuer}</dd>
+              <dt>aud</dt>
+              <dd>{provider}/api/platforms</dd>
+            </dl>
+          </li>
+          <li>
+            <strong>
+              POST <code>/api/platforms</code>
+            </strong>
+            <span>
+              The provider verifies the assertion against the JWKS and stores the platform&apos;s
+              name, issuer and JWKS URI. Later A2A calls are verified against the same keys.
+            </span>
+          </li>
+        </ol>
+        <form className="register-form" action={registerPersonalAgent}>
+          <input name="providerUrl" type="hidden" value={input.providerUrl} />
+          <input name="slug" type="hidden" value={input.slug} />
+          <label>
+            <span>Platform name</span>
+            <input name="platformName" defaultValue={input.notice?.name ?? defaultPlatformName()} />
+          </label>
+          <label>
+            <span>Issuer</span>
+            <input value={input.issuer} readOnly />
+          </label>
+          <button type="submit" className="primary">
+            <KeyRound size={16} aria-hidden />
+            Register personal agent
+          </button>
+        </form>
+        {input.notice ? <RegistrationResult notice={input.notice} /> : null}
+      </div>
+    </details>
+  );
+}
+
 export default async function HomePage({
   searchParams,
 }: {
-  searchParams: Promise<{ providerUrl?: string; slug?: string; task?: string }>;
+  searchParams: Promise<{
+    providerUrl?: string;
+    slug?: string;
+    task?: string;
+    registration?: string;
+    platformName?: string;
+    registrationError?: string;
+  }>;
 }): Promise<ReactElement> {
   const query = await searchParams;
   const providerUrl = query.providerUrl ?? process.env.PROVIDER_URL ?? "http://localhost:3000";
@@ -100,6 +212,8 @@ export default async function HomePage({
   let tasks: Task[] = [];
   let selectedTask: Task | undefined;
   let error: string | undefined;
+  let unauthorized = false;
+  const registration = readRegistrationNotice(query);
   if (slug && userId && issuer && privateJwk) {
     try {
       const discovery = await discoverAgent(providerUrl, slug);
@@ -112,7 +226,12 @@ export default async function HomePage({
       tasks = (await client.listTasks({ pageSize: 100 })).tasks;
       if (query.task) selectedTask = await client.getTask(query.task);
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : "Could not connect to the provider.";
+      unauthorized = cause instanceof A2AHttpError && cause.status === 401;
+      error = unauthorized
+        ? "The provider rejected this platform's token (401). Is this personal agent registered with the provider?"
+        : cause instanceof Error
+          ? cause.message
+          : "Could not connect to the provider.";
     }
   }
   const messages = selectedTask?.history ?? [];
@@ -176,6 +295,16 @@ export default async function HomePage({
             <CircleAlert size={16} aria-hidden />
             {error}
           </p>
+        ) : null}
+
+        {issuer && privateJwk ? (
+          <RegisterPanel
+            providerUrl={providerUrl}
+            slug={slug}
+            issuer={issuer}
+            open={unauthorized || registration !== undefined}
+            notice={registration}
+          />
         ) : null}
 
         <div className="workspace">

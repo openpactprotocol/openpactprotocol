@@ -98,6 +98,8 @@ pnpm --filter @pap/client pap register [--name <name>] [--jwks-uri <url>]
 
 It requires `PROVIDER_URL`, `PA_ISSUER`, and `PA_PRIVATE_JWK`, but does not require `CUSTOMER_SLUG`. The name defaults to `PA_PLATFORM_NAME`, then `demo-pa`; the JWKS URI defaults to `${PA_ISSUER}/.well-known/jwks.json`.
 
+The PA client UI has the same flow under **Register personal agent**: it lists the three steps (publish JWKS, sign the assertion, `POST /api/platforms`) and shows the provider's result. The panel opens automatically when the provider rejects the platform's token with 401. To walk through it from scratch, seed with `SEED_DEMO_PLATFORM=false`, open the client, and register before chatting.
+
 ## Local development
 
 Requirements: Node.js 20+, pnpm 11.21.0, and PostgreSQL (a local database or a Neon development branch).
