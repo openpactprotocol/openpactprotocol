@@ -1,67 +1,41 @@
 "use client";
 
 import { ArrowUp, AudioLines, Plus } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { startTransition, useOptimistic, useRef, type ReactElement } from "react";
+import { useRef, type FormEvent, type ReactElement } from "react";
 import type { PhoneMessage } from "../lib/conversationStore.js";
-import { sendChatMessage } from "./actions.js";
 
 export function PhoneChat(input: {
   messages: PhoneMessage[];
+  typing: boolean;
   dayLabel: string;
-  providerUrl: string;
-  customerIds: string[];
-  conversationId: string;
   connected: boolean;
+  busy: boolean;
+  onSend: (text: string) => void;
 }): ReactElement {
-  const router = useRouter();
-  const [pendingText, setPendingText] = useOptimistic<string | undefined, string>(
-    undefined,
-    (_, text) => text,
-  );
   const textInput = useRef<HTMLInputElement>(null);
 
-  async function send(formData: FormData): Promise<void> {
-    const text = String(formData.get("text") ?? "").trim();
+  function submit(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const text = textInput.current?.value.trim() ?? "";
     if (!text) return;
-    setPendingText(text);
     if (textInput.current) textInput.current.value = "";
-    const href = await sendChatMessage(formData);
-    startTransition(() => router.replace(href));
+    input.onSend(text);
   }
-
-  const messages: PhoneMessage[] = pendingText
-    ? [...input.messages, { role: "user", text: pendingText, at: "" }]
-    : input.messages;
 
   return (
     <>
       <div className="thread">
         <div className="thread-inner">
           <p className="timestamp">{input.dayLabel}</p>
-          {messages.map((message, index) => {
-            const previousMessage = messages[index - 1];
-            const showSender =
-              message.role !== "user" &&
-              (previousMessage?.role !== message.role ||
-                (message.role === "business" &&
-                  previousMessage?.role === "business" &&
-                  previousMessage.businessName !== message.businessName));
-            return (
-              <div
-                className={message.role === "user" ? "row outgoing" : "row incoming"}
-                key={`${message.at}-${index}`}
-              >
-                {showSender ? (
-                  <span className="sender">
-                    {message.role === "business" ? message.businessName : "Personal Agent"}
-                  </span>
-                ) : null}
-                <p className="bubble">{message.text}</p>
-              </div>
-            );
-          })}
-          {pendingText ? (
+          {input.messages.map((message, index) => (
+            <div
+              className={message.role === "user" ? "row outgoing" : "row incoming"}
+              key={`${message.at}-${index}`}
+            >
+              <p className="bubble">{message.text}</p>
+            </div>
+          ))}
+          {input.typing ? (
             <div className="row incoming" aria-label="Personal Agent is typing">
               <p className="bubble typing" aria-hidden>
                 <i />
@@ -73,10 +47,7 @@ export function PhoneChat(input: {
         </div>
       </div>
 
-      <form className="composer" action={send}>
-        <input name="providerUrl" type="hidden" value={input.providerUrl} />
-        <input name="customerIds" type="hidden" value={input.customerIds.join(",")} />
-        <input name="conversationId" type="hidden" value={input.conversationId} />
+      <form className="composer" onSubmit={submit}>
         <span className="composer-plus" aria-hidden>
           <Plus size={20} strokeWidth={1.75} />
         </span>
@@ -88,7 +59,7 @@ export function PhoneChat(input: {
             autoComplete="off"
             placeholder={input.connected ? "Message" : "Not connected"}
             aria-label="Message"
-            disabled={!input.connected}
+            disabled={!input.connected || input.busy}
           />
           <span className="dictate" aria-hidden>
             <AudioLines size={18} strokeWidth={1.75} />
@@ -96,7 +67,7 @@ export function PhoneChat(input: {
           <button
             type="submit"
             className="send"
-            disabled={!input.connected}
+            disabled={!input.connected || input.busy}
             aria-label="Send"
             title="Send"
           >
