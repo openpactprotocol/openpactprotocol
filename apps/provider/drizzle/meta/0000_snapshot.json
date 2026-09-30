@@ -1,5 +1,5 @@
 {
-  "id": "45a4fb53-9f0d-4857-8a1e-9dd251cf5a05",
+  "id": "fa99a614-9865-4a85-9e08-82cb3e6c70d3",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -165,13 +165,6 @@
           "name": "id",
           "type": "uuid",
           "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "public_id": {
-          "name": "public_id",
-          "type": "text",
-          "primaryKey": false,
           "notNull": true
         },
         "slug": {
@@ -191,11 +184,6 @@
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "customers_public_id_unique": {
-          "name": "customers_public_id_unique",
-          "nullsNotDistinct": false,
-          "columns": ["public_id"]
-        },
         "customers_slug_unique": {
           "name": "customers_slug_unique",
           "nullsNotDistinct": false,

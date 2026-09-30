@@ -1,14 +1,7 @@
-import { randomBytes } from "node:crypto";
 import { eq } from "drizzle-orm";
+import { v7 as uuidv7 } from "uuid";
 import { closeDb, getDb, type Db } from "./client.js";
 import { agentPlatforms, customers } from "./schema.js";
-
-const alphabet = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-
-function randomPublicId(): string {
-  const bytes = randomBytes(21);
-  return Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join("");
-}
 
 export async function seedDatabase(
   db: Db,
@@ -23,19 +16,16 @@ export async function seedDatabase(
     ["Globex Clinic", "globex_clinic"],
   ] as const) {
     const existing = await db.query.customers.findFirst({ where: eq(customers.name, name) });
-    const publicId = existing ? undefined : randomPublicId();
-    const customer =
-      existing ??
-      (
-        await db
-          .insert(customers)
-          .values({
-            publicId: publicId!,
-            slug: `${publicId!.slice(-7)}_${suffix}`,
-            name,
-          })
-          .returning()
-      )[0]!;
+    let customer = existing;
+    if (!customer) {
+      const id = uuidv7();
+      const [created] = await db
+        .insert(customers)
+        .values({ id, slug: `${id.slice(-7)}_${suffix}`, name })
+        .returning();
+      if (!created) throw new Error(`Failed to seed customer ${name}`);
+      customer = created;
+    }
     customerRows[name] = customer;
   }
 

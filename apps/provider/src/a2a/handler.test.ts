@@ -125,6 +125,17 @@ describe("A2A handler", () => {
     handler = createA2AHandler({ db: testDb, getJwks: () => localJwks });
   });
 
+  it("seeds UUIDv7 customer IDs and derives slugs from the IDs", async () => {
+    const customer = await testDb.query.customers.findFirst({
+      where: eq(customers.name, "Acme Health"),
+    });
+    if (!customer) throw new Error("Seeded Acme customer missing");
+    expect(customer.id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(customer.slug).toBe(`${customer.id.slice(-7)}_acme_health`);
+  });
+
   it("authenticates callers and scopes task reads by PA user", async () => {
     const faq = await rpc(slugs.acmeSlug, "SendMessage", {
       message: {

@@ -9,6 +9,7 @@ import {
   unique,
   uuid,
 } from "drizzle-orm/pg-core";
+import { v7 as uuidv7 } from "uuid";
 import type { FlowState } from "../agent/index.js";
 
 export type ConversationMetadata = {
@@ -17,8 +18,9 @@ export type ConversationMetadata = {
 };
 
 export const customers = pgTable("customers", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  publicId: text("public_id").notNull().unique(),
+  id: uuid("id")
+    .primaryKey()
+    .$defaultFn(() => uuidv7()),
   slug: text("slug").notNull().unique(),
   name: text("name").notNull().unique(),
 });

@@ -20,7 +20,7 @@ All workspaces are strict TypeScript/ESM, and the workspace packages export Type
 
 The provider stores only the protocol core in five tables:
 
-- `customers`: `id`, unique `public_id`, unique `slug`, unique `name`.
+- `customers`: UUIDv7 `id` (primary key), unique `slug`, unique `name`.
 - `agent_platforms`: `id`, unique `name`, unique `issuer`, `jwks_uri`, `enabled`.
 - `conversations`: `id` (the A2A task ID), `customer_id`, `user_id` (`{platform}:{sub}`), `state`, `metadata` (JSONB default `{}`), `created_at`, `updated_at`. The ownership index is `(customer_id, user_id, updated_at)`. Metadata stores the optional A2A `contextId` and FAQ `flow`.
 - `messages`: `id`, `conversation_id`, `message_id`, `role`, `parts` (JSONB), `created_at`; message IDs are unique within a conversation.

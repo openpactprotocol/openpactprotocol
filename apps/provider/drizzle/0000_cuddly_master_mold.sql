@@ -19,11 +19,9 @@ CREATE TABLE "conversations" (
 );
 --> statement-breakpoint
 CREATE TABLE "customers" (
-	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
-	"public_id" text NOT NULL,
+	"id" uuid PRIMARY KEY NOT NULL,
 	"slug" text NOT NULL,
 	"name" text NOT NULL,
-	CONSTRAINT "customers_public_id_unique" UNIQUE("public_id"),
 	CONSTRAINT "customers_slug_unique" UNIQUE("slug"),
 	CONSTRAINT "customers_name_unique" UNIQUE("name")
 );
