@@ -36,6 +36,12 @@ type HandlerOptions = {
   now?: () => Date;
 };
 
+export type A2AHandler = (
+  request: Request,
+  slug: string,
+  pathSegments: string[],
+) => Promise<Response>;
+
 function response(body: unknown, status = 200, headers?: HeadersInit): Response {
   return Response.json(body, { status, ...(headers ? { headers } : {}) });
 }
@@ -226,10 +232,8 @@ function decodePageToken(token: string): { updatedAt: Date; id: string } | null 
   }
 }
 
-export function createA2AHandler(
-  options: HandlerOptions,
-): (request: Request, slug: string, pathSegments?: string[]) => Promise<Response> {
-  return async (request, slug, pathSegments = []) => {
+export function createA2AHandler(options: HandlerOptions): A2AHandler {
+  return async (request, slug, pathSegments) => {
     const route = matchRoute(request.method, pathSegments);
     if (!route) return notFound();
 

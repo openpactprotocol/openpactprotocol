@@ -11,8 +11,20 @@ import {
   type A2AErrorResponse,
   type AgentCard,
   type ListTasksResponse,
+  type Message,
   type Task,
 } from "@pap/protocol";
+
+export type { AgentCard, ListTasksResponse, Message, Task };
+
+export type DiscoveredAgent = {
+  card: AgentCard;
+  url: string;
+};
+
+export type SendMessageResult = {
+  task: Task;
+};
 
 type PrivateJwk = Parameters<typeof importJWK>[0];
 type A2AStatus = A2AErrorResponse["error"]["status"];
@@ -75,10 +87,7 @@ export function createPlatformSigner(input: {
   };
 }
 
-export async function discoverAgent(
-  providerUrl: string,
-  slug: string,
-): Promise<{ card: AgentCard; url: string }> {
+export async function discoverAgent(providerUrl: string, slug: string): Promise<DiscoveredAgent> {
   const base = providerUrl.replace(/\/+$/, "");
   const result = await fetch(`${base}/a2a/${encodeURIComponent(slug)}/.well-known/agent-card.json`);
   if (!result.ok) throw new A2AHttpError(result.status, await result.text());
@@ -151,7 +160,7 @@ export class A2AClient {
   async sendMessage(
     text: string,
     options: { taskId?: string; contextId?: string; historyLength?: number } = {},
-  ): Promise<{ task: Task }> {
+  ): Promise<SendMessageResult> {
     const body = await this.request<unknown>("POST", "/message:send", {
       body: {
         message: {

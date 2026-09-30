@@ -4,6 +4,9 @@ import {
   exportJWK,
   generateKeyPair,
   SignJWT,
+  type CryptoKey,
+  type GenerateKeyPairResult,
+  type JWK,
 } from "jose";
 import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
@@ -15,18 +18,18 @@ import { seedDatabase } from "../db/seed.js";
 import type { Db } from "../db/client.js";
 import * as schema from "../db/schema.js";
 import { conversations, customers } from "../db/schema.js";
-import { createA2AHandler } from "./handler.js";
+import { createA2AHandler, type A2AHandler } from "./handler.js";
 
 const issuer = "http://localhost:3002";
 const origin = "http://localhost:3000";
 
-let handler: ReturnType<typeof createA2AHandler>;
+let handler: A2AHandler;
 let client: PGlite;
 let testDb: Db;
 let slugs: { acmeSlug: string; globexSlug: string };
-let keyPair: Awaited<ReturnType<typeof generateKeyPair>>;
+let keyPair: GenerateKeyPairResult;
 let kid: string;
-let publicJwk: Awaited<ReturnType<typeof exportJWK>>;
+let publicJwk: JWK;
 
 async function token(
   input: {

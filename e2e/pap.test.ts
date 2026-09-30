@@ -1,9 +1,9 @@
-import { generateKeyPair, importJWK, SignJWT, type JWK } from "jose";
+import { generateKeyPair, importJWK, SignJWT, type CryptoKey, type JWK } from "jose";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { A2AErrorResponseSchema } from "@pap/protocol";
-import { A2AClient, createPlatformSigner, discoverAgent } from "@pap/client";
+import { A2AClient, createPlatformSigner, discoverAgent, type DiscoveredAgent } from "@pap/client";
 
 function readLocalEnv(): void {
   const path = fileURLToPath(new URL("../apps/personal-agent/client/.env.local", import.meta.url));
@@ -28,12 +28,12 @@ let slug = "";
 let globexSlug = "";
 let issuer = "";
 let jwk: (JWK & { kid: string }) | undefined;
-let cardResult: Awaited<ReturnType<typeof discoverAgent>> | undefined;
+let cardResult: DiscoveredAgent | undefined;
 let multiTurnClient: A2AClient | undefined;
 let multiTurnTaskId = "";
 
 async function signedToken(input: {
-  signKey?: Awaited<ReturnType<typeof importJWK>>;
+  signKey?: CryptoKey;
   kid?: string;
   iss?: string;
   aud: string;

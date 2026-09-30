@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { A2AClient, createPlatformSigner, discoverAgent } from "@pap/client";
+import type { AgentCard, Message, Task } from "@pap/client";
 import type { ReactElement } from "react";
 import { sendChatMessage } from "./actions.js";
 
@@ -16,10 +17,10 @@ export default async function HomePage({
   const userId = query.userId ?? process.env.PA_USER_ID ?? "demo-user";
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
-  let card: Awaited<ReturnType<typeof discoverAgent>>["card"] | undefined;
-  let tasks: Awaited<ReturnType<A2AClient["listTasks"]>>["tasks"] = [];
-  let messages: Awaited<ReturnType<A2AClient["getTask"]>>["history"] = [];
-  let selectedTask: Awaited<ReturnType<A2AClient["getTask"]>> | undefined;
+  let card: AgentCard | undefined;
+  let tasks: Task[] = [];
+  let messages: Message[] = [];
+  let selectedTask: Task | undefined;
   let error: string | undefined;
   if (slug && issuer && privateJwk) {
     try {
