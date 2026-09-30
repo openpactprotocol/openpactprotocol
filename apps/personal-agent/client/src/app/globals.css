@@ -512,14 +512,43 @@ button:disabled {
   width: 390px;
   max-width: 100%;
   height: 820px;
-  padding: 12px;
-  border-radius: 64px;
-  background: #1c1c1e;
+  position: relative;
+  padding: 11px;
+  border-radius: 62px;
+  background: linear-gradient(145deg, #2a2a2c, #111113 60%, #1d1d1f);
   box-shadow:
-    inset 0 0 0 2px #3a3a3c,
-    0 0 0 1px #0b0b0c,
-    0 30px 60px rgb(0 0 0 / 18%),
-    0 8px 20px rgb(0 0 0 / 10%);
+    inset 0 0 0 1.5px #48484a,
+    inset 0 0 0 4px #0c0c0d,
+    0 0 0 1px rgb(0 0 0 / 60%),
+    0 40px 80px -20px rgb(0 0 0 / 30%),
+    0 12px 24px rgb(0 0 0 / 8%);
+}
+.side-button {
+  position: absolute;
+  width: 4px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #111113, #2c2c2e);
+}
+.side-button.action {
+  top: 150px;
+  left: -3px;
+  height: 30px;
+}
+.side-button.volume-up {
+  top: 205px;
+  left: -3px;
+  height: 56px;
+}
+.side-button.volume-down {
+  top: 275px;
+  left: -3px;
+  height: 56px;
+}
+.side-button.power {
+  top: 230px;
+  right: -3px;
+  height: 86px;
+  background: linear-gradient(270deg, #111113, #2c2c2e);
 }
 .screen {
   position: relative;
@@ -527,7 +556,7 @@ button:disabled {
   flex-direction: column;
   height: 100%;
   overflow: hidden;
-  border-radius: 52px;
+  border-radius: 51px;
   background: #fdfdfd;
   font-family:
     -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", ui-sans-serif, system-ui,
@@ -539,10 +568,11 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   height: 54px;
-  padding: 6px 30px 0 44px;
+  padding: 6px 30px 0 46px;
   flex: none;
   font-weight: 600;
-  font-size: 16px;
+  font-size: 17px;
+  letter-spacing: -0.2px;
   color: #000;
 }
 .island {
@@ -558,7 +588,61 @@ button:disabled {
 .status-icons {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
+}
+.signal {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 1.5px;
+  height: 12px;
+}
+.signal i {
+  width: 3px;
+  border-radius: 1px;
+  background: #000;
+}
+.signal i:nth-child(1) {
+  height: 4px;
+}
+.signal i:nth-child(2) {
+  height: 6.5px;
+}
+.signal i:nth-child(3) {
+  height: 9px;
+}
+.signal i:nth-child(4) {
+  height: 11.5px;
+}
+.battery {
+  position: relative;
+  display: inline-flex;
+  width: 26px;
+  height: 13px;
+  padding: 1.5px;
+  border: 1px solid rgb(0 0 0 / 35%);
+  border-radius: 4.5px;
+}
+.battery::after {
+  content: "";
+  position: absolute;
+  top: 3.5px;
+  right: -3.5px;
+  width: 1.5px;
+  height: 4px;
+  border-radius: 0 1px 1px 0;
+  background: rgb(0 0 0 / 40%);
+}
+.battery span {
+  display: grid;
+  place-items: center;
+  width: 100%;
+  border-radius: 2.5px;
+  background: linear-gradient(90deg, #000 73%, transparent 73%);
+  color: #fff;
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.2px;
 }
 .contact {
   display: grid;
@@ -582,9 +666,6 @@ button:disabled {
 .round-button:hover {
   text-decoration: none;
   background: #f5f5f5;
-}
-.round-button.placeholder {
-  visibility: hidden;
 }
 .contact-center {
   display: grid;
@@ -634,6 +715,7 @@ button:disabled {
   overflow-anchor: none;
   padding: 0 14px 12px;
   scrollbar-width: none;
+  mask-image: linear-gradient(to bottom, transparent, #000 28px);
 }
 .thread::-webkit-scrollbar {
   display: none;
@@ -689,10 +771,28 @@ button:disabled {
   border-bottom-left-radius: 6px;
 }
 .composer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex: none;
-  padding: 8px 14px 34px;
+  padding: 8px 16px 34px;
+}
+.composer-plus {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #fff;
+  color: #111;
+  box-shadow:
+    0 0 0 1px rgb(0 0 0 / 4%),
+    0 2px 8px rgb(0 0 0 / 8%);
 }
 .composer-pill {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -715,6 +815,17 @@ button:disabled {
 }
 .composer-pill input::placeholder {
   color: #aeaeb2;
+}
+.dictate {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: #8e8e93;
+}
+.composer-pill input:placeholder-shown ~ .send,
+.composer-pill input:not(:placeholder-shown) ~ .dictate {
+  display: none;
 }
 .send {
   flex: none;

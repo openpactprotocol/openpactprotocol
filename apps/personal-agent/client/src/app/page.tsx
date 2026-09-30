@@ -3,7 +3,7 @@ import { A2AHttpError, discoverAgent } from "@pac2/client";
 import type { AgentCard } from "@pac2/protocol";
 import {
   ArrowUp,
-  BatteryFull,
+  AudioLines,
   Bot,
   ChevronLeft,
   ChevronRight,
@@ -17,11 +17,13 @@ import {
   Lock,
   MessagesSquare,
   Plug,
+  Plus,
   RotateCw,
-  SignalHigh,
+  Sparkle,
   Sparkles,
   SquarePen,
   Store,
+  Video,
   Wifi,
 } from "lucide-react";
 import { cookies } from "next/headers";
@@ -498,14 +500,25 @@ export default async function HomePage({
 
           <section className="stage" aria-label="Chat">
             <div className="phone">
+              <span className="side-button action" aria-hidden />
+              <span className="side-button volume-up" aria-hidden />
+              <span className="side-button volume-down" aria-hidden />
+              <span className="side-button power" aria-hidden />
               <div className="screen">
                 <div className="status-bar" aria-hidden>
                   <span className="clock">9:41</span>
                   <span className="island" />
                   <span className="status-icons">
-                    <SignalHigh size={16} strokeWidth={2.5} />
-                    <Wifi size={16} strokeWidth={2.5} />
-                    <BatteryFull size={20} strokeWidth={2} />
+                    <span className="signal">
+                      <i />
+                      <i />
+                      <i />
+                      <i />
+                    </span>
+                    <Wifi size={17} strokeWidth={2.75} />
+                    <span className="battery">
+                      <span>73</span>
+                    </span>
                   </span>
                 </div>
 
@@ -520,21 +533,25 @@ export default async function HomePage({
                   </Link>
                   <div className="contact-center">
                     <span className="contact-avatar" aria-hidden>
-                      <Sparkles size={22} />
+                      <Sparkle size={24} fill="currentColor" strokeWidth={1.5} />
                     </span>
                     <span className="contact-name">
                       Personal Agent
                       <ChevronRight size={14} aria-hidden />
                     </span>
                   </div>
-                  <span className="round-button placeholder" aria-hidden />
+                  <span className="round-button" aria-hidden>
+                    <Video size={20} strokeWidth={1.75} />
+                  </span>
                 </header>
 
                 <div className="thread">
                   <div className="thread-inner">
+                    <p className="timestamp">
+                      {formatDay(messages[0]?.at ?? new Date().toISOString())}
+                    </p>
                     {messages.length === 0 ? null : (
                       <>
-                        <p className="timestamp">{formatDay(messages[0]?.at)}</p>
                         {messages.map((message, index) => {
                           const previousMessage = messages[index - 1];
                           const showSender =
@@ -572,6 +589,9 @@ export default async function HomePage({
                     type="hidden"
                     value={selectedConversation?.id ?? ""}
                   />
+                  <span className="composer-plus" aria-hidden>
+                    <Plus size={20} strokeWidth={1.75} />
+                  </span>
                   <div className="composer-pill">
                     <input
                       name="text"
@@ -581,6 +601,9 @@ export default async function HomePage({
                       aria-label="Message"
                       disabled={!card}
                     />
+                    <span className="dictate" aria-hidden>
+                      <AudioLines size={18} strokeWidth={1.75} />
+                    </span>
                     <button
                       type="submit"
                       className="send"
