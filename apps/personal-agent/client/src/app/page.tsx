@@ -8,6 +8,7 @@ import {
   CircleX,
   Clock,
   Headset,
+  Fingerprint,
   KeyRound,
   Link as LinkIcon,
   Lock,
@@ -173,7 +174,7 @@ function RegisterPanel(input: {
           <input name="slug" type="hidden" value={input.slug} />
           <label>
             <span>Platform name</span>
-            <input name="platformName" defaultValue={input.notice?.name ?? defaultPlatformName()} />
+            <input value={defaultPlatformName()} readOnly />
           </label>
           <label>
             <span>Issuer</span>
@@ -187,6 +188,33 @@ function RegisterPanel(input: {
         {input.notice ? <RegistrationResult notice={input.notice} /> : null}
       </div>
     </details>
+  );
+}
+
+function signingKeyId(privateJwk: string): string | undefined {
+  try {
+    const jwk: unknown = JSON.parse(privateJwk);
+    if (typeof jwk === "object" && jwk !== null && "kid" in jwk && typeof jwk.kid === "string") {
+      return jwk.kid;
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
+function PlatformIdentity(input: { issuer: string; privateJwk: string }): ReactElement {
+  const kid = signingKeyId(input.privateJwk);
+  return (
+    <div className="identity" title="Every A2A call from this client is signed as this platform">
+      <span className="identity-label">
+        <Fingerprint size={14} aria-hidden />
+        Signing as
+      </span>
+      <span className="identity-name">{defaultPlatformName()}</span>
+      <code>{input.issuer}</code>
+      {kid ? <code title={kid}>kid {kid.slice(0, 8)}…</code> : null}
+    </div>
   );
 }
 
@@ -250,6 +278,9 @@ export default async function HomePage({
             <h1>Personal Agent Protocol</h1>
             <p>Local personal-agent client</p>
           </div>
+          {issuer && privateJwk ? (
+            <PlatformIdentity issuer={issuer} privateJwk={privateJwk} />
+          ) : null}
         </div>
       </header>
 

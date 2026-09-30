@@ -544,3 +544,31 @@ button:disabled {
   color: var(--text);
   overflow-wrap: anywhere;
 }
+.identity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding: 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  font-size: 13px;
+}
+.identity-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--muted);
+}
+.identity-label svg {
+  color: var(--accent);
+}
+.identity-name {
+  font-weight: 600;
+}
+.identity code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  color: var(--muted);
+}

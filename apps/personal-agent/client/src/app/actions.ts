@@ -41,7 +41,7 @@ export async function newUser(formData: FormData): Promise<void> {
 
 export async function registerPersonalAgent(formData: FormData): Promise<void> {
   const connection = readConnection(formData);
-  const name = String(formData.get("platformName") ?? "").trim() || defaultPlatformName();
+  const name = defaultPlatformName();
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
   if (!issuer || !privateJwk)
