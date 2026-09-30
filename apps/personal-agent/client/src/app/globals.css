@@ -495,10 +495,6 @@ button:disabled {
 .muted-text {
   color: var(--muted);
 }
-.conversation-meta code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 11px;
-}
 
 .stage {
   display: flex;
@@ -649,27 +645,6 @@ button:disabled {
   gap: 4px;
   min-height: 100%;
 }
-.thread-meta {
-  display: grid;
-  justify-items: center;
-  padding: 2px 0 8px;
-  font-size: 11px;
-  color: #8e8e93;
-}
-.thread-meta span {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-.thread-meta .connected-to {
-  display: block;
-  max-width: 280px;
-  text-align: center;
-}
-.thread-meta strong {
-  font-weight: 600;
-  color: #636366;
-}
 .sender {
   margin: 4px 0 2px 12px;
   font-size: 11px;
@@ -712,14 +687,6 @@ button:disabled {
   background: #e9e9eb;
   color: #000;
   border-bottom-left-radius: 6px;
-}
-.receipt {
-  margin: 3px 4px 4px 0;
-  font-size: 11px;
-  color: #8e8e93;
-}
-.receipt strong {
-  font-weight: 600;
 }
 .composer {
   flex: none;
@@ -848,19 +815,6 @@ button:disabled {
   width: 400px;
   max-width: 100%;
   align-content: start;
-}
-.threads-label {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 12px;
-  color: var(--muted);
-}
-.threads-hint {
-  padding: 20px;
-  border: 1px dashed var(--border);
-  border-radius: 14px;
-  background: rgb(255 255 255 / 60%);
-  color: var(--muted);
-  font-size: 13px;
 }
 .thread-card {
   overflow: hidden;

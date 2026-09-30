@@ -123,7 +123,7 @@ describe("reference client", () => {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
       Response.json({
         name: "Skyline Airways",
-        description: "Flight status and trip changes for Skyline Airways.",
+        description: "Flight status and trip changes.",
         supportedInterfaces: [
           {
             url: `https://provider.example/a2a/${skylineCustomerId}`,

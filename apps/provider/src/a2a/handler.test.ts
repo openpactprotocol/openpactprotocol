@@ -233,7 +233,7 @@ describe("A2A handler", () => {
       "JWT signed by a registered Personal Agent platform; aud is the platform's registered audience (default {base}/a2a)",
     );
     expect(card.name).toBe("Skyline Airways");
-    expect(card.description).toBe("Flight status and trip changes for Skyline Airways.");
+    expect(card.description).toBe("Flight status and trip changes.");
     expect(card.skills).toEqual([
       {
         id: "flight-status",

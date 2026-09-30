@@ -21,7 +21,7 @@ provider.
 ```json
 {
   "name": "Skyline Airways",
-  "description": "Flight status and trip changes for Skyline Airways.",
+  "description": "Flight status and trip changes.",
   "supportedInterfaces": [
     {
       "url": "https://provider.example.com/a2a/01M3R53Q5SZQ6FQSMSDBSSREAA",

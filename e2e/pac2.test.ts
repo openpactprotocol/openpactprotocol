@@ -170,7 +170,7 @@ describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
       "JWT signed by a registered Personal Agent platform; aud is the platform's registered audience (default {base}/a2a)",
     );
     expect(cardResult.card.name).toBe("Skyline Airways");
-    expect(cardResult.card.description).toBe("Flight status and trip changes for Skyline Airways.");
+    expect(cardResult.card.description).toBe("Flight status and trip changes.");
     expect(cardResult.card.skills).toEqual([
       {
         id: "flight-status",

@@ -38,7 +38,7 @@ export const GENERIC_PROFILE: BusinessProfile = {
 
 const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
   "Skyline Airways": {
-    description: "Flight status and trip changes for Skyline Airways.",
+    description: "Flight status and trip changes.",
     skill: {
       id: "flight-status",
       name: "Flight status",
@@ -62,7 +62,7 @@ const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
       "Flight SK 482 on Friday is delayed 4.5 hours. It now leaves SFO at 2:40 PM and lands at O'Hare at 8:50 PM.",
   },
   "Loom & Co.": {
-    description: "Order tracking and delivery changes for Loom & Co.",
+    description: "Order tracking and delivery changes.",
     skill: {
       id: "order-status",
       name: "Order status",
@@ -86,7 +86,7 @@ const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
       "Order LC-1042 (linen dress) is out for delivery today by 6 PM. I can also hold it for Saturday morning delivery if that's better.",
   },
   "Bloom & Stem": {
-    description: "Flower orders and delivery for Bloom & Stem.",
+    description: "Flower orders and delivery.",
     skill: {
       id: "flower-orders",
       name: "Flower orders",

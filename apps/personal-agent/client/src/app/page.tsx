@@ -68,13 +68,6 @@ function formatClock(timestamp: string | undefined): string {
   return new Date(timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 }
 
-function lastUserIndex(messages: PhoneMessage[]): number {
-  for (let index = messages.length - 1; index >= 0; index -= 1) {
-    if (messages[index]?.role === "user") return index;
-  }
-  return -1;
-}
-
 function agentCardUrl(providerUrl: string, customerId: string): string {
   return `${providerUrl.replace(/\/+$/, "")}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`;
 }
@@ -93,11 +86,6 @@ function brandColor(customerIds: string[], customerId: string): string {
   return BRAND_COLORS[index % BRAND_COLORS.length] ?? "#16345c";
 }
 
-function joinNames(names: string[]): string {
-  if (names.length <= 1) return names[0] ?? "";
-  return `${names.slice(0, -1).join(", ")} and ${names.at(-1)}`;
-}
-
 function ThreadCard(input: { thread: BusinessThread; color: string }): ReactElement {
   const { thread } = input;
   return (
@@ -109,7 +97,7 @@ function ThreadCard(input: { thread: BusinessThread; color: string }): ReactElem
         <div>
           <h3>{thread.businessName}</h3>
           <p>
-            contextId <code>{thread.contextId.slice(0, 8)}</code> · via PAC2
+            contextId <code>{thread.contextId.slice(0, 8)}</code>
           </p>
         </div>
       </header>
@@ -123,7 +111,7 @@ function ThreadCard(input: { thread: BusinessThread; color: string }): ReactElem
           </p>
         ))}
         <span className={thread.awaitingReply ? "thread-status waiting" : "thread-status done"}>
-          {thread.awaitingReply ? "Waiting on the customer" : "Answered"}
+          {thread.awaitingReply ? "Waiting" : "Answered"}
         </span>
       </div>
     </article>
@@ -180,7 +168,7 @@ function RegisterPanel(input: {
       <summary>
         <KeyRound size={16} aria-hidden />
         <span>Register personal agent</span>
-        <span className="summary-hint">One-time onboarding of this platform with the provider</span>
+        <span className="summary-hint">One-time platform onboarding</span>
       </summary>
       <div className="register-body">
         <ol className="steps">
@@ -253,14 +241,15 @@ function signingKeyId(privateJwk: string): string | undefined {
 function PlatformIdentity(input: { issuer: string; privateJwk: string }): ReactElement {
   const kid = signingKeyId(input.privateJwk);
   return (
-    <div className="identity" title="Every A2A call from this client is signed as this platform">
+    <div
+      className="identity"
+      title={[input.issuer, kid ? `kid ${kid}` : undefined].filter(Boolean).join("\n")}
+    >
       <span className="identity-label">
         <Fingerprint size={14} aria-hidden />
         Signing as
       </span>
       <span className="identity-name">{defaultPlatformName()}</span>
-      <code>{input.issuer}</code>
-      {kid ? <code title={kid}>kid {kid.slice(0, 8)}…</code> : null}
     </div>
   );
 }
@@ -312,9 +301,6 @@ export default async function HomePage({
   const error = unauthorized
     ? "The provider rejected this platform's token (401). Is this personal agent registered with the provider?"
     : undefined;
-  const connectedNames = businesses.flatMap((business) =>
-    business.card ? [business.card.name] : [],
-  );
   const card = businesses.find((business) => business.card)?.card;
   const threads = selectedConversation?.threads ?? [];
   const messages: PhoneMessage[] = selectedConversation?.messages ?? [];
@@ -330,7 +316,7 @@ export default async function HomePage({
           </span>
           <div>
             <h1>PAC2</h1>
-            <p>Personal Agent Customer Connector · local client</p>
+            <p>Personal Agent Customer Connector</p>
           </div>
           {issuer && privateJwk ? (
             <PlatformIdentity issuer={issuer} privateJwk={privateJwk} />
@@ -434,9 +420,6 @@ export default async function HomePage({
                               {skill.name}
                             </span>
                           ))}
-                          <span className="chip muted" title={business.customerId}>
-                            {business.customerId.slice(0, 10)}…
-                          </span>
                         </div>
                       </div>
                     </li>
@@ -504,7 +487,6 @@ export default async function HomePage({
                         ) : null}
                         <span className="conversation-meta">
                           <span>{formatTime(conversation.updatedAt)}</span>
-                          <code>{conversation.id.slice(0, 8)}</code>
                         </span>
                       </Link>
                     </li>
@@ -550,23 +532,6 @@ export default async function HomePage({
 
                 <div className="thread">
                   <div className="thread-inner">
-                    <div className="thread-meta">
-                      <span className="connected-to">
-                        {card ? (
-                          <>
-                            Connected to <strong>{joinNames(connectedNames)}</strong> via PAC2
-                          </>
-                        ) : (
-                          "Not connected to any businesses"
-                        )}
-                      </span>
-                      {card ? (
-                        <span>
-                          <Lock size={10} aria-hidden />
-                          {[agentInterface?.protocolBinding, auth].filter(Boolean).join(" · ")}
-                        </span>
-                      ) : null}
-                    </div>
                     {messages.length === 0 ? null : (
                       <>
                         <p className="timestamp">{formatDay(messages[0]?.at)}</p>
@@ -591,17 +556,6 @@ export default async function HomePage({
                                 </span>
                               ) : null}
                               <p className="bubble">{message.text}</p>
-                              {message.role === "user" && index === lastUserIndex(messages) ? (
-                                <span className="receipt">
-                                  {messages[index + 1] ? (
-                                    <>
-                                      <strong>Read</strong> {formatClock(messages[index + 1]?.at)}
-                                    </>
-                                  ) : (
-                                    "Delivered"
-                                  )}
-                                </span>
-                              ) : null}
                             </div>
                           );
                         })}
@@ -642,23 +596,17 @@ export default async function HomePage({
               </div>
             </div>
 
-            <div className="threads" aria-label="Business conversations">
-              <p className="threads-label">Personal Agent ↔ businesses over PAC2</p>
-              {threads.length === 0 ? (
-                <p className="threads-hint">
-                  Each business the personal agent contacts gets its own A2A conversation, shown
-                  here.
-                </p>
-              ) : (
-                threads.map((thread) => (
+            {threads.length > 0 ? (
+              <div className="threads" aria-label="Business conversations">
+                {threads.map((thread) => (
                   <ThreadCard
                     key={thread.customerId}
                     thread={thread}
                     color={brandColor(customerIds, thread.customerId)}
                   />
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            ) : null}
           </section>
         </div>
       </main>
