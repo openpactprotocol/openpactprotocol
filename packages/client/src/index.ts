@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { importJWK, SignJWT, type JWTPayload } from "jose";
+import { importJWK, SignJWT, type JWK, type JWTPayload } from "jose";
 import {
   A2A_VERSION,
   A2AErrorResponseSchema,
@@ -26,7 +26,6 @@ export type SendMessageResult = {
   task: Task;
 };
 
-type PrivateJwk = Parameters<typeof importJWK>[0];
 type A2AStatus = A2AErrorResponse["error"]["status"];
 type A2AErrorDetails = A2AErrorResponse["error"]["details"];
 
@@ -58,13 +57,11 @@ export interface PlatformSigner {
 }
 
 export function createPlatformSigner(input: {
-  privateJwk: string | PrivateJwk;
+  privateJwk: string | JWK;
   issuer: string;
 }): PlatformSigner {
-  const parsedJwk: PrivateJwk =
-    typeof input.privateJwk === "string"
-      ? (JSON.parse(input.privateJwk) as PrivateJwk)
-      : input.privateJwk;
+  const parsedJwk: JWK =
+    typeof input.privateJwk === "string" ? (JSON.parse(input.privateJwk) as JWK) : input.privateJwk;
   const kid = typeof parsedJwk.kid === "string" ? parsedJwk.kid : undefined;
   if (!kid) throw new Error("Private JWK must include kid");
   const privateKey = importJWK(parsedJwk, "ES256");
