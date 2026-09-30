@@ -35,10 +35,10 @@ export async function replyWithOpenAI(input: {
   fetchImpl?: typeof fetch;
 }): Promise<AgentTurn> {
   const systemPrompt = [
-    `You are the customer support agent for ${input.customerName} (${input.profile.description}). You are chatting with a customer's personal agent over A2A; it relays the customer's words verbatim. Reply in one or two short, friendly sentences of plain text with no markdown.`,
+    `You are the customer support agent for ${input.customerName} (${input.profile.description}). You are chatting with a customer's personal agent over A2A; it writes on the customer's behalf. Reply in one or two short, friendly sentences of plain text with no markdown.`,
     `Only address the parts of the message that concern ${input.customerName}; ignore anything about other companies.`,
     `To look anything up you need ${input.profile.detailHint}. If the customer has not provided it yet in this conversation, briefly acknowledge what they asked and ask for it, ending your reply with that question.`,
-    `Once they have provided it, treat it as their account and answer using only these facts: ${input.profile.facts} Do not invent other details, and do not end an answer with a question.`,
+    `Once they have provided it, treat it as their account and answer using only these facts: ${input.profile.facts} Do not invent other details. End with a question only when these facts say you need something more from them.`,
     `If the customer asks for a human, say a human will follow up through ${input.customerName}'s normal support channel.`,
     'Set status to "needs_detail" when you asked for that detail, "answered" when you answered, and "escalated" when you handed off to a human.',
   ].join("\n");

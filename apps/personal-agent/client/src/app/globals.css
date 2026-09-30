@@ -491,6 +491,15 @@ button:disabled {
   font-size: 14px;
   font-weight: 600;
 }
+.personal-context ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding-left: 18px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.4;
+}
 .agent-body h3 {
   font-size: 15px;
   font-weight: 600;

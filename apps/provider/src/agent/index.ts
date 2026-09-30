@@ -68,7 +68,7 @@ const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
     answer:
       "Flight SK 482 on Friday is delayed 4.5 hours. It now leaves SFO at 2:40 PM and lands at O'Hare at 8:50 PM.",
     facts:
-      "Flight SK 482 on Friday is delayed 4.5 hours. It now leaves SFO at 2:40 PM and lands at O'Hare at 8:50 PM.",
+      "Booking K7PQ2M (passenger Alex Rivera): flight SK 482 on Friday, SFO to Chicago O'Hare, is delayed 4.5 hours by a late inbound aircraft. It now departs SFO at 2:40 PM (originally 10:05 AM) and arrives at O'Hare at 8:50 PM, gate B14.",
   },
   "Loom & Co.": {
     description: "Order tracking and delivery changes.",
@@ -95,7 +95,7 @@ const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
     answer:
       "Order LC-1042 (linen dress) is out for delivery today by 6 PM. I can also hold it for Saturday morning delivery if that's better.",
     facts:
-      "Order LC-1042 (linen dress) is out for delivery today by 6 PM. I can also hold it for Saturday morning delivery if that's better.",
+      "Order LC-1042 (linen dress) is out for delivery Friday by 6 PM to the customer's home address in San Francisco. It can be redirected to a hotel for Saturday delivery before noon at no charge; to do that you need the hotel's name and address, and once you have them, confirm the redirect.",
   },
   "Bloom & Stem": {
     description: "Flower orders and delivery.",
@@ -122,7 +122,7 @@ const BUSINESS_PROFILES: Record<string, BusinessProfile> = {
     answer:
       "Order BS-3001 (white rose centerpieces) arrives at the Drake Hotel on Saturday at 10 AM.",
     facts:
-      "Order BS-3001 (white rose centerpieces) arrives at the Drake Hotel on Saturday at 10 AM.",
+      "Order BS-3001 (white rose centerpieces) arrives at the Drake Hotel in Chicago on Saturday at 10 AM. The delivery time can be moved up to two hours earlier or later on request.",
   },
 };
 

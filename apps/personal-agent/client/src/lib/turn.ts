@@ -8,9 +8,9 @@ import {
   type PaConversation,
   type PhoneMessage,
 } from "./conversationStore.js";
-import { composeWithOpenAI } from "./llmComposer.js";
+import { runPersonalAgent } from "./paAgent.js";
+import { DEMO_USER_PROFILE } from "./userProfile.js";
 import { homePath } from "./session.js";
-import { routeWithOpenAI } from "./llmRouter.js";
 import { routeMessage, type RoutableBusiness } from "./router.js";
 import type { TurnEvent } from "./turnEvents.js";
 
@@ -25,7 +25,7 @@ type DiscoveredBusiness = {
 };
 type BusinessOutcome =
   | { customerId: string; businessName: string; reply: string; waitingOnUser: boolean }
-  | { customerId: string; unreachable: string };
+  | { customerId: string; businessName: string; unreachable: string };
 
 function createTimestampGenerator(previousTimestamp: string): () => string {
   let previousTime = Date.parse(previousTimestamp);
@@ -87,6 +87,28 @@ function transcriptMessages(messages: PhoneMessage[]): {
   );
 }
 
+function normalizeParallelReplyTimestamps(
+  conversation: PaConversation,
+  customerIds: string[],
+  nextTimestamp: () => string,
+): void {
+  if (customerIds.length === 0) return;
+  const normalizedAt = nextTimestamp();
+  const repliedCustomerIds = new Set(customerIds);
+  for (const thread of conversation.threads) {
+    if (!repliedCustomerIds.has(thread.customerId)) continue;
+    let lastAgentIndex = -1;
+    for (let index = 0; index < thread.messages.length; index += 1) {
+      if (thread.messages[index]?.role === "ROLE_AGENT") lastAgentIndex = index;
+    }
+    const lastAgentMessage = thread.messages[lastAgentIndex];
+    if (lastAgentMessage) {
+      thread.messages[lastAgentIndex] = { ...lastAgentMessage, at: normalizedAt };
+    }
+  }
+  conversation.updatedAt = normalizedAt;
+}
+
 export async function runTurn(
   input: {
     connection: Connection;
@@ -99,19 +121,19 @@ export async function runTurn(
   emit: (event: TurnEvent) => void,
 ): Promise<void> {
   const { connection, text } = input;
-  let conversation = input.conversationId
+  const existingConversation = input.conversationId
     ? await getConversation({
         userId: input.userId,
         providerUrl: connection.providerUrl,
         id: input.conversationId,
       })
     : undefined;
-  if (!conversation) {
-    conversation = createConversation({
+  const conversation =
+    existingConversation ??
+    createConversation({
       userId: input.userId,
       providerUrl: connection.providerUrl,
     });
-  }
   if (!text.trim()) {
     emit({
       type: "done",
@@ -143,55 +165,12 @@ export async function runTurn(
   const businesses = discoveries.filter(
     (business): business is DiscoveredBusiness => business !== undefined,
   );
-  const routableBusinesses: RoutableBusiness[] = businesses.map(
-    ({ customerId, name, keywords }) => ({ customerId, name, keywords }),
-  );
-  const awaitingThreads = orderedAwaitingThreads(conversation, connection.customerIds);
-  const awaitingCustomerIds = awaitingThreads.map((thread) => thread.customerId);
-  const fallbackRoute = () =>
-    routeMessage({ text, businesses: routableBusinesses, awaitingCustomerIds });
-  const apiKey = process.env.OPENAI_API_KEY;
-  let routes: string[];
-  if (apiKey && businesses.length > 0) {
-    try {
-      routes = await routeWithOpenAI({
-        text,
-        businesses: businesses.map(({ customerId, name, description, keywords, skills }) => ({
-          customerId,
-          name,
-          description,
-          keywords,
-          skills,
-        })),
-        awaiting: awaitingThreads.map((thread) => ({
-          customerId: thread.customerId,
-          question: lastAgentMessage(thread)?.text ?? "",
-        })),
-        apiKey,
-        model: process.env.OPENAI_MODEL || "gpt-6-luna",
-      });
-    } catch {
-      routes = fallbackRoute();
-    }
-  } else {
-    routes = fallbackRoute();
-  }
-
-  const targets = routes.flatMap((customerId) => {
-    const business = businesses.find((candidate) => candidate.customerId === customerId);
-    return business ? [business] : [];
-  });
-  emit({
-    type: "routed",
-    conversationId: conversation.id,
-    targets: targets.map(({ customerId, name }) => ({ customerId, businessName: name })),
-  });
-
   const nextTimestamp = createTimestampGenerator(conversation.updatedAt);
   const transcript = transcriptMessages(conversation.messages);
   const userAt = nextTimestamp();
   conversation.messages.push({ role: "user", text, at: userAt });
-  if (targets.length === 0) {
+
+  if (businesses.length === 0) {
     const message: PhoneMessage = {
       role: "personal-agent",
       text: "No businesses are connected.",
@@ -209,123 +188,157 @@ export async function runTurn(
   }
 
   const signer = createPlatformSigner({ issuer: input.issuer, privateJwk: input.privateJwk });
-  const outcomes: BusinessOutcome[] = await Promise.all(
-    targets.map(async (business): Promise<BusinessOutcome> => {
-      const thread = conversation.threads.find(
-        (candidate) => candidate.customerId === business.customerId,
+  const outcomes: BusinessOutcome[] = [];
+
+  async function sendToBusiness(customerId: string, message: string): Promise<string> {
+    const business = businesses.find((candidate) => candidate.customerId === customerId);
+    if (!business) throw new Error(`Unknown business customerId: ${customerId}`);
+    emit({
+      type: "business-start",
+      customerId: business.customerId,
+      businessName: business.name,
+      text: message,
+    });
+    try {
+      const client = new A2AClient({
+        url: business.url,
+        signer,
+        userId: input.userId,
+        ...(process.env.PA_AUDIENCE ? { audience: process.env.PA_AUDIENCE } : {}),
+      });
+      const previousThread = conversation.threads.find(
+        (thread) => thread.customerId === business.customerId,
       );
-      try {
-        const client = new A2AClient({
-          url: business.url,
-          signer,
-          userId: input.userId,
-          ...(process.env.PA_AUDIENCE ? { audience: process.env.PA_AUDIENCE } : {}),
-        });
-        const response = await client.sendMessage(
-          text,
-          thread ? { contextId: thread.contextId } : {},
-        );
-        if (!response.contextId) throw new Error("Agent response is missing contextId");
-        const reply = response.parts.map((part) => ("text" in part ? part.text : "")).join("\n");
-        const replyAt = nextTimestamp();
-        const existingIndex = conversation.threads.findIndex(
-          (candidate) => candidate.customerId === business.customerId,
-        );
-        const previousThread = existingIndex < 0 ? undefined : conversation.threads[existingIndex];
-        const updatedThread: BusinessThread = {
-          customerId: business.customerId,
-          businessName: business.name,
-          contextId: response.contextId,
-          messages: [
-            ...(previousThread?.messages ?? []),
-            { role: "ROLE_USER", text, at: userAt },
-            { role: "ROLE_AGENT", text: reply, at: replyAt },
-          ],
-          awaitingReply: reply.trimEnd().endsWith("?"),
-        };
-        if (existingIndex < 0) conversation.threads.push(updatedThread);
-        else conversation.threads[existingIndex] = updatedThread;
-        conversation.updatedAt = replyAt;
-        emit({ type: "business", thread: updatedThread });
-        return {
-          customerId: business.customerId,
-          businessName: business.name,
-          reply,
-          waitingOnUser: reply.trimEnd().endsWith("?"),
-        };
-      } catch (cause) {
-        const message = cause instanceof Error ? cause.message : "Request failed";
-        emit({
-          type: "business-error",
-          customerId: business.customerId,
-          businessName: business.name,
-          message,
-        });
-        return { customerId: business.customerId, unreachable: business.name };
-      }
-    }),
-  );
-  const repliedCustomerIds = new Set(
-    outcomes.flatMap((outcome) => ("reply" in outcome ? [outcome.customerId] : [])),
-  );
-  if (repliedCustomerIds.size > 0) {
-    const threadReplyAt = nextTimestamp();
-    for (const thread of conversation.threads) {
-      if (!repliedCustomerIds.has(thread.customerId)) continue;
-      let lastAgentIndex = -1;
-      for (let index = 0; index < thread.messages.length; index += 1) {
-        if (thread.messages[index]?.role === "ROLE_AGENT") lastAgentIndex = index;
-      }
-      const lastAgentMessage = thread.messages[lastAgentIndex];
-      if (lastAgentMessage) {
-        thread.messages[lastAgentIndex] = { ...lastAgentMessage, at: threadReplyAt };
-      }
+      const response = await client.sendMessage(
+        message,
+        previousThread ? { contextId: previousThread.contextId } : {},
+      );
+      if (!response.contextId) throw new Error("Agent response is missing contextId");
+      const reply = response.parts.map((part) => ("text" in part ? part.text : "")).join("\n");
+      const businessMessageAt = nextTimestamp();
+      const replyAt = nextTimestamp();
+      const existingIndex = conversation.threads.findIndex(
+        (thread) => thread.customerId === business.customerId,
+      );
+      const currentThread = existingIndex < 0 ? undefined : conversation.threads[existingIndex];
+      const updatedThread: BusinessThread = {
+        customerId: business.customerId,
+        businessName: business.name,
+        contextId: response.contextId,
+        messages: [
+          ...(currentThread?.messages ?? []),
+          { role: "ROLE_USER", text: message, at: businessMessageAt },
+          { role: "ROLE_AGENT", text: reply, at: replyAt },
+        ],
+        awaitingReply: reply.trimEnd().endsWith("?"),
+      };
+      if (existingIndex < 0) conversation.threads.push(updatedThread);
+      else conversation.threads[existingIndex] = updatedThread;
+      conversation.updatedAt = replyAt;
+      outcomes.push({
+        customerId: business.customerId,
+        businessName: business.name,
+        reply,
+        waitingOnUser: updatedThread.awaitingReply,
+      });
+      emit({ type: "business", thread: updatedThread });
+      return reply;
+    } catch (cause) {
+      const message = cause instanceof Error ? cause.message : "Request failed";
+      outcomes.push({
+        customerId: business.customerId,
+        businessName: business.name,
+        unreachable: business.name,
+      });
+      emit({
+        type: "business-error",
+        customerId: business.customerId,
+        businessName: business.name,
+        message,
+      });
+      throw cause;
     }
-    conversation.updatedAt = threadReplyAt;
   }
-  const replies = outcomes.flatMap((outcome) =>
-    "reply" in outcome
-      ? [
-          {
-            customerId: outcome.customerId,
-            businessName: outcome.businessName,
-            reply: outcome.reply,
-            waitingOnUser: outcome.waitingOnUser,
-          },
-        ]
-      : [],
-  );
-  const unreachable = outcomes.flatMap((outcome) =>
-    "unreachable" in outcome ? [outcome.unreachable] : [],
-  );
+
+  function appendPhoneMessage(messageText: string): void {
+    const message: PhoneMessage = {
+      role: "personal-agent",
+      text: messageText,
+      at: nextTimestamp(),
+    };
+    conversation.messages.push(message);
+    conversation.updatedAt = message.at;
+    emit({ type: "reply", message });
+  }
+
+  function composeOutcomes(): string {
+    return composeFallbackReply({
+      replies: outcomes.flatMap((outcome) =>
+        "reply" in outcome ? [{ businessName: outcome.businessName, reply: outcome.reply }] : [],
+      ),
+      unreachable: outcomes.flatMap((outcome) =>
+        "unreachable" in outcome ? [outcome.unreachable] : [],
+      ),
+    });
+  }
+
+  async function runFallbackPath(): Promise<void> {
+    const routableBusinesses: RoutableBusiness[] = businesses.map(
+      ({ customerId, name, keywords }) => ({ customerId, name, keywords }),
+    );
+    const awaitingThreads = orderedAwaitingThreads(conversation, connection.customerIds);
+    const routes = routeMessage({
+      text,
+      businesses: routableBusinesses,
+      awaitingCustomerIds: awaitingThreads.map((thread) => thread.customerId),
+    });
+    const targets = routes.flatMap((customerId) => {
+      const business = businesses.find((candidate) => candidate.customerId === customerId);
+      return business ? [business] : [];
+    });
+    await Promise.all(
+      targets.map(async (business) => {
+        try {
+          await sendToBusiness(business.customerId, text);
+        } catch {
+          return;
+        }
+      }),
+    );
+    normalizeParallelReplyTimestamps(
+      conversation,
+      outcomes.flatMap((outcome) => ("reply" in outcome ? [outcome.customerId] : [])),
+      nextTimestamp,
+    );
+  }
 
   let replyText: string;
-  const composerApiKey = process.env.OPENAI_API_KEY;
-  if (composerApiKey) {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    await runFallbackPath();
+    replyText = composeOutcomes();
+  } else {
     try {
-      replyText = await composeWithOpenAI({
+      replyText = await runPersonalAgent({
         text,
         transcript,
-        replies: replies.map(({ businessName, reply, waitingOnUser }) => ({
-          businessName,
-          reply,
-          waitingOnUser,
+        threads: conversation.threads,
+        businesses: businesses.map(({ customerId, name, description, skills }) => ({
+          customerId,
+          name,
+          description,
+          skills,
         })),
-        unreachable,
-        apiKey: composerApiKey,
+        profile: DEMO_USER_PROFILE,
+        apiKey,
         model: process.env.OPENAI_MODEL || "gpt-6-luna",
+        sendToBusiness,
+        onUpdate: appendPhoneMessage,
       });
     } catch {
-      replyText = composeFallbackReply({
-        replies: replies.map(({ businessName, reply }) => ({ businessName, reply })),
-        unreachable,
-      });
+      if (outcomes.length === 0) await runFallbackPath();
+      replyText = composeOutcomes();
     }
-  } else {
-    replyText = composeFallbackReply({
-      replies: replies.map(({ businessName, reply }) => ({ businessName, reply })),
-      unreachable,
-    });
   }
 
   const message: PhoneMessage = {
