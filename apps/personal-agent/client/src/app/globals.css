@@ -658,8 +658,14 @@ button:disabled {
   align-items: center;
   gap: 3px;
 }
-.thread-meta span:first-child {
-  color: #aeaeb2;
+.thread-meta strong {
+  font-weight: 600;
+  color: #636366;
+}
+.sender {
+  margin: 4px 0 2px 12px;
+  font-size: 11px;
+  color: #8e8e93;
 }
 .timestamp {
   text-align: center;
@@ -706,11 +712,6 @@ button:disabled {
 }
 .receipt strong {
   font-weight: 600;
-}
-.thread .empty {
-  margin: auto 0;
-  font-size: 14px;
-  color: #8e8e93;
 }
 .composer {
   flex: none;

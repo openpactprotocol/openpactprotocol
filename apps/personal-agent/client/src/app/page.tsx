@@ -16,7 +16,6 @@ import {
   KeyRound,
   Link as LinkIcon,
   Lock,
-  MessageCircle,
   MessagesSquare,
   Plug,
   RotateCw,
@@ -442,10 +441,10 @@ export default async function HomePage({
                   </Link>
                   <div className="contact-center">
                     <span className="contact-avatar" aria-hidden>
-                      <Headset size={22} />
+                      <Sparkles size={22} />
                     </span>
                     <span className="contact-name">
-                      {card?.name ?? "Not connected"}
+                      Personal Agent
                       <ChevronRight size={14} aria-hidden />
                     </span>
                   </div>
@@ -455,8 +454,8 @@ export default async function HomePage({
                       href={agentCardUrl(providerUrl, customerId)}
                       target="_blank"
                       rel="noreferrer"
-                      aria-label="Open Agent Card"
-                      title="Open Agent Card"
+                      aria-label={`Open ${card.name} Agent Card`}
+                      title={`Open ${card.name} Agent Card`}
                     >
                       <Info size={18} aria-hidden />
                     </a>
@@ -469,21 +468,22 @@ export default async function HomePage({
                   <div className="thread-inner">
                     <div className="thread-meta">
                       <span>
-                        {agentInterface ? `PAC2 · ${agentInterface.protocolBinding}` : "PAC2"}
+                        {card ? (
+                          <>
+                            Connected to <strong>{card.name}</strong> via PAC2
+                          </>
+                        ) : (
+                          "Not connected to a support agent"
+                        )}
                       </span>
-                      <span>
-                        <Lock size={10} aria-hidden />
-                        {auth ?? "Signed JWT"}
-                      </span>
+                      {card ? (
+                        <span>
+                          <Lock size={10} aria-hidden />
+                          {[agentInterface?.protocolBinding, auth].filter(Boolean).join(" · ")}
+                        </span>
+                      ) : null}
                     </div>
-                    {messages.length === 0 ? (
-                      <div className="empty">
-                        <MessageCircle size={28} aria-hidden />
-                        {card
-                          ? "Ask about hours, location, parking, or insurance."
-                          : "Connect to a customer to start chatting."}
-                      </div>
-                    ) : (
+                    {messages.length === 0 ? null : (
                       <>
                         <p className="timestamp">{formatDay(messages[0]?.at)}</p>
                         {messages.map((message, index) => (
@@ -493,6 +493,10 @@ export default async function HomePage({
                             }
                             key={`${message.at}-${index}`}
                           >
+                            {message.role !== "ROLE_USER" &&
+                            messages[index - 1]?.role !== message.role ? (
+                              <span className="sender">{card?.name ?? "Support agent"}</span>
+                            ) : null}
                             <p className="bubble">{message.text}</p>
                             {message.role === "ROLE_USER" && index === lastUserIndex(messages) ? (
                               <span className="receipt">
