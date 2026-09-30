@@ -1,8 +1,10 @@
 # Provider
 
 The provider is a Next.js App Router service with the customer support A2A
-endpoint, platform authentication, and a small FAQ agent. Its wire contract is
-documented in the [protocol guide](../../docs/protocol.md).
+endpoint, platform authentication, and a small FAQ agent. See the
+[operations reference](../../apps/docs/content/reference/operations.md) and
+[authentication guide](../../apps/docs/content/guides/authentication.md) for
+the wire contract.
 
 ## Data model
 

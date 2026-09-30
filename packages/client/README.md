@@ -17,5 +17,6 @@ pnpm --filter @pap/client pap register
 
 The A2A commands use `PROVIDER_URL`, `CUSTOMER_ID`, `PA_ISSUER`, and
 `PA_PRIVATE_JWK`; registration does not require a customer ID. Set
-`PA_AUDIENCE` only to override the shared default. See the [protocol
-guide](../../docs/protocol.md) for the request and JWT rules.
+`PA_AUDIENCE` only to override the shared default. See the [authentication
+guide](../../apps/docs/content/guides/authentication.md) and [messaging
+guide](../../apps/docs/content/guides/messaging.md) for request and JWT rules.

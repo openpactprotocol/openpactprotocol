@@ -2,8 +2,9 @@
 
 The local Next.js UI is a personal-agent platform client. It signs requests
 server-side, discovers the customer's support agent, and provides a platform
-registration panel. See the [protocol guide](../../../docs/protocol.md) for
-the wire contract.
+registration panel. See the [registration
+guide](../../../apps/docs/content/guides/registration.md) and [messaging
+guide](../../../apps/docs/content/guides/messaging.md) for the wire contract.
 
 ## Conversations
 

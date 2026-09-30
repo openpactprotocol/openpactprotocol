@@ -8,5 +8,7 @@ Platform registration schemas are a separate provider onboarding contract;
 they are not A2A message types. Task resources are not modeled because this
 harness returns a Message from `message:send` and its task-list route is empty.
 
-See the [protocol guide](../../docs/protocol.md) for routes, authentication,
-registration, and error behavior.
+See the [operations reference](../../apps/docs/content/reference/operations.md),
+[registration guide](../../apps/docs/content/guides/registration.md), and
+[errors reference](../../apps/docs/content/reference/errors.md) for routes,
+authentication, registration, and error behavior.

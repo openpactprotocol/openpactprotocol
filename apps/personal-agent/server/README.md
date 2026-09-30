@@ -6,7 +6,8 @@ from this URL to verify signed runtime messages and platform registration
 assertions.
 
 Only public keys belong here. The matching private JWK is held by the PA
-client or another trusted signer. See the [protocol guide](../../../docs/protocol.md)
-for key and issuer requirements, and the [local development
+client or another trusted signer. See the [registration
+guide](../../../apps/docs/content/guides/registration.md) for key and issuer
+requirements, and the [local development
 guide](../../../docs/local-development.md) for generating and serving local
 keys.

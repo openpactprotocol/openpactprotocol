@@ -14,4 +14,6 @@ development guide](../docs/local-development.md), then run:
 pnpm e2e
 ```
 
-See the [protocol guide](../docs/protocol.md) for the route and error contract.
+See the [operations reference](../apps/docs/content/reference/operations.md)
+and [errors reference](../apps/docs/content/reference/errors.md) for the route
+and error contract.

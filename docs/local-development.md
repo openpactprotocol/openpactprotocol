@@ -79,4 +79,7 @@ The E2E suite uses the running local JWKS and provider services. Supply
 `PROVIDER_URL`, `CUSTOMER_ID`, `GLOBEX_ID`, and `PA_ISSUER`; it reads
 `PA_PRIVATE_JWK` from the environment or the PA client `.env.local`. See the
 [E2E README](../e2e/README.md) for its coverage. See the
-[protocol guide](protocol.md) for request, audience, and error details.
+[operations reference](../apps/docs/content/reference/operations.md),
+[authentication guide](../apps/docs/content/guides/authentication.md), and
+[errors reference](../apps/docs/content/reference/errors.md) for request,
+audience, and error details.

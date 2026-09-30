@@ -14,6 +14,7 @@ conversations remain anonymous and continue through a context ID.
 
 ## This repo contains
 
+- [Developer docs](apps/docs/README.md) — PAC2 integration guides, protocol reference, and docs-site development.
 - [Provider](apps/provider/README.md) — customer support agent, platform auth, and persistence.
 - [PA JWKS server](apps/personal-agent/server/README.md) — serves the platform's public signing keys.
 - [PA client](apps/personal-agent/client/README.md) — local chat UI and conversation history.
