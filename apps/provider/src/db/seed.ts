@@ -6,6 +6,7 @@ import { agentPlatforms, customers } from "./schema.js";
 export async function seedDatabase(
   db: Db,
   paIssuer: string,
+  options: { seedDemoPlatform?: boolean } = {},
 ): Promise<{ acmeSlug: string; globexSlug: string }> {
   const issuer = paIssuer.replace(/\/+$/, "");
   if (!issuer) throw new Error("PA_ISSUER is required");
@@ -31,10 +32,13 @@ export async function seedDatabase(
 
   const demoIssuer = issuer;
   const disabledIssuer = `${issuer}/disabled-pa`;
-  for (const [name, platformIssuer, enabled] of [
-    ["demo-pa", demoIssuer, true],
-    ["disabled-pa", disabledIssuer, false],
-  ] as const) {
+  const platformSeeds = [
+    ...((options.seedDemoPlatform ?? process.env.SEED_DEMO_PLATFORM !== "false")
+      ? [{ name: "demo-pa", issuer: demoIssuer, enabled: true }]
+      : []),
+    { name: "disabled-pa", issuer: disabledIssuer, enabled: false },
+  ];
+  for (const { name, issuer: platformIssuer, enabled } of platformSeeds) {
     await db
       .insert(agentPlatforms)
       .values({

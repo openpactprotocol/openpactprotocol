@@ -1,9 +1,15 @@
-import { generateKeyPair, importJWK, SignJWT, type CryptoKey, type JWK } from "jose";
+import { exportJWK, generateKeyPair, importJWK, SignJWT, type CryptoKey, type JWK } from "jose";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { A2AErrorResponseSchema } from "@pap/protocol";
-import { A2AClient, createPlatformSigner, discoverAgent, type DiscoveredAgent } from "@pap/client";
+import {
+  A2AClient,
+  createPlatformSigner,
+  discoverAgent,
+  registerPlatform,
+  type DiscoveredAgent,
+} from "@pap/client";
 
 function readLocalEnv(): void {
   const path = fileURLToPath(new URL("../apps/personal-agent/client/.env.local", import.meta.url));
@@ -132,6 +138,63 @@ describe.sequential("Personal Agent Protocol HTTP+JSON E2E", () => {
         tags: ["faq"],
       },
     ]);
+  });
+
+  it("registers the configured platform and reports whether it was created", async () => {
+    const signer = createPlatformSigner({ privateJwk: jwk!, issuer });
+    const endpoint = `${providerUrl}/api/platforms`;
+    const originalFetch = globalThis.fetch;
+    let responseStatus: number | undefined;
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const response = await originalFetch(input, init);
+      if (String(input) === endpoint) responseStatus = response.status;
+      return response;
+    });
+    try {
+      const result = await registerPlatform({
+        providerUrl,
+        name: process.env.PA_PLATFORM_NAME || "demo-pa",
+        signer,
+      });
+      expect([200, 201]).toContain(responseStatus);
+      expect(result.created).toBe(responseStatus === 201);
+      expect(result.platform).toMatchObject({
+        name: process.env.PA_PLATFORM_NAME || "demo-pa",
+        issuer,
+        enabled: true,
+      });
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
+  it("rejects platform registration when the key is absent from the JWKS", async () => {
+    const { privateKey } = await generateKeyPair("ES256", { extractable: true });
+    const privateJwk = await exportJWK(privateKey);
+    privateJwk.kid = `unpublished-${crypto.randomUUID()}`;
+    const signer = createPlatformSigner({ privateJwk, issuer });
+    await expect(
+      registerPlatform({
+        providerUrl,
+        name: `e2e-unpublished-${crypto.randomUUID()}`,
+        signer,
+      }),
+    ).rejects.toMatchObject({ status: 401, message: "Unauthorized" });
+  });
+
+  it("rejects cross-origin JWKS URIs and a name owned by another issuer", async () => {
+    const signer = createPlatformSigner({ privateJwk: jwk!, issuer });
+    await expect(
+      registerPlatform({
+        providerUrl,
+        name: `e2e-cross-origin-${crypto.randomUUID()}`,
+        jwksUri: "https://another-origin.example/.well-known/jwks.json",
+        signer,
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      registerPlatform({ providerUrl, name: "disabled-pa", signer }),
+    ).rejects.toMatchObject({ status: 409 });
   });
 
   it("answers a recognized FAQ request", async () => {

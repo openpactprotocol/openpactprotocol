@@ -81,7 +81,22 @@ pnpm --filter @pap/client pap get <task-id>
 pnpm --filter @pap/client pap list
 pnpm --filter @pap/client pap cancel <task-id>
 pnpm --filter @pap/client pap chat
+pnpm --filter @pap/client pap register
 ```
+
+## Platform registration
+
+A PA platform registers once with the provider using `POST /api/platforms`. Registration proves control of the platform's signing key with a self-signed ES256 assertion whose public key is served from a JWKS URI on the issuer's origin. A new registration is enabled automatically; repeating the same registration is idempotent and does not re-enable a disabled platform. To rotate keys, update the JWKS at the registered URI—no provider re-registration is needed.
+
+Send `Content-Type: application/json` with `{ "name": "instinct", "jwksUri": "https://instinct.example/.well-known/jwks.json" }`; the name must match `^[a-z0-9][a-z0-9-]{1,62}$`. The assertion uses `iss` and `sub` equal to the issuer and `aud` equal to `{PROVIDER_URL}/api/platforms`. The issuer and JWKS must use HTTPS, or HTTP on `localhost`/`127.0.0.1`, and the JWKS URI must share the issuer's origin. Successful creation returns 201 with the registered platform; an identical registration returns 200. Conflicting issuer/name details return 409.
+
+Use the CLI to register the local PA platform:
+
+```sh
+pnpm --filter @pap/client pap register [--name <name>] [--jwks-uri <url>]
+```
+
+It requires `PROVIDER_URL`, `PA_ISSUER`, and `PA_PRIVATE_JWK`, but does not require `CUSTOMER_SLUG`. The name defaults to `PA_PLATFORM_NAME`, then `demo-pa`; the JWKS URI defaults to `${PA_ISSUER}/.well-known/jwks.json`.
 
 ## Local development
 
@@ -123,7 +138,7 @@ PA_ISSUER=http://localhost:3002 pnpm --filter @pap/provider db:seed
 
 The PGlite database is stored at `~/.local/share/pap-provider-db` by default and listens on port 5432. The socket adapter has limited support for concurrent clients, so use one provider connection locally; the default pool size remains five for PostgreSQL.
 
-The seed creates Acme Health and Globex Clinic customers, plus `demo-pa` (enabled) and `disabled-pa` (disabled) platforms. Seed output prints both customer slugs. Set `PROVIDER_URL=http://localhost:3000` and `CUSTOMER_SLUG` to Acme Health's printed slug in `apps/personal-agent/client/.env.local`, then open `http://localhost:3001`.
+The seed creates Acme Health and Globex Clinic customers, plus `demo-pa` (enabled) and `disabled-pa` (disabled) platforms. Set `SEED_DEMO_PLATFORM=false` to skip the `demo-pa` seed and demonstrate self-service registration; `disabled-pa` is still seeded. Seed output prints both customer slugs. Set `PROVIDER_URL=http://localhost:3000` and `CUSTOMER_SLUG` to Acme Health's printed slug in `apps/personal-agent/client/.env.local`, then open `http://localhost:3001`.
 
 To use the CLI, run from the repository root:
 
@@ -150,6 +165,7 @@ The E2E suite expects a running provider and JWKS server. Configure:
 - `CUSTOMER_SLUG`: Acme Health slug printed by the provider seed.
 - `GLOBEX_SLUG`: Globex Clinic slug printed by the provider seed; used to verify wrong-audience rejection.
 - `PA_ISSUER`: issuer URL used when seeding the provider and registering the PA platform.
+- `PA_PLATFORM_NAME`: optional registered platform name (defaults to `demo-pa`).
 - `PA_PRIVATE_JWK`: local private JWK. If not exported, the suite reads `apps/personal-agent/client/.env.local`.
 
 The suite covers card discovery, FAQ answers and multi-turn clarification, task ownership/pagination, protocol errors, and platform JWT rejection cases.

@@ -6,16 +6,20 @@ import {
   AgentCardSchema,
   CancelTaskRequestSchema,
   ListTasksResponseSchema,
+  PlatformRegistrationResponseSchema,
   SendMessageResponseSchema,
   TaskSchema,
   type A2AErrorResponse,
   type AgentCard,
   type ListTasksResponse,
   type Message,
+  type PlatformRegistrationRequest,
+  type RegisteredPlatform,
   type Task,
 } from "@pap/protocol";
 
 export type { AgentCard, ListTasksResponse, Message, Task };
+export type { PlatformRegistrationRequest, RegisteredPlatform };
 
 export type DiscoveredAgent = {
   card: AgentCard;
@@ -53,6 +57,7 @@ export class A2AHttpError extends Error {
 }
 
 export interface PlatformSigner {
+  readonly issuer: string;
   sign(input: { sub: string; aud: string; ttlSeconds?: number }): Promise<string>;
 }
 
@@ -66,6 +71,7 @@ export function createPlatformSigner(input: {
   if (!kid) throw new Error("Private JWK must include kid");
   const privateKey = importJWK(parsedJwk, "ES256");
   return {
+    issuer: input.issuer,
     async sign({ sub, aud, ttlSeconds = 120 }) {
       if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0 || ttlSeconds > 300) {
         throw new Error("ttlSeconds must be an integer between 1 and 300");
@@ -82,6 +88,64 @@ export function createPlatformSigner(input: {
         .sign(key);
     },
   };
+}
+
+export type RegisterPlatformResult = {
+  created: boolean;
+  platform: RegisteredPlatform;
+};
+
+export class PlatformRegistrationError extends Error {
+  constructor(
+    readonly status: number,
+    message: string,
+  ) {
+    super(message);
+    this.name = "PlatformRegistrationError";
+  }
+}
+
+export async function registerPlatform(input: {
+  providerUrl: string;
+  name: string;
+  jwksUri?: string;
+  signer: PlatformSigner;
+}): Promise<RegisterPlatformResult> {
+  const endpoint = `${input.providerUrl.replace(/\/+$/, "")}/api/platforms`;
+  const jwksUri = input.jwksUri ?? `${input.signer.issuer}/.well-known/jwks.json`;
+  const token = await input.signer.sign({ sub: input.signer.issuer, aud: endpoint });
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name: input.name, jwksUri } satisfies PlatformRegistrationRequest),
+  });
+  const text = await response.text();
+  let body: unknown = text;
+  if (text) {
+    try {
+      body = JSON.parse(text) as unknown;
+    } catch {
+      body = text;
+    }
+  }
+  if (!response.ok) {
+    const message =
+      response.status === 401
+        ? "Unauthorized"
+        : typeof body === "object" &&
+            body !== null &&
+            "error" in body &&
+            typeof body.error === "string"
+          ? body.error
+          : "Platform registration failed";
+    throw new PlatformRegistrationError(response.status, message);
+  }
+
+  const parsed = PlatformRegistrationResponseSchema.parse(body);
+  return { created: response.status === 201, platform: parsed.platform };
 }
 
 export async function discoverAgent(providerUrl: string, slug: string): Promise<DiscoveredAgent> {

@@ -5,6 +5,8 @@ import {
   AgentCardSchema,
   MessageSchema,
   PartSchema,
+  PlatformRegistrationRequestSchema,
+  PlatformRegistrationResponseSchema,
   SecuritySchemeSchema,
   TaskSchema,
   TaskStateSchema,
@@ -97,5 +99,34 @@ describe("protocol schemas", () => {
         },
       }).error.details[0]?.reason,
     ).toBe("TASK_NOT_FOUND");
+  });
+
+  it("validates platform registration request and response schemas", () => {
+    expect(
+      PlatformRegistrationRequestSchema.parse({
+        name: "demo-pa",
+        jwksUri: "https://pa.example/.well-known/jwks.json",
+      }),
+    ).toEqual({
+      name: "demo-pa",
+      jwksUri: "https://pa.example/.well-known/jwks.json",
+    });
+    expect(
+      PlatformRegistrationRequestSchema.safeParse({
+        name: "Demo PA",
+        jwksUri: "https://pa.example/.well-known/jwks.json",
+      }).success,
+    ).toBe(false);
+    expect(
+      PlatformRegistrationResponseSchema.parse({
+        platform: {
+          id: "00000000-0000-4000-8000-000000000000",
+          name: "demo-pa",
+          issuer: "https://pa.example",
+          jwksUri: "https://pa.example/.well-known/jwks.json",
+          enabled: true,
+        },
+      }).platform.enabled,
+    ).toBe(true);
   });
 });

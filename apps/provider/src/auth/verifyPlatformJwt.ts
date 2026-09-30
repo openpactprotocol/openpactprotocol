@@ -8,6 +8,7 @@ import {
 import { and, eq, lte } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { agentPlatforms, customers, seenJtis } from "../db/schema.js";
+import { assertPlatformJwtTiming } from "./platformJwtTiming.js";
 
 export interface PlatformAuth {
   platform: { id: string; name: string };
@@ -67,8 +68,7 @@ export async function verifyPlatformJwt(input: {
     ) {
       return reject("invalid required claims");
     }
-    if (payload.exp - payload.iat > 300) return reject("token lifetime exceeds five minutes");
-    if (payload.iat > Math.floor(now.getTime() / 1000) + 30) return reject("issued in the future");
+    assertPlatformJwtTiming({ iat: payload.iat, exp: payload.exp, now });
     await input.db
       .delete(seenJtis)
       .where(and(eq(seenJtis.platformId, platform.id), lte(seenJtis.expiresAt, now)));

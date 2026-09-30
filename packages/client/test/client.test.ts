@@ -1,6 +1,13 @@
 import { generateKeyPair, exportJWK, jwtVerify } from "jose";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { A2AClient, A2AError, A2AHttpError, createPlatformSigner } from "../src/index.js";
+import {
+  A2AClient,
+  A2AError,
+  A2AHttpError,
+  createPlatformSigner,
+  PlatformRegistrationError,
+  registerPlatform,
+} from "../src/index.js";
 
 describe("reference client", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -27,6 +34,7 @@ describe("reference client", () => {
   it("sends REST requests with fresh JWTs and the A2A version header", async () => {
     const signed: { sub: string; aud: string }[] = [];
     const signer = {
+      issuer: "https://pa.example",
       sign: async (input: { sub: string; aud: string }) => {
         signed.push(input);
         return `token-${signed.length}`;
@@ -70,7 +78,7 @@ describe("reference client", () => {
   });
 
   it("serializes task query parameters and cancel routes", async () => {
-    const signer = { sign: async () => "token" };
+    const signer = { issuer: "https://pa.example", sign: async () => "token" };
     const requests: { url: URL; init: RequestInit }[] = [];
     const task = { id: "task-1", status: { state: "TASK_STATE_COMPLETED" }, history: [] };
     const client = new A2AClient({
@@ -103,7 +111,7 @@ describe("reference client", () => {
   });
 
   it("parses AIP-193 errors and keeps empty-body errors as HTTP errors", async () => {
-    const signer = { sign: async () => "token" };
+    const signer = { issuer: "https://pa.example", sign: async () => "token" };
     const a2aClient = new A2AClient({
       url: "https://provider.example/a2a/acme",
       signer,
@@ -159,6 +167,75 @@ describe("reference client", () => {
       reason: "TASK_NOT_CANCELABLE",
       message: "Task not cancelable",
       details: [],
+    });
+  });
+});
+
+describe("platform registration client", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it("self-signs registration assertions and maps 201/200 to created", async () => {
+    const { privateKey, publicKey } = await generateKeyPair("ES256", { extractable: true });
+    const privateJwk = await exportJWK(privateKey);
+    privateJwk.kid = "registration-key";
+    const issuer = "https://pa.example";
+    const providerUrl = "https://provider.example";
+    const endpoint = `${providerUrl}/api/platforms`;
+    const platform = {
+      id: "00000000-0000-4000-8000-000000000000",
+      name: "instinct",
+      issuer,
+      jwksUri: `${issuer}/.well-known/jwks.json`,
+      enabled: true,
+    };
+    const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
+    let requestCount = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      calls.push({ input, ...(init === undefined ? {} : { init }) });
+      const status = requestCount++ === 0 ? 201 : 200;
+      return Response.json({ platform }, { status });
+    });
+
+    const signer = createPlatformSigner({ issuer, privateJwk });
+    const first = await registerPlatform({ providerUrl, name: "instinct", signer });
+    const second = await registerPlatform({ providerUrl, name: "instinct", signer });
+
+    expect(first).toEqual({ created: true, platform });
+    expect(second).toEqual({ created: false, platform });
+    expect(calls.map(({ input }) => String(input))).toEqual([endpoint, endpoint]);
+    const firstInit = calls[0]?.init;
+    expect(JSON.parse(String(firstInit?.body))).toEqual({
+      name: "instinct",
+      jwksUri: `${issuer}/.well-known/jwks.json`,
+    });
+    const authorization = new Headers(firstInit?.headers).get("Authorization");
+    const token = authorization?.replace(/^Bearer /, "");
+    if (!token) throw new Error("Registration bearer token was not sent");
+    const { payload } = await jwtVerify(token, publicKey, {
+      issuer,
+      audience: endpoint,
+      algorithms: ["ES256"],
+    });
+    expect(payload).toMatchObject({ iss: issuer, sub: issuer, aud: endpoint });
+  });
+
+  it("throws PlatformRegistrationError with the provider conflict message", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      Response.json({ error: "Platform name is already registered" }, { status: 409 }),
+    );
+    const signer = {
+      issuer: "https://pa.example",
+      sign: async () => "signed-token",
+    };
+    const error = await registerPlatform({
+      providerUrl: "https://provider.example",
+      name: "instinct",
+      signer,
+    }).catch((cause: unknown) => cause);
+    expect(error).toBeInstanceOf(PlatformRegistrationError);
+    expect(error).toMatchObject({
+      status: 409,
+      message: "Platform name is already registered",
     });
   });
 });

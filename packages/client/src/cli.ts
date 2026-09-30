@@ -3,7 +3,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { A2AClient, createPlatformSigner, discoverAgent } from "./index.js";
+import { A2AClient, createPlatformSigner, discoverAgent, registerPlatform } from "./index.js";
 
 const envFile = fileURLToPath(
   new URL("../../../apps/personal-agent/client/.env.local", import.meta.url),
@@ -23,12 +23,55 @@ const privateJwk = process.env.PA_PRIVATE_JWK;
 const userId = process.env.PA_USER_ID ?? "demo-user";
 const [command = "help", ...args] = process.argv.slice(2);
 
-if (!providerUrl || !slug) throw new Error("Set PROVIDER_URL and CUSTOMER_SLUG");
+const usage =
+  "Usage: pap register [--name <name>] [--jwks-uri <url>] | card | send <text> [--task id] | get <id> | list | cancel <id> | chat";
 
-const discovered = await discoverAgent(providerUrl, slug);
-if (command === "card") {
-  console.log(JSON.stringify(discovered.card, null, 2));
-} else {
+async function main(): Promise<void> {
+  if (command === "help" || command === "--help") {
+    console.log(usage);
+    return;
+  }
+  if (!providerUrl) throw new Error("Set PROVIDER_URL");
+
+  if (command === "register") {
+    if (!issuer || !privateJwk) throw new Error("Set PA_ISSUER and PA_PRIVATE_JWK");
+    let name = process.env.PA_PLATFORM_NAME || "demo-pa";
+    let jwksUri: string | undefined;
+    for (let index = 0; index < args.length; index += 1) {
+      const argument = args[index];
+      if (argument === "--name" || argument === "--jwks-uri") {
+        const value = args[index + 1];
+        if (!value) throw new Error(`${argument} requires a value`);
+        if (argument === "--name") name = value;
+        else jwksUri = value;
+        index += 1;
+      } else {
+        throw new Error(`Unknown register option: ${argument}`);
+      }
+    }
+    const result = await registerPlatform({
+      providerUrl,
+      name,
+      ...(jwksUri === undefined ? {} : { jwksUri }),
+      signer: createPlatformSigner({ issuer, privateJwk }),
+    });
+    console.log(
+      `${result.created ? "created" : "already registered"}\n${JSON.stringify(result.platform, null, 2)}`,
+    );
+    return;
+  }
+
+  if (!["card", "send", "get", "list", "cancel", "chat"].includes(command)) {
+    console.log(usage);
+    return;
+  }
+  if (!slug) throw new Error("Set CUSTOMER_SLUG");
+
+  const discovered = await discoverAgent(providerUrl, slug);
+  if (command === "card") {
+    console.log(JSON.stringify(discovered.card, null, 2));
+    return;
+  }
   if (!issuer || !privateJwk) throw new Error("Set PA_ISSUER and PA_PRIVATE_JWK");
   const signer = createPlatformSigner({ issuer, privateJwk });
   const client = new A2AClient({ url: discovered.url, signer, userId });
@@ -65,7 +108,7 @@ if (command === "card") {
     } finally {
       terminal.close();
     }
-  } else {
-    console.log("Usage: pap card|send <text> [--task id]|get <id>|list|cancel <id>|chat");
   }
 }
+
+await main();
