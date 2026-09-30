@@ -40,6 +40,9 @@ importers:
       "@pap/protocol":
         specifier: workspace:*
         version: link:../../../packages/protocol
+      lucide-react:
+        specifier: 1.47.0
+        version: 1.47.0(react@19.1.1)
       next:
         specifier: 15.5.26
         version: 15.5.26(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -2371,6 +2374,14 @@ packages:
         integrity: sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==,
       }
 
+  lucide-react@1.47.0:
+    resolution:
+      {
+        integrity: sha512-o8C23aXpNQypRY73W7fW02EyvWJinEMXgKeGjFoKym0zj3Q73hD97A1IQps1g8C14HTGsOpZL0Am+xjfgFZAbg==,
+      }
+    peerDependencies:
+      react: ^16.5.1 || ^17.0.0 || ^18.0.0 || ^19.0.0
+
   magic-string@0.30.21:
     resolution:
       {
@@ -3985,6 +3996,10 @@ snapshots:
   lodash.merge@4.6.2: {}
 
   loupe@3.2.1: {}
+
+  lucide-react@1.47.0(react@19.1.1):
+    dependencies:
+      react: 19.1.1
 
   magic-string@0.30.21:
     dependencies:

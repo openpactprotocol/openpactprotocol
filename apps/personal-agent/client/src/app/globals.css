@@ -123,8 +123,16 @@ button,
   padding: 8px 14px;
   font: inherit;
   font-weight: 500;
+  gap: 6px;
   cursor: pointer;
   white-space: nowrap;
+}
+.icon-button {
+  padding: 8px 10px;
+  color: var(--muted);
+}
+.icon-button:hover {
+  color: var(--accent);
 }
 button:disabled {
   opacity: 0.5;
@@ -172,6 +180,9 @@ button:disabled {
 }
 
 .alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 10px 14px;
   border-radius: 8px;
   background: #fef2f2;
@@ -242,20 +253,13 @@ button:disabled {
 .pill {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
   background: #f3f4f6;
   color: #374151;
-}
-.pill::before {
-  content: "";
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
 }
 .state-input-required {
   background: #fffbeb;
@@ -312,6 +316,9 @@ button:disabled {
   margin-top: 4px;
 }
 .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   padding: 2px 8px;
   border-radius: 6px;
   font-size: 12px;
@@ -373,8 +380,13 @@ button:disabled {
   border-bottom-left-radius: 4px;
 }
 .empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
   color: var(--muted);
-  padding: 8px 4px;
+  padding: 24px 4px;
+  text-align: center;
 }
 .thread .empty {
   margin: auto;
@@ -388,6 +400,9 @@ button:disabled {
   border-top: 1px solid var(--border);
 }
 .closed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 14px 20px;
   border-top: 1px solid var(--border);
   color: var(--muted);

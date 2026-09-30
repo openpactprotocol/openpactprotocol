@@ -1,6 +1,23 @@
 import Link from "next/link";
 import { A2AClient, createPlatformSigner, discoverAgent } from "@pap/client";
 import type { AgentCard, Message, Task, TaskState } from "@pap/protocol";
+import {
+  Bot,
+  CircleAlert,
+  CircleCheck,
+  CircleX,
+  Clock,
+  Headset,
+  Link as LinkIcon,
+  Lock,
+  MessageCircle,
+  MessagesSquare,
+  Plug,
+  RotateCw,
+  SendHorizontal,
+  Sparkles,
+  SquarePen,
+} from "lucide-react";
 import { cookies } from "next/headers";
 import type { ReactElement } from "react";
 import { homePath, USER_ID_COOKIE } from "../lib/session.js";
@@ -22,6 +39,21 @@ function stateLabel(state: TaskState): string {
 
 function stateClass(state: TaskState): string {
   return `pill state-${state.replace("TASK_STATE_", "").toLowerCase().replace(/_/g, "-")}`;
+}
+
+function StateIcon({ state }: { state: TaskState }): ReactElement {
+  if (state === "TASK_STATE_COMPLETED") return <CircleCheck size={12} aria-hidden />;
+  if (TERMINAL_STATES.includes(state)) return <CircleX size={12} aria-hidden />;
+  return <Clock size={12} aria-hidden />;
+}
+
+function StatePill({ state }: { state: TaskState }): ReactElement {
+  return (
+    <span className={stateClass(state)}>
+      <StateIcon state={state} />
+      {stateLabel(state)}
+    </span>
+  );
 }
 
 function messageText(message: Message): string {
@@ -93,7 +125,7 @@ export default async function HomePage({
       <header className="topbar">
         <div className="brand">
           <span className="logo" aria-hidden>
-            PA
+            <Bot size={18} />
           </span>
           <div>
             <h1>Personal Agent Protocol</h1>
@@ -116,21 +148,32 @@ export default async function HomePage({
             <span>User ID</span>
             <div className="input-group">
               <input name="userId" defaultValue={userId} spellCheck={false} />
-              <button type="submit" formAction={newUser} className="secondary" title="New user">
-                New
+              <button
+                type="submit"
+                formAction={newUser}
+                className="secondary icon-button"
+                title="Generate a new user ID"
+                aria-label="Generate a new user ID"
+              >
+                <RotateCw size={16} aria-hidden />
               </button>
             </div>
           </label>
           <button type="submit" className="primary">
+            <Plug size={16} aria-hidden />
             Connect
           </button>
         </form>
 
         {!issuer || !privateJwk ? (
-          <p className="alert">Configure PA_ISSUER and PA_PRIVATE_JWK in the server environment.</p>
+          <p className="alert">
+            <CircleAlert size={16} aria-hidden />
+            Configure PA_ISSUER and PA_PRIVATE_JWK in the server environment.
+          </p>
         ) : null}
         {error ? (
           <p className="alert" role="alert">
+            <CircleAlert size={16} aria-hidden />
             {error}
           </p>
         ) : null}
@@ -140,11 +183,15 @@ export default async function HomePage({
             <div className="sidebar-head">
               <h2>Conversations</h2>
               <Link className="button secondary small" href={homePath({ providerUrl, slug })}>
+                <SquarePen size={14} aria-hidden />
                 New chat
               </Link>
             </div>
             {tasks.length === 0 ? (
-              <p className="empty">No conversations yet.</p>
+              <div className="empty">
+                <MessagesSquare size={20} aria-hidden />
+                No conversations yet.
+              </div>
             ) : (
               <ul className="task-list">
                 {tasks.map((task) => (
@@ -155,9 +202,7 @@ export default async function HomePage({
                     >
                       <span className="preview">{taskPreview(task)}</span>
                       <span className="task-meta">
-                        <span className={stateClass(task.status.state)}>
-                          {stateLabel(task.status.state)}
-                        </span>
+                        <StatePill state={task.status.state} />
                         <span>{formatTime(task.status.timestamp)}</span>
                       </span>
                     </Link>
@@ -171,7 +216,7 @@ export default async function HomePage({
             {card ? (
               <header className="agent">
                 <span className="avatar" aria-hidden>
-                  {card.name.charAt(0)}
+                  <Headset size={20} />
                 </span>
                 <div className="agent-body">
                   <h2>{card.name}</h2>
@@ -179,12 +224,19 @@ export default async function HomePage({
                   <div className="chips">
                     {card.skills.map((skill) => (
                       <span className="chip" key={skill.id} title={skill.description}>
+                        <Sparkles size={12} aria-hidden />
                         {skill.name}
                       </span>
                     ))}
-                    {auth ? <span className="chip muted">{auth}</span> : null}
+                    {auth ? (
+                      <span className="chip muted">
+                        <Lock size={12} aria-hidden />
+                        {auth}
+                      </span>
+                    ) : null}
                     {agentInterface ? (
                       <span className="chip muted">
+                        <LinkIcon size={12} aria-hidden />
                         {agentInterface.protocolBinding} {agentInterface.protocolVersion}
                       </span>
                     ) : null}
@@ -202,16 +254,15 @@ export default async function HomePage({
 
             <div className="thread-head">
               <h3>{selectedTask ? `Task ${selectedTask.id.slice(0, 8)}` : "New conversation"}</h3>
-              {selectedTask ? (
-                <span className={stateClass(selectedTask.status.state)}>
-                  {stateLabel(selectedTask.status.state)}
-                </span>
-              ) : null}
+              {selectedTask ? <StatePill state={selectedTask.status.state} /> : null}
             </div>
 
             <div className="thread">
               {messages.length === 0 ? (
-                <p className="empty">Ask about hours, location, parking, or insurance.</p>
+                <div className="empty">
+                  <MessageCircle size={28} aria-hidden />
+                  Ask about hours, location, parking, or insurance.
+                </div>
               ) : (
                 messages.map((message) => (
                   <article
@@ -229,8 +280,11 @@ export default async function HomePage({
 
             {closed ? (
               <p className="closed">
-                This conversation is complete.{" "}
-                <Link href={homePath({ providerUrl, slug })}>Start a new one</Link>.
+                <CircleCheck size={16} aria-hidden />
+                <span>
+                  This conversation is complete.{" "}
+                  <Link href={homePath({ providerUrl, slug })}>Start a new one</Link>.
+                </span>
               </p>
             ) : (
               <form className="composer" action={sendChatMessage}>
@@ -246,6 +300,7 @@ export default async function HomePage({
                   disabled={!card}
                 />
                 <button type="submit" className="primary" disabled={!card}>
+                  <SendHorizontal size={16} aria-hidden />
                   Send
                 </button>
               </form>
