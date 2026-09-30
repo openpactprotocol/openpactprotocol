@@ -112,10 +112,6 @@ function ThreadCard(input: { thread: BusinessThread; color: string }): ReactElem
             contextId <code>{thread.contextId.slice(0, 8)}</code> · via PAC2
           </p>
         </div>
-        <span className="pa-badge">
-          <Sparkles size={12} aria-hidden />
-          Personal Agent
-        </span>
       </header>
       <div className="thread-card-body">
         {thread.messages.map((message, index) => (

@@ -510,8 +510,6 @@ button:disabled {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background-color: #f4f4f1;
-  background-image: radial-gradient(rgb(0 0 0 / 9%) 1px, transparent 1px);
-  background-size: 18px 18px;
 }
 .phone {
   --ios-blue: #2f9bf0;
@@ -893,16 +891,6 @@ button:disabled {
 }
 .thread-card header code {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-}
-.pa-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgb(255 255 255 / 16%);
-  font-size: 12px;
-  white-space: nowrap;
 }
 .thread-card-body {
   display: flex;
