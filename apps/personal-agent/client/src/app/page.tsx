@@ -2,12 +2,17 @@ import Link from "next/link";
 import { A2AHttpError, discoverAgent } from "@pac2/client";
 import type { AgentCard } from "@pac2/protocol";
 import {
+  ArrowUp,
+  BatteryFull,
   Bot,
+  ChevronLeft,
+  ChevronRight,
   CircleAlert,
   CircleCheck,
   CircleX,
   Headset,
   Fingerprint,
+  Info,
   KeyRound,
   Link as LinkIcon,
   Lock,
@@ -15,9 +20,10 @@ import {
   MessagesSquare,
   Plug,
   RotateCw,
-  SendHorizontal,
+  SignalHigh,
   Sparkles,
   SquarePen,
+  Wifi,
 } from "lucide-react";
 import { cookies } from "next/headers";
 import type { ReactElement } from "react";
@@ -45,6 +51,31 @@ function formatTime(timestamp: string | undefined): string {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatDay(timestamp: string | undefined): string {
+  if (!timestamp) return "";
+  const date = new Date(timestamp);
+  const sameDay = date.toDateString() === new Date().toDateString();
+  const time = formatClock(timestamp);
+  if (sameDay) return `Today ${time}`;
+  return `${date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} ${time}`;
+}
+
+function formatClock(timestamp: string | undefined): string {
+  if (!timestamp) return "";
+  return new Date(timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+function lastUserIndex(messages: StoredConversationMessage[]): number {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    if (messages[index]?.role === "ROLE_USER") return index;
+  }
+  return -1;
+}
+
+function agentCardUrl(providerUrl: string, customerId: string): string {
+  return `${providerUrl.replace(/\/+$/, "")}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`;
 }
 
 function authLabel(card: AgentCard): string | undefined {
@@ -301,135 +332,217 @@ export default async function HomePage({
         ) : null}
 
         <div className="workspace">
-          <aside className="card sidebar">
-            <div className="sidebar-head">
-              <h2>Conversations</h2>
-              <Link className="button secondary small" href={homePath({ providerUrl, customerId })}>
-                <SquarePen size={14} aria-hidden />
-                New chat
-              </Link>
-            </div>
-            {conversations.length === 0 ? (
-              <div className="empty">
-                <MessagesSquare size={20} aria-hidden />
-                No conversations yet.
-              </div>
-            ) : (
-              <ul className="conversation-list">
-                {conversations.map((conversation) => (
-                  <li key={conversation.contextId}>
-                    <Link
-                      href={homePath({
-                        providerUrl,
-                        customerId,
-                        contextId: conversation.contextId,
-                      })}
-                      className={
-                        conversation.contextId === selectedConversation?.contextId
-                          ? "conversation-link active"
-                          : "conversation-link"
-                      }
-                    >
-                      <span className="preview">
-                        {conversation.messages.find((message) => message.role === "ROLE_USER")
-                          ?.text ?? "Untitled conversation"}
-                      </span>
-                      <span className="conversation-meta">
-                        <span>{formatTime(conversation.updatedAt)}</span>
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </aside>
-
-          <section className="card chat">
-            {card ? (
-              <header className="agent">
-                <span className="avatar" aria-hidden>
-                  <Headset size={20} />
-                </span>
-                <div className="agent-body">
-                  <h2>{card.name}</h2>
-                  <p>{card.description}</p>
-                  <div className="chips">
-                    {card.skills.map((skill) => (
-                      <span className="chip" key={skill.id} title={skill.description}>
-                        <Sparkles size={12} aria-hidden />
-                        {skill.name}
-                      </span>
-                    ))}
-                    {auth ? (
-                      <span className="chip muted">
-                        <Lock size={12} aria-hidden />
-                        {auth}
-                      </span>
-                    ) : null}
-                    {agentInterface ? (
-                      <span className="chip muted">
-                        <LinkIcon size={12} aria-hidden />
-                        {agentInterface.protocolBinding} {agentInterface.protocolVersion}
-                      </span>
-                    ) : null}
+          <div className="peripherals">
+            <section className="card agent-card">
+              <h2>Agent Card</h2>
+              {card ? (
+                <div className="agent">
+                  <span className="avatar" aria-hidden>
+                    <Headset size={20} />
+                  </span>
+                  <div className="agent-body">
+                    <h3>{card.name}</h3>
+                    <p>{card.description}</p>
+                    <div className="chips">
+                      {card.skills.map((skill) => (
+                        <span className="chip" key={skill.id} title={skill.description}>
+                          <Sparkles size={12} aria-hidden />
+                          {skill.name}
+                        </span>
+                      ))}
+                      {auth ? (
+                        <span className="chip muted">
+                          <Lock size={12} aria-hidden />
+                          {auth}
+                        </span>
+                      ) : null}
+                      {agentInterface ? (
+                        <span className="chip muted">
+                          <LinkIcon size={12} aria-hidden />
+                          {agentInterface.protocolBinding} {agentInterface.protocolVersion}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
                 </div>
-              </header>
-            ) : (
-              <header className="agent">
-                <div className="agent-body">
-                  <h2>Not connected</h2>
-                  <p>Enter a provider URL and customer ID, then connect.</p>
-                </div>
-              </header>
-            )}
+              ) : (
+                <p className="muted-text">Enter a provider URL and customer ID, then connect.</p>
+              )}
+            </section>
 
-            <div className="thread-head">
-              <h3>
-                {selectedConversation
-                  ? `Conversation ${selectedConversation.contextId.slice(0, 8)}`
-                  : "New conversation"}
-              </h3>
-            </div>
-
-            <div className="thread">
-              {messages.length === 0 ? (
+            <aside className="card sidebar">
+              <div className="sidebar-head">
+                <h2>Conversations</h2>
+                <Link
+                  className="button secondary small"
+                  href={homePath({ providerUrl, customerId })}
+                >
+                  <SquarePen size={14} aria-hidden />
+                  New chat
+                </Link>
+              </div>
+              {conversations.length === 0 ? (
                 <div className="empty">
-                  <MessageCircle size={28} aria-hidden />
-                  Ask about hours, location, parking, or insurance.
+                  <MessagesSquare size={20} aria-hidden />
+                  No conversations yet.
                 </div>
               ) : (
-                messages.map((message, index) => (
-                  <article
-                    className={message.role === "ROLE_USER" ? "bubble user" : "bubble agent-msg"}
-                    key={`${message.at}-${index}`}
-                  >
-                    <span className="author">
-                      {message.role === "ROLE_USER" ? "You" : (card?.name ?? "Agent")}
-                    </span>
-                    <p>{message.text}</p>
-                  </article>
-                ))
+                <ul className="conversation-list">
+                  {conversations.map((conversation) => (
+                    <li key={conversation.contextId}>
+                      <Link
+                        href={homePath({
+                          providerUrl,
+                          customerId,
+                          contextId: conversation.contextId,
+                        })}
+                        className={
+                          conversation.contextId === selectedConversation?.contextId
+                            ? "conversation-link active"
+                            : "conversation-link"
+                        }
+                      >
+                        <span className="preview">
+                          {conversation.messages.find((message) => message.role === "ROLE_USER")
+                            ?.text ?? "Untitled conversation"}
+                        </span>
+                        <span className="conversation-meta">
+                          <span>{formatTime(conversation.updatedAt)}</span>
+                          <code>{conversation.contextId.slice(0, 8)}</code>
+                        </span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               )}
-            </div>
+            </aside>
+          </div>
 
-            <form className="composer" action={sendChatMessage}>
-              <input name="providerUrl" type="hidden" value={providerUrl} />
-              <input name="customerId" type="hidden" value={customerId} />
-              <input name="contextId" type="hidden" value={selectedConversation?.contextId ?? ""} />
-              <textarea
-                name="text"
-                required
-                rows={2}
-                placeholder={selectedConversation ? "Reply…" : "Write a message…"}
-                aria-label="Message"
-                disabled={!card}
-              />
-              <button type="submit" className="primary" disabled={!card}>
-                <SendHorizontal size={16} aria-hidden />
-                Send
-              </button>
-            </form>
+          <section className="stage" aria-label="Chat">
+            <div className="phone">
+              <div className="screen">
+                <div className="status-bar" aria-hidden>
+                  <span className="clock">9:41</span>
+                  <span className="island" />
+                  <span className="status-icons">
+                    <SignalHigh size={16} strokeWidth={2.5} />
+                    <Wifi size={16} strokeWidth={2.5} />
+                    <BatteryFull size={20} strokeWidth={2} />
+                  </span>
+                </div>
+
+                <header className="contact">
+                  <Link
+                    className="round-button"
+                    href={homePath({ providerUrl, customerId })}
+                    aria-label="New conversation"
+                    title="New conversation"
+                  >
+                    <ChevronLeft size={20} aria-hidden />
+                  </Link>
+                  <div className="contact-center">
+                    <span className="contact-avatar" aria-hidden>
+                      <Headset size={22} />
+                    </span>
+                    <span className="contact-name">
+                      {card?.name ?? "Not connected"}
+                      <ChevronRight size={14} aria-hidden />
+                    </span>
+                  </div>
+                  {card ? (
+                    <a
+                      className="round-button"
+                      href={agentCardUrl(providerUrl, customerId)}
+                      target="_blank"
+                      rel="noreferrer"
+                      aria-label="Open Agent Card"
+                      title="Open Agent Card"
+                    >
+                      <Info size={18} aria-hidden />
+                    </a>
+                  ) : (
+                    <span className="round-button placeholder" aria-hidden />
+                  )}
+                </header>
+
+                <div className="thread">
+                  <div className="thread-inner">
+                    <div className="thread-meta">
+                      <span>
+                        {agentInterface ? `PAC2 · ${agentInterface.protocolBinding}` : "PAC2"}
+                      </span>
+                      <span>
+                        <Lock size={10} aria-hidden />
+                        {auth ?? "Signed JWT"}
+                      </span>
+                    </div>
+                    {messages.length === 0 ? (
+                      <div className="empty">
+                        <MessageCircle size={28} aria-hidden />
+                        {card
+                          ? "Ask about hours, location, parking, or insurance."
+                          : "Connect to a customer to start chatting."}
+                      </div>
+                    ) : (
+                      <>
+                        <p className="timestamp">{formatDay(messages[0]?.at)}</p>
+                        {messages.map((message, index) => (
+                          <div
+                            className={
+                              message.role === "ROLE_USER" ? "row outgoing" : "row incoming"
+                            }
+                            key={`${message.at}-${index}`}
+                          >
+                            <p className="bubble">{message.text}</p>
+                            {message.role === "ROLE_USER" && index === lastUserIndex(messages) ? (
+                              <span className="receipt">
+                                {messages[index + 1] ? (
+                                  <>
+                                    <strong>Read</strong> {formatClock(messages[index + 1]?.at)}
+                                  </>
+                                ) : (
+                                  "Delivered"
+                                )}
+                              </span>
+                            ) : null}
+                          </div>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <form className="composer" action={sendChatMessage}>
+                  <input name="providerUrl" type="hidden" value={providerUrl} />
+                  <input name="customerId" type="hidden" value={customerId} />
+                  <input
+                    name="contextId"
+                    type="hidden"
+                    value={selectedConversation?.contextId ?? ""}
+                  />
+                  <div className="composer-pill">
+                    <input
+                      name="text"
+                      required
+                      autoComplete="off"
+                      placeholder={card ? "Message" : "Not connected"}
+                      aria-label="Message"
+                      disabled={!card}
+                    />
+                    <button
+                      type="submit"
+                      className="send"
+                      disabled={!card}
+                      aria-label="Send"
+                      title="Send"
+                    >
+                      <ArrowUp size={16} strokeWidth={3} aria-hidden />
+                    </button>
+                  </div>
+                </form>
+                <span className="home-indicator" aria-hidden />
+              </div>
+            </div>
           </section>
         </div>
       </main>
