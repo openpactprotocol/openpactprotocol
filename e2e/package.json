@@ -1,0 +1,16 @@
+{
+  "name": "@pac2/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run --sequence.concurrent=false",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@pac2/client": "workspace:*",
+    "@pac2/protocol": "workspace:*",
+    "jose": "6.1.0",
+    "vitest": "3.2.4"
+  }
+}

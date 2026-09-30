@@ -1,0 +1,27 @@
+{
+  "name": "personal-agent-protocol",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@11.21.0",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "typecheck": "pnpm -r typecheck",
+    "test": "vitest run --exclude='e2e/**'",
+    "format:check": "prettier --check .",
+    "gen-keys": "tsx scripts/gen-keys.ts",
+    "e2e": "pnpm --filter @pac2/e2e test"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.3",
+    "eslint": "9.39.5",
+    "jose": "6.1.0",
+    "prettier": "3.6.2",
+    "tsx": "4.23.14",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1",
+    "vitest": "3.2.4"
+  }
+}
