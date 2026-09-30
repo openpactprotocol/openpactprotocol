@@ -34,6 +34,10 @@ Separately, the provider can use `OPENAI_API_KEY` and `OPENAI_MODEL` (default
 profile's facts. Without a key or after a failure or timeout, it uses the
 deterministic canned replies.
 
+Business replies go into their separate A2A threads, and the PA composes one
+message for the phone with OpenAI when configured or a `Business: reply`
+fallback. The phone shows only the PA's messages.
+
 Configure the PA client with `CUSTOMER_IDS`, a comma-separated list of
 customer ULIDs. The protocol CLI continues to take one `CUSTOMER_ID` at a time.
 

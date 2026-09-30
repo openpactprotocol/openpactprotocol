@@ -3,8 +3,6 @@ import { A2AHttpError, discoverAgent } from "@pac2/client";
 import type { AgentCard } from "@pac2/protocol";
 import {
   Bot,
-  ChevronLeft,
-  ChevronRight,
   CircleAlert,
   CircleCheck,
   CircleX,
@@ -16,12 +14,9 @@ import {
   MessagesSquare,
   Plug,
   RotateCw,
-  Sparkle,
   Sparkles,
   SquarePen,
   Store,
-  Video,
-  Wifi,
 } from "lucide-react";
 import { cookies } from "next/headers";
 import type { ReactElement } from "react";
@@ -33,14 +28,14 @@ import {
   USER_ID_COOKIE,
   type RegistrationNotice,
 } from "../lib/session.js";
+import { brandColor } from "../lib/brand.js";
 import {
   listConversations,
-  type BusinessThread,
   type PaConversation,
   type PhoneMessage,
 } from "../lib/conversationStore.js";
 import { connect, newUser, registerPersonalAgent } from "./actions.js";
-import { PhoneChat } from "./PhoneChat.js";
+import { ChatStage } from "./ChatStage.js";
 
 export const dynamic = "force-dynamic";
 
@@ -78,45 +73,6 @@ type ConnectedBusiness = {
   error?: string;
   unauthorized?: boolean;
 };
-
-const BRAND_COLORS = ["#16345c", "#1f4d3a", "#7a1f45", "#7a4a0c", "#3b3b8f"];
-
-function brandColor(customerIds: string[], customerId: string): string {
-  const index = Math.max(0, customerIds.indexOf(customerId));
-  return BRAND_COLORS[index % BRAND_COLORS.length] ?? "#16345c";
-}
-
-function ThreadCard(input: { thread: BusinessThread; color: string }): ReactElement {
-  const { thread } = input;
-  return (
-    <article className="thread-card">
-      <header style={{ background: input.color }}>
-        <span className="brand-avatar light" aria-hidden>
-          {thread.businessName.charAt(0)}
-        </span>
-        <div>
-          <h3>{thread.businessName}</h3>
-          <p>
-            contextId <code>{thread.contextId.slice(0, 8)}</code>
-          </p>
-        </div>
-      </header>
-      <div className="thread-card-body">
-        {thread.messages.map((message, index) => (
-          <p
-            className={message.role === "ROLE_USER" ? "tbubble from-pa" : "tbubble from-business"}
-            key={`${message.at}-${index}`}
-          >
-            {message.text}
-          </p>
-        ))}
-        <span className={thread.awaitingReply ? "thread-status waiting" : "thread-status done"}>
-          {thread.awaitingReply ? "Waiting" : "Answered"}
-        </span>
-      </div>
-    </article>
-  );
-}
 
 function authLabel(card: AgentCard): string | undefined {
   for (const scheme of Object.values(card.securitySchemes ?? {})) {
@@ -496,75 +452,15 @@ export default async function HomePage({
             </aside>
           </div>
 
-          <section className="stage" aria-label="Chat">
-            <div className="phone">
-              <span className="side-button action" aria-hidden />
-              <span className="side-button volume-up" aria-hidden />
-              <span className="side-button volume-down" aria-hidden />
-              <span className="side-button power" aria-hidden />
-              <div className="screen">
-                <div className="status-bar" aria-hidden>
-                  <span className="clock">9:41</span>
-                  <span className="island" />
-                  <span className="status-icons">
-                    <span className="signal">
-                      <i />
-                      <i />
-                      <i />
-                      <i />
-                    </span>
-                    <Wifi size={17} strokeWidth={2.75} />
-                    <span className="battery">
-                      <span>73</span>
-                    </span>
-                  </span>
-                </div>
-
-                <header className="contact">
-                  <Link
-                    className="round-button"
-                    href={homePath({ providerUrl, customerIds })}
-                    aria-label="New conversation"
-                    title="New conversation"
-                  >
-                    <ChevronLeft size={20} aria-hidden />
-                  </Link>
-                  <div className="contact-center">
-                    <span className="contact-avatar" aria-hidden>
-                      <Sparkle size={24} fill="currentColor" strokeWidth={1.5} />
-                    </span>
-                    <span className="contact-name">
-                      Personal Agent
-                      <ChevronRight size={14} aria-hidden />
-                    </span>
-                  </div>
-                  <span className="round-button" aria-hidden>
-                    <Video size={20} strokeWidth={1.75} />
-                  </span>
-                </header>
-
-                <PhoneChat
-                  messages={messages}
-                  dayLabel={formatDay(messages[0]?.at ?? new Date().toISOString())}
-                  providerUrl={providerUrl}
-                  customerIds={customerIds}
-                  conversationId={selectedConversation?.id ?? ""}
-                  connected={Boolean(card)}
-                />
-                <span className="home-indicator" aria-hidden />
-              </div>
-            </div>
-
-            <div className="threads" aria-label="Business conversations">
-              {threads.map((thread) => (
-                <ThreadCard
-                  key={thread.customerId}
-                  thread={thread}
-                  color={brandColor(customerIds, thread.customerId)}
-                />
-              ))}
-            </div>
-          </section>
+          <ChatStage
+            messages={messages}
+            threads={threads}
+            dayLabel={formatDay(messages[0]?.at ?? new Date().toISOString())}
+            providerUrl={providerUrl}
+            customerIds={customerIds}
+            conversationId={selectedConversation?.id ?? ""}
+            connected={Boolean(card)}
+          />
         </div>
       </main>
     </div>

@@ -4,7 +4,6 @@ import { dirname, resolve } from "node:path";
 
 export type PhoneMessage =
   | { role: "user"; text: string; at: string }
-  | { role: "business"; customerId: string; businessName: string; text: string; at: string }
   | { role: "personal-agent"; text: string; at: string };
 
 export type ThreadMessage = {

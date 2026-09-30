@@ -730,11 +730,6 @@ button:disabled {
   gap: 4px;
   min-height: 100%;
 }
-.sender {
-  margin: 4px 0 2px 12px;
-  font-size: 11px;
-  color: #8e8e93;
-}
 .timestamp {
   text-align: center;
   font-size: 11px;
@@ -773,22 +768,26 @@ button:disabled {
   color: #000;
   border-bottom-left-radius: 6px;
 }
-.bubble.typing {
+.bubble.typing,
+.tbubble.typing {
   display: inline-flex;
   gap: 4px;
   padding: 12px 14px;
 }
-.bubble.typing i {
+.bubble.typing i,
+.tbubble.typing i {
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: #8e8e93;
   animation: typing 1.2s infinite ease-in-out;
 }
-.bubble.typing i:nth-child(2) {
+.bubble.typing i:nth-child(2),
+.tbubble.typing i:nth-child(2) {
   animation-delay: 0.15s;
 }
-.bubble.typing i:nth-child(3) {
+.bubble.typing i:nth-child(3),
+.tbubble.typing i:nth-child(3) {
   animation-delay: 0.3s;
 }
 @keyframes typing {

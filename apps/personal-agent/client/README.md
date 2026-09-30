@@ -15,6 +15,10 @@ file `apps/personal-agent/client/.data/pa-conversations.json`. Entries are
 scoped to the user ID and provider URL, and sorted newest first. Changing the
 anonymous user ID shows an empty conversation list.
 
+Business replies are stored in their separate A2A threads; the personal agent
+composes one message for the phone, using OpenAI when configured or a
+`Business: reply` fallback.
+
 ## Environment
 
 Use `.env.local` for local configuration; `.env.example` lists the supported
