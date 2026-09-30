@@ -1,6 +1,8 @@
-# Personal Agent Protocol harness
+# PAC2 harness
 
-An internal end-to-end test harness for the A2A 1.0 HTTP+JSON agent channel. The provider is a deliberately small Decagon-like dummy FAQ agent, and the personal-agent (PA) app signs platform JWTs server-side. Nothing in this repository is a public product or a general-purpose service.
+PAC2 (Personal Agent Customer Connector Protocol; name still TBD) lets a personal agent platform call a customer's support agent over an identified A2A channel.
+
+This repository is an internal end-to-end test harness for the A2A 1.0 HTTP+JSON agent channel. The provider is a deliberately small Decagon-like dummy FAQ agent, and the personal-agent (PA) app signs platform JWTs server-side. Nothing in this repository is a public product or a general-purpose service.
 
 The hand-written protocol dispatcher follows the A2A 1.0.0 proto and specification provided with this repository's initial implementation brief. Proto field names and enum spellings are authoritative; in particular, AgentCard uses `securityRequirements`.
 
