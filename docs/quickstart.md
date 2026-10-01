@@ -58,20 +58,14 @@ issuer URL and JWKS URL; it gives you `PA_AUDIENCE`. Each Provider decides how
 
 Every request carries a JWT signed with your key: `iss` = your issuer,
 `aud` = `PA_AUDIENCE`, `sub` = your id for the User, short expiry.
+`createPlatformSigner` sets the header and claims PACT expects
+([spec §3.2](spec.md#32-pa-jwt)); any JWT library works too.
 
 ```ts
-import { importJWK, SignJWT } from "jose";
+import { createPlatformSigner } from "@pact/client";
 
-async function signPaJwt({ sub, aud }: { sub: string; aud: string }): Promise<string> {
-  const iat = Math.floor(Date.now() / 1000);
-  return new SignJWT({ sub })
-    .setProtectedHeader({ alg: "ES256", kid: privateJwk.kid, typ: "JWT" })
-    .setIssuer(PA_ISSUER)
-    .setAudience(aud)
-    .setIssuedAt(iat)
-    .setExpirationTime(iat + 120)
-    .sign(await importJWK(privateJwk, "ES256"));
-}
+const signer = createPlatformSigner({ issuer: PA_ISSUER, privateJwk });
+const token = await signer.sign({ sub: "user-7f3a", aud: PA_AUDIENCE });
 ```
 
 `sub` must be stable and opaque: the same User always gets the same id, and
@@ -88,14 +82,14 @@ import { A2AClient, fetchAgentCard, interfaceUrl } from "@pact/client";
 const card = await fetchAgentCard(AGENT_CARD_URL);
 const client = new A2AClient({
   url: interfaceUrl(card),
-  getToken: () => signPaJwt({ sub: "user-7f3a", aud: PA_AUDIENCE }),
+  getToken: () => signer.sign({ sub: "user-7f3a", aud: PA_AUDIENCE }),
 });
 
 const reply = await client.sendMessage("Where is my order?");
 ```
 
 `@pact/client` isn't published to npm yet. Use it inside this repository, or
-copy `packages/client/src/index.ts` (one file, depends only on
+copy `packages/client/src/index.ts` (one file, depends only on `jose` and
 `@pact/protocol`).
 
 ## 5. Continue the conversation
@@ -131,7 +125,7 @@ and `protocolVersion: "1.0"`. Its `url` is the interface URL.
 
 ```sh
 export INTERFACE_URL="…"   # from the Agent Card
-export TOKEN="…"           # from signPaJwt()
+export TOKEN="…"           # from signer.sign()
 
 curl -X POST "$INTERFACE_URL/message:send" \
   -H "Authorization: Bearer $TOKEN" \

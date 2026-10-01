@@ -1,5 +1,13 @@
+import { exportJWK, generateKeyPair, jwtVerify } from "jose";
 import { describe, expect, it } from "vitest";
-import { A2AClient, A2AError, A2AHttpError, fetchAgentCard, interfaceUrl } from "../src/index.js";
+import {
+  A2AClient,
+  A2AError,
+  A2AHttpError,
+  createPlatformSigner,
+  fetchAgentCard,
+  interfaceUrl,
+} from "../src/index.js";
 
 const skylineCustomerId = "01M3R53Q5SZQ6FQSMSDBSSREAA";
 const skylineInterfaceUrl = `https://provider.example/a2a/${skylineCustomerId}`;
@@ -25,6 +33,25 @@ const skylineCard = {
 };
 
 describe("@pact/client", () => {
+  it("signs ES256 PA JWTs with the PACT claims", async () => {
+    const { privateKey, publicKey } = await generateKeyPair("ES256", { extractable: true });
+    const privateJwk = { ...(await exportJWK(privateKey)), kid: "key-1" };
+    const signer = createPlatformSigner({ issuer: "https://pa.example", privateJwk });
+    const token = await signer.sign({ sub: "user-7f3a", aud: "aud-1" });
+    const { payload, protectedHeader } = await jwtVerify(token, publicKey, {
+      issuer: "https://pa.example",
+      audience: "aud-1",
+    });
+    expect(protectedHeader).toMatchObject({ alg: "ES256", kid: "key-1", typ: "JWT" });
+    expect(payload.sub).toBe("user-7f3a");
+    expect(payload.exp! - payload.iat!).toBe(120);
+    expect(payload.jti).toEqual(expect.any(String));
+    await expect(signer.sign({ sub: "u", aud: "a", ttlSeconds: 301 })).rejects.toThrow(
+      "ttlSeconds",
+    );
+    expect(() => createPlatformSigner({ issuer: "x", privateJwk: { kty: "EC" } })).toThrow("kid");
+  });
+
   it("fetches and validates an Agent Card and selects the HTTP+JSON 1.0 interface", async () => {
     const fetched: string[] = [];
     const card = await fetchAgentCard(

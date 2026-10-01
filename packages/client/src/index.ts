@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { importJWK, SignJWT, type JWK, type JWTPayload } from "jose";
 import {
   A2A_VERSION,
   A2AErrorResponseSchema,
@@ -35,6 +36,40 @@ export class A2AHttpError extends Error {
     super(`A2A HTTP request failed with status ${status}`);
     this.name = "A2AHttpError";
   }
+}
+
+export interface PlatformSigner {
+  readonly issuer: string;
+  sign(input: { sub: string; aud: string; ttlSeconds?: number }): Promise<string>;
+}
+
+export function createPlatformSigner(input: {
+  privateJwk: string | JWK;
+  issuer: string;
+}): PlatformSigner {
+  const parsedJwk: JWK =
+    typeof input.privateJwk === "string" ? (JSON.parse(input.privateJwk) as JWK) : input.privateJwk;
+  const kid = typeof parsedJwk.kid === "string" ? parsedJwk.kid : undefined;
+  if (!kid) throw new Error("Private JWK must include kid");
+  const privateKey = importJWK(parsedJwk, "ES256");
+  return {
+    issuer: input.issuer,
+    async sign({ sub, aud, ttlSeconds = 120 }) {
+      if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0 || ttlSeconds > 300) {
+        throw new Error("ttlSeconds must be an integer between 1 and 300");
+      }
+      const key = await privateKey;
+      const iat = Math.floor(Date.now() / 1000);
+      return new SignJWT({ sub } satisfies JWTPayload)
+        .setProtectedHeader({ alg: "ES256", kid, typ: "JWT" })
+        .setIssuer(input.issuer)
+        .setAudience(aud)
+        .setIssuedAt(iat)
+        .setExpirationTime(iat + ttlSeconds)
+        .setJti(randomUUID())
+        .sign(key);
+    },
+  };
 }
 
 export async function fetchAgentCard(

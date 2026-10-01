@@ -1,11 +1,9 @@
 #!/usr/bin/env node
 import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
-import { randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { importJWK, SignJWT, type JWK } from "jose";
-import { A2AClient, fetchAgentCard, interfaceUrl } from "./index.js";
+import { A2AClient, createPlatformSigner, fetchAgentCard, interfaceUrl } from "./index.js";
 
 const envFile = fileURLToPath(
   new URL("../../../reference/personal-agent/client/.env.local", import.meta.url),
@@ -32,24 +30,14 @@ function cardUrl(): string {
   return `${providerUrl.replace(/\/+$/, "")}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`;
 }
 
-async function signPaJwt(sub: string): Promise<string> {
+function signer(): { sign(sub: string): Promise<string> } {
   const issuer = process.env.PA_ISSUER;
   const privateJwk = process.env.PA_PRIVATE_JWK;
-  const audience = process.env.PA_AUDIENCE;
-  if (!issuer || !privateJwk || !audience) {
+  const aud = process.env.PA_AUDIENCE;
+  if (!issuer || !privateJwk || !aud)
     throw new Error("Set PA_ISSUER, PA_PRIVATE_JWK, and PA_AUDIENCE");
-  }
-  const jwk = JSON.parse(privateJwk) as JWK;
-  if (typeof jwk.kid !== "string") throw new Error("PA_PRIVATE_JWK must include kid");
-  const iat = Math.floor(Date.now() / 1000);
-  return new SignJWT({ sub })
-    .setProtectedHeader({ alg: "ES256", kid: jwk.kid, typ: "JWT" })
-    .setIssuer(issuer)
-    .setAudience(audience)
-    .setIssuedAt(iat)
-    .setExpirationTime(iat + 120)
-    .setJti(randomUUID())
-    .sign(await importJWK(jwk, "ES256"));
+  const platformSigner = createPlatformSigner({ issuer, privateJwk });
+  return { sign: (sub) => platformSigner.sign({ sub, aud }) };
 }
 
 async function main(): Promise<void> {
@@ -63,7 +51,8 @@ async function main(): Promise<void> {
     console.log(JSON.stringify(card, null, 2));
     return;
   }
-  const client = new A2AClient({ url: interfaceUrl(card), getToken: () => signPaJwt(userId) });
+  const paSigner = signer();
+  const client = new A2AClient({ url: interfaceUrl(card), getToken: () => paSigner.sign(userId) });
   if (command === "send") {
     const contextIndex = args.indexOf("--context");
     const contextId = contextIndex < 0 ? undefined : args[contextIndex + 1];

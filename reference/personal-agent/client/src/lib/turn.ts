@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { A2AClient } from "@pact/client";
-import { discoverAgent, signPaJwt } from "./pact.js";
+import { A2AClient, createPlatformSigner } from "@pact/client";
+import { discoverAgent } from "./pact.js";
 import { composeFallbackReply } from "./composer.js";
 import {
   getConversation,
@@ -191,6 +191,8 @@ export async function runTurn(
 
   const outcomes: BusinessOutcome[] = [];
 
+  const signer = createPlatformSigner({ issuer: input.issuer, privateJwk: input.privateJwk });
+
   async function sendToBusiness(customerId: string, message: string): Promise<string> {
     const business = businesses.find((candidate) => candidate.customerId === customerId);
     if (!business) throw new Error(`Unknown business customerId: ${customerId}`);
@@ -203,13 +205,7 @@ export async function runTurn(
     try {
       const client = new A2AClient({
         url: business.url,
-        getToken: () =>
-          signPaJwt({
-            issuer: input.issuer,
-            privateJwk: input.privateJwk,
-            sub: input.userId,
-            aud: input.audience,
-          }),
+        getToken: () => signer.sign({ sub: input.userId, aud: input.audience }),
       });
       const previousThread = conversation.threads.find(
         (thread) => thread.customerId === business.customerId,

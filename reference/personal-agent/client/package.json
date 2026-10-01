@@ -13,7 +13,6 @@
   "dependencies": {
     "@pact/client": "workspace:*",
     "@pact/protocol": "workspace:*",
-    "jose": "6.1.0",
     "lucide-react": "1.47.0",
     "next": "15.5.26",
     "react": "19.1.1",

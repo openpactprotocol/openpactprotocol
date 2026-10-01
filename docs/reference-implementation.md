@@ -18,7 +18,7 @@ built yet. Seed data, demo agents and the UI are examples, not protocol.
 | `reference/personal-agent/server` | Demo PA's **JWKS server** — a static `/.well-known/jwks.json`                                                    | 3002 |
 | `reference/personal-agent/client` | Demo **PA UI** — one chat that fans out to Brands over PACT, one `contextId` per Brand                           | 3001 |
 | `packages/protocol`               | `@pact/protocol` — Zod schemas for Agent Card, messages, errors, JWT claims                                      |      |
-| `packages/client`                 | `@pact/client` — `fetchAgentCard`, `A2AClient`, `pact` CLI                                                       |      |
+| `packages/client`                 | `@pact/client` — signer, `fetchAgentCard`, `A2AClient`, `pact` CLI                                               |      |
 | `e2e/`                            | Conformance suite (live HTTP)                                                                                    |      |
 | `website`                         | This site; content is in `docs/`                                                                                 | 3003 |
 

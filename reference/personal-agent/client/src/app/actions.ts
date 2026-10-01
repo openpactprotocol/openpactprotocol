@@ -1,6 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
+import { createPlatformSigner } from "@pact/client";
 import { PlatformRegistrationResponseSchema } from "@pact/protocol";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -12,7 +13,6 @@ import {
   USER_ID_COOKIE_OPTIONS,
   type RegistrationNotice,
 } from "../lib/session.js";
-import { signPaJwt } from "../lib/pact.js";
 
 type Connection = { providerUrl: string; customerIds: string[] };
 function readConnection(formData: FormData): Connection {
@@ -55,7 +55,7 @@ export async function registerPersonalAgent(formData: FormData): Promise<void> {
     const response = await fetch(endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${await signPaJwt({ issuer, privateJwk, sub: issuer, aud: endpoint })}`,
+        Authorization: `Bearer ${await createPlatformSigner({ issuer, privateJwk }).sign({ sub: issuer, aud: endpoint })}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ name, jwksUri: `${issuer}/.well-known/jwks.json` }),
