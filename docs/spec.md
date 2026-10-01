@@ -382,8 +382,8 @@ and a new link; the conversation stays open:
       }
     },
     "metadata": {
-      "pac2.missingScopes": ["refunds:issue"],
-      "pac2.verificationUriComplete": "https://brand.example/login?return_to=…"
+      "pact.missingScopes": ["refunds:issue"],
+      "pact.verificationUriComplete": "https://brand.example/login?return_to=…"
     }
   }
 }
@@ -407,7 +407,7 @@ reply's `metadata` a receipt signed with the same keys as the token:
     "role": "ROLE_AGENT",
     "parts": [{ "text": "Order #A-88213 is cancelled. Refund posts in 3–5 days." }],
     "metadata": {
-      "pac2.receipt": {
+      "pact.receipt": {
         "jws": "eyJ…",
         "claims": {
           "grantId": "a2agrant_…",

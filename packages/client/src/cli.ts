@@ -24,7 +24,7 @@ const userId = process.env.PA_USER_ID ?? "demo-user";
 const [command = "help", ...args] = process.argv.slice(2);
 
 const usage =
-  "Usage: pac2 register [--name <name>] [--jwks-uri <url>] | card | send <text> [--context <id>] | chat";
+  "Usage: pact register [--name <name>] [--jwks-uri <url>] | card | send <text> [--context <id>] | chat";
 
 async function main(): Promise<void> {
   if (command === "help" || command === "--help") {

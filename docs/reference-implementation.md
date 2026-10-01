@@ -14,8 +14,8 @@ thing.
 | `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite): Agent Cards, JWT verification, `message:send`, task routes | 3000 |
 | `reference/personal-agent/server` | Demo PA's **JWKS server** — a static `/.well-known/jwks.json`                                                    | 3002 |
 | `reference/personal-agent/client` | Demo **PA UI** — one chat that fans out to Brands over PACT, one `contextId` per Brand                           | 3001 |
-| `packages/protocol`               | `@pac2/protocol` — Zod schemas for Agent Card, messages, errors, JWT claims                                      |      |
-| `packages/client`                 | `@pac2/client` — signer, `discoverAgent`, `A2AClient`, `pac2` CLI                                                |      |
+| `packages/protocol`               | `@pact/protocol` — Zod schemas for Agent Card, messages, errors, JWT claims                                      |      |
+| `packages/client`                 | `@pact/client` — signer, `discoverAgent`, `A2AClient`, `pact` CLI                                                |      |
 | `e2e/`                            | Conformance suite (live HTTP)                                                                                    |      |
 | `website`                         | This site; content is in `docs/`                                                                                 | 3003 |
 
@@ -31,10 +31,10 @@ pnpm gen-keys        # ES256 key pair: public → JWKS server, private → PA cl
 Four processes, in separate terminals:
 
 ```sh
-pnpm --filter @pac2/personal-agent-server dev
-PGLITE_DATA_DIR="$HOME/.local/share/pac2-provider-db" pnpm --filter @pac2/provider db:pglite
-A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @pac2/provider dev
-pnpm --filter @pac2/personal-agent-client dev
+pnpm --filter @pact/personal-agent-server dev
+PGLITE_DATA_DIR="$HOME/.local/share/pact-provider-db" pnpm --filter @pact/provider db:pglite
+A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @pact/provider dev
+pnpm --filter @pact/personal-agent-client dev
 ```
 
 Initialize the database once PGlite is up (any PostgreSQL works too — point
@@ -44,8 +44,8 @@ Initialize the database once PGlite is up (any PostgreSQL works too — point
 export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
 export DATABASE_POOL_MAX=1
 export PA_ISSUER=http://localhost:3002
-pnpm --filter @pac2/provider db:migrate
-pnpm --filter @pac2/provider db:seed
+pnpm --filter @pact/provider db:migrate
+pnpm --filter @pact/provider db:seed
 ```
 
 The seed creates three demo Brands and prints their IDs:
@@ -71,7 +71,7 @@ PA_AUDIENCE=http://localhost:3000/a2a
 PA_PRIVATE_JWK=<from pnpm gen-keys>
 ```
 
-Open `http://localhost:3001` and chat. The `pac2` CLI reads the same
+Open `http://localhost:3001` and chat. The `pact` CLI reads the same
 `.env.local` plus one `CUSTOMER_ID`.
 
 ## Provider
@@ -124,7 +124,7 @@ and `jti`. The JWKS URI must share the issuer's origin; both must be HTTPS
 | `401`  | Missing or invalid assertion                       |
 
 The registered PA gets the Provider's `A2A_AUDIENCE` as its audience.
-`registerPlatform()` in `@pac2/client` and `pac2 register` wrap this call.
+`registerPlatform()` in `@pact/client` and `pact register` wrap this call.
 
 ## Demo PA
 
@@ -162,9 +162,9 @@ skipped. `E2E_TEST_TIMEOUT_MS` (default 60000) bounds each test.
 
 ```sh
 pnpm lint && pnpm typecheck && pnpm test && pnpm format:check
-pnpm --filter @pac2/provider build
-pnpm --filter @pac2/personal-agent-client build
-pnpm --filter @pac2/docs build
+pnpm --filter @pact/provider build
+pnpm --filter @pact/personal-agent-client build
+pnpm --filter @pact/docs build
 ```
 
 ## Deploying the reference stack

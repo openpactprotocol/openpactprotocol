@@ -1,15 +1,15 @@
 ---
 title: TypeScript client
-description: Use @pac2/client — signer, Agent Card discovery, A2AClient, errors, and the pac2 CLI.
+description: Use @pact/client — signer, Agent Card discovery, A2AClient, errors, and the pact CLI.
 ---
 
-`@pac2/client` (`packages/client`) is the PA side of the
+`@pact/client` (`packages/client`) is the PA side of the
 [specification](spec.md). Small enough to read; copy it or import it.
 
 ## Sign
 
 ```ts
-import { createPlatformSigner } from "@pac2/client";
+import { createPlatformSigner } from "@pact/client";
 
 const signer = createPlatformSigner({ issuer: "https://pa.example.com", privateJwk });
 ```
@@ -21,7 +21,7 @@ at 300. The private JWK must carry a `kid`.
 ## Discover and send
 
 ```ts
-import { A2AClient, discoverAgent } from "@pac2/client";
+import { A2AClient, discoverAgent } from "@pact/client";
 
 const { card, url } = await discoverAgent(providerUrl, brandId);
 const client = new A2AClient({ url, signer, userId: "user-7f3a", audience });
@@ -48,7 +48,7 @@ const next = await client.sendMessage("Here is more detail", { contextId: first.
 ## Register with the reference Provider
 
 ```ts
-import { registerPlatform } from "@pac2/client";
+import { registerPlatform } from "@pact/client";
 
 const { created, platform } = await registerPlatform({ providerUrl, name: "my-platform", signer });
 ```
@@ -62,10 +62,10 @@ out of band.
 ## CLI
 
 ```sh
-pac2 card                              # print the Brand's Agent Card
-pac2 send <text> [--context <id>]      # one message:send, prints the reply Message
-pac2 chat                              # interactive loop that carries contextId
-pac2 register [--name <n>] [--jwks-uri <url>]   # reference Provider only
+pact card                              # print the Brand's Agent Card
+pact send <text> [--context <id>]      # one message:send, prints the reply Message
+pact chat                              # interactive loop that carries contextId
+pact register [--name <n>] [--jwks-uri <url>]   # reference Provider only
 ```
 
 | Variable                      | Used by                                         |
@@ -78,4 +78,4 @@ pac2 register [--name <n>] [--jwks-uri <url>]   # reference Provider only
 | `PA_PLATFORM_NAME`            | optional name for `register`; default `demo-pa` |
 
 The CLI also reads `reference/personal-agent/client/.env.local`. In this
-workspace: `pnpm --filter @pac2/client pac2 <command>`.
+workspace: `pnpm --filter @pact/client pact <command>`.

@@ -5,7 +5,7 @@ import { PGLiteSocketServer } from "@electric-sql/pglite-socket";
 
 const port = Number.parseInt(process.env.PGLITE_PORT ?? "5432", 10);
 const dataDir =
-  process.env.PGLITE_DATA_DIR ?? join(homedir(), ".local", "share", "pac2-provider-db");
+  process.env.PGLITE_DATA_DIR ?? join(homedir(), ".local", "share", "pact-provider-db");
 const db = await PGlite.create(dataDir);
 const server = new PGLiteSocketServer({ db, port, host: "127.0.0.1", maxConnections: 10 });
 await server.start();

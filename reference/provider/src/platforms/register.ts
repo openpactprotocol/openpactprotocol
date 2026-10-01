@@ -1,6 +1,6 @@
 import { decodeJwt, decodeProtectedHeader, jwtVerify, type JWTVerifyGetKey } from "jose";
 import { eq } from "drizzle-orm";
-import { PlatformRegistrationRequestSchema, type RegisteredPlatform } from "@pac2/protocol";
+import { PlatformRegistrationRequestSchema, type RegisteredPlatform } from "@pact/protocol";
 import { getRemoteJwks } from "../auth/verifyPlatformJwt.js";
 import { assertPlatformJwtTiming } from "../auth/platformJwtTiming.js";
 import type { Db } from "../db/client.js";

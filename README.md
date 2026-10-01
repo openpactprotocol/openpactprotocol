@@ -33,7 +33,7 @@ open: **which PA is calling**, and **what the User allowed**.
 | [Quickstart](docs/quickstart.md)                             | send a message with curl or TypeScript                              |
 | [**Specification**](docs/spec.md)                            | implement a PA or a Provider — the normative text                   |
 | [Reference implementation](docs/reference-implementation.md) | run the Provider, demo PA, and conformance suite (Identity profile) |
-| [TypeScript client](docs/typescript-client.md)               | use `@pac2/client` and the `pac2` CLI                               |
+| [TypeScript client](docs/typescript-client.md)               | use `@pact/client` and the `pact` CLI                               |
 
 Rendered at the docs site (`website/`).
 
@@ -41,8 +41,8 @@ Rendered at the docs site (`website/`).
 
 ```text
 docs/                      the pages above (single source for the site)
-packages/protocol          @pac2/protocol — Zod schemas: Agent Card, messages, errors, JWT claims
-packages/client            @pac2/client   — signer, discoverAgent, A2AClient, `pac2` CLI
+packages/protocol          @pact/protocol — Zod schemas: Agent Card, messages, errors, JWT claims
+packages/client            @pact/client   — signer, discoverAgent, A2AClient, `pact` CLI
 reference/provider         reference Provider (Next.js + PostgreSQL)
 reference/personal-agent/  demo PA: JWKS server + chat UI
 e2e/                       conformance suite — run against any Provider with E2E_PROVIDER=any

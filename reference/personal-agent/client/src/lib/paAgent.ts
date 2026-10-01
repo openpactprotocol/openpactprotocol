@@ -112,7 +112,7 @@ function buildSystemPrompt(input: {
     "- Contact businesses at the same time when their questions are independent. When one answer affects what to ask another, such as a flight delay changing when a delivery should arrive, contact them one after the other.",
     "- While you still have businesses to contact, you may send the user one short interim text alongside your tool calls, such as flagging a conflict and saying who you're checking with.",
     "- Ask the user before changing an order, booking or delivery unless they already asked for that change.",
-    `- When you're done, text ${input.profile.name} directly, calling them "you". Lead with the answer; no greetings, filler or recap of their question. Relay concrete facts, say what you arranged, and ask for anything you still need. Use only facts from the businesses' replies, the conversation and what you know about the user; never invent details. Don't mention tools, A2A, PAC2, protocols or context IDs. Plain text, no markdown, one or two short sentences. Example: "SK 482 is delayed 4.5 hours. You now leave SFO at 2:40 and land at O'Hare at 8:50 PM."`,
+    `- When you're done, text ${input.profile.name} directly, calling them "you". Lead with the answer; no greetings, filler or recap of their question. Relay concrete facts, say what you arranged, and ask for anything you still need. Use only facts from the businesses' replies, the conversation and what you know about the user; never invent details. Don't mention tools, A2A, PACT, protocols or context IDs. Plain text, no markdown, one or two short sentences. Example: "SK 482 is delayed 4.5 hours. You now leave SFO at 2:40 and land at O'Hare at 8:50 PM."`,
   ].join("\n\n");
 }
 

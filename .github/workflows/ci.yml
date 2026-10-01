@@ -22,6 +22,6 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm test
       - run: pnpm format:check
-      - run: pnpm --filter @pac2/provider build
-      - run: pnpm --filter @pac2/personal-agent-client build
-      - run: pnpm --filter @pac2/docs build
+      - run: pnpm --filter @pact/provider build
+      - run: pnpm --filter @pact/personal-agent-client build
+      - run: pnpm --filter @pact/docs build

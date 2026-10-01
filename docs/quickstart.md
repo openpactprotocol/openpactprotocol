@@ -120,7 +120,7 @@ Everything else is the same. See
 ## Same thing in TypeScript
 
 ```ts
-import { A2AClient, createPlatformSigner, discoverAgent } from "@pac2/client";
+import { A2AClient, createPlatformSigner, discoverAgent } from "@pact/client";
 
 const signer = createPlatformSigner({ issuer: ISSUER, privateJwk });
 const { url } = await discoverAgent(PROVIDER_URL, BRAND_ID);
@@ -130,5 +130,5 @@ const first = await client.sendMessage("Where is my order?");
 const next = await client.sendMessage("Order 4471", { contextId: first.contextId });
 ```
 
-Or from a shell: `pac2 card`, `pac2 send "Where is my order?"`, `pac2 chat` —
+Or from a shell: `pact card`, `pact send "Where is my order?"`, `pact chat` —
 see [TypeScript client](typescript-client.md).

@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { A2AClient, createPlatformSigner, discoverAgent } from "@pac2/client";
+import { A2AClient, createPlatformSigner, discoverAgent } from "@pact/client";
 import { composeFallbackReply } from "./composer.js";
 import {
   getConversation,

@@ -1,7 +1,7 @@
-# @pac2/client
+# @pact/client
 
 PA-side client: `createPlatformSigner`, `discoverAgent`, `A2AClient`,
-`registerPlatform`, typed errors, and the `pac2` CLI.
+`registerPlatform`, typed errors, and the `pact` CLI.
 
 ```ts
 const signer = createPlatformSigner({ issuer, privateJwk });

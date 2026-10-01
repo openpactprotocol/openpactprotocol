@@ -1,5 +1,5 @@
 {
-  "name": "@pac2/client",
+  "name": "@pact/client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -7,15 +7,15 @@
     ".": "./src/index.ts"
   },
   "bin": {
-    "pac2": "src/cli.ts"
+    "pact": "src/cli.ts"
   },
   "scripts": {
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "pac2": "tsx src/cli.ts"
+    "pact": "tsx src/cli.ts"
   },
   "dependencies": {
-    "@pac2/protocol": "workspace:*",
+    "@pact/protocol": "workspace:*",
     "jose": "6.1.0"
   }
 }

@@ -1,4 +1,4 @@
-import { AgentCardSchema, type AgentCard } from "@pac2/protocol";
+import { AgentCardSchema, type AgentCard } from "@pact/protocol";
 import { businessProfile } from "../agent/index.js";
 import type { customers } from "../db/schema.js";
 
@@ -18,7 +18,7 @@ export function buildAgentCard(
         protocolVersion: "1.0",
       },
     ],
-    provider: { organization: "PAC2 reference provider", url: base },
+    provider: { organization: "PACT reference provider", url: base },
     version: "0.1.0",
     capabilities: { streaming: false, pushNotifications: false, extendedAgentCard: false },
     securitySchemes: {

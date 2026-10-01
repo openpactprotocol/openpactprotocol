@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  transpilePackages: ["@pac2/client", "@pac2/protocol"],
+  transpilePackages: ["@pact/client", "@pact/protocol"],
   webpack(config) {
     config.resolve.extensionAlias = {
       ...config.resolve.extensionAlias,

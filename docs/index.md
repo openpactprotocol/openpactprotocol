@@ -90,4 +90,4 @@ the Brand's business.
   [§7.1](spec.md#71-implementing-a-provider-identity).
 - [Reference implementation](reference-implementation.md) — Provider, demo PA,
   and conformance suite in this repository.
-- [TypeScript client](typescript-client.md) — `@pac2/client` and the `pac2` CLI.
+- [TypeScript client](typescript-client.md) — `@pact/client` and the `pact` CLI.

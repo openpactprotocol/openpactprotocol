@@ -2,8 +2,8 @@ import { generateKeyPair, importJWK, SignJWT, type CryptoKey, type JWK } from "j
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import { A2AErrorResponseSchema } from "@pac2/protocol";
-import { A2AClient, createPlatformSigner, discoverAgent, type DiscoveredAgent } from "@pac2/client";
+import { A2AErrorResponseSchema } from "@pact/protocol";
+import { A2AClient, createPlatformSigner, discoverAgent, type DiscoveredAgent } from "@pact/client";
 
 function readLocalEnv(): void {
   const path = fileURLToPath(
@@ -159,7 +159,7 @@ function client(userId: string): A2AClient {
   });
 }
 
-describe.sequential("PAC2 A2A HTTP+JSON E2E", () => {
+describe.sequential("PACT A2A HTTP+JSON E2E", () => {
   beforeAll(() => {
     customerId = requiredEnv("CUSTOMER_ID");
     otherCustomerId = requiredEnv("OTHER_CUSTOMER_ID");

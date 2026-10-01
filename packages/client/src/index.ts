@@ -11,7 +11,7 @@ import {
   type Message,
   type PlatformRegistrationRequest,
   type RegisteredPlatform,
-} from "@pac2/protocol";
+} from "@pact/protocol";
 
 export type { AgentCard, Message };
 export type { PlatformRegistrationRequest, RegisteredPlatform };

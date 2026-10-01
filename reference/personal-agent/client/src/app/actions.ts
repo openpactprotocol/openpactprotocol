@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { createPlatformSigner, registerPlatform } from "@pac2/client";
+import { createPlatformSigner, registerPlatform } from "@pact/client";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {

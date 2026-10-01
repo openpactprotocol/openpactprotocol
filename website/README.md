@@ -4,8 +4,8 @@ Statically generated Next.js + Markdoc renderer for the pages in the
 repository's `docs/` directory. Navigation is defined in `src/nav.ts`.
 
 ```sh
-pnpm --filter @pac2/docs dev     # http://localhost:3003
-pnpm --filter @pac2/docs build
+pnpm --filter @pact/docs dev     # http://localhost:3003
+pnpm --filter @pact/docs build
 ```
 
 To add a page: create `docs/<name>.md` with `title` and `description`
