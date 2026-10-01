@@ -653,3 +653,7 @@ a:hover {
 .po-legend-note {
   margin-left: auto;
 }
+
+.po-legend-consent::before {
+  border-top: 2px solid #b45309;
+}

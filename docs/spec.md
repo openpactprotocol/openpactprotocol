@@ -237,13 +237,20 @@ In OAuth 2.0 terms:
 | Access token          | Delegation token, sent in `X-A2A-User-Delegation` next to the personal-agent JWT.      |
 | Resource server       | The Brand's agent, behind the interface URL.                                           |
 
-```text
-Agent ──POST device_authorization {scopes}──▶ Provider           (auth: personal-agent JWT)
-Agent ◀── verification_uri_complete ───────── Provider
-User ──opens link──▶ Brand login ──identity assertion──▶ Provider consent ──approve──▶ grant
-Agent ──POST token ──▶ Provider ──▶ delegation token {sub, client_id, scope, exp}
-Agent ──message:send + personal-agent JWT + delegation token──▶ agent acts as the User, within scope ──▶ reply + receipt
-```
+![Delegated authority](images/delegated-authority.svg)
+
+1. The personal agent requests scopes from the card ([§5.3](#53-getting-a-token)).
+2. The Provider returns a login link.
+3. The personal agent shows the link to the User.
+4. The User logs in with the Brand and approves scopes on the Provider's
+   consent page. The personal agent never sees the login.
+5. The Provider signs a delegation token listing the approved scopes
+   ([§5.4](#54-delegation-token)). The personal agent carries it but cannot
+   change it.
+6. The personal agent sends it with each message. The Provider checks it, and
+   the Brand's agent acts as the User only within those scopes
+   ([§5.5](#55-sending-with-it)).
+7. Every reply carries a signed receipt ([§5.6](#56-receipts)).
 
 ### 5.1 Card
 

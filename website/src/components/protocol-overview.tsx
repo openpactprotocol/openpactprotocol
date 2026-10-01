@@ -1,15 +1,15 @@
-type Arrow = {
+export type Arrow = {
   step: number;
   label: string;
   y: number;
   from: number;
   to: number;
-  setup?: boolean;
+  tone?: "setup" | "consent";
 };
 
-const USER = { x: 0, width: 116 };
-const PLATFORM = { x: 244, width: 184 };
-const PROVIDER = { x: 568, width: 192 };
+export const USER = { x: 0, width: 116 };
+export const PLATFORM = { x: 244, width: 184 };
+export const PROVIDER = { x: 568, width: 192 };
 const TOP = 56;
 const HEIGHT = 348;
 
@@ -20,7 +20,7 @@ const arrows: Arrow[] = [
     y: 126,
     from: PLATFORM.x + PLATFORM.width,
     to: PROVIDER.x,
-    setup: true,
+    tone: "setup",
   },
   { step: 2, label: "Ask", y: 178, from: USER.x + USER.width, to: PLATFORM.x },
   {
@@ -54,7 +54,13 @@ const arrows: Arrow[] = [
   { step: 7, label: "Answer", y: 362, from: PLATFORM.x, to: USER.x + USER.width },
 ];
 
-type Part = { label: string; detail: string; y: number; accent?: boolean };
+export type Part = {
+  label: string;
+  detail: string;
+  y: number;
+  accent?: boolean;
+  consent?: boolean;
+};
 
 const platformParts: Part[] = [
   { label: "Assistant", detail: "talks to the User", y: 158 },
@@ -69,42 +75,44 @@ const providerParts: Part[] = [
   { label: "Brand's agent", detail: "one conversation per User", y: 318, accent: true },
 ];
 
-function ActorBox({
+export function ActorBox({
   x,
   width,
   title,
   subtitle,
+  top = TOP,
+  height = HEIGHT,
 }: {
   x: number;
   width: number;
   title: string;
   subtitle: string;
+  top?: number;
+  height?: number;
 }) {
   return (
     <g>
-      <rect className="po-actor" x={x} y={TOP} width={width} height={HEIGHT} rx={12} />
-      <text className="po-actor-title" x={x + width / 2} y={TOP + 22} textAnchor="middle">
+      <rect className="po-actor" x={x} y={top} width={width} height={height} rx={12} />
+      <text className="po-actor-title" x={x + width / 2} y={top + 22} textAnchor="middle">
         {title}
       </text>
-      <text className="po-actor-subtitle" x={x + width / 2} y={TOP + 37} textAnchor="middle">
+      <text className="po-actor-subtitle" x={x + width / 2} y={top + 37} textAnchor="middle">
         {subtitle}
       </text>
     </g>
   );
 }
 
-function PartBox({ x, width, part }: { x: number; width: number; part: Part }) {
+export function PartBox({ x, width, part }: { x: number; width: number; part: Part }) {
   const height = part.accent ? 60 : 40;
+  const className = part.accent
+    ? "po-part po-part-accent"
+    : part.consent
+      ? "po-part po-part-consent"
+      : "po-part";
   return (
     <g>
-      <rect
-        className={part.accent ? "po-part po-part-accent" : "po-part"}
-        x={x + 12}
-        y={part.y}
-        width={width - 24}
-        height={height}
-        rx={8}
-      />
+      <rect className={className} x={x + 12} y={part.y} width={width - 24} height={height} rx={8} />
       <text
         className="po-part-label"
         x={x + width / 2}
@@ -125,7 +133,11 @@ function PartBox({ x, width, part }: { x: number; width: number; part: Part }) {
   );
 }
 
-function FlowArrow({ arrow }: { arrow: Arrow }) {
+const arrowClass = { setup: "po-arrow-setup", consent: "po-arrow-consent" };
+const headId = { setup: "po-head-setup", consent: "po-head-optional" };
+const stepClass = { setup: "po-step-setup", consent: "po-step-optional" };
+
+export function FlowArrow({ arrow }: { arrow: Arrow }) {
   const direction = arrow.to > arrow.from ? 1 : -1;
   const start = arrow.from + direction * 4;
   const end = arrow.to - direction * 4;
@@ -133,18 +145,18 @@ function FlowArrow({ arrow }: { arrow: Arrow }) {
   return (
     <g>
       <line
-        className={arrow.setup ? "po-arrow po-arrow-setup" : "po-arrow"}
+        className={arrow.tone ? `po-arrow ${arrowClass[arrow.tone]}` : "po-arrow"}
         x1={start}
         y1={arrow.y}
         x2={end}
         y2={arrow.y}
-        markerEnd={arrow.setup ? "url(#po-head-setup)" : "url(#po-head)"}
+        markerEnd={`url(#${arrow.tone ? headId[arrow.tone] : "po-head"})`}
       />
       <text className="po-arrow-label" x={middle} y={arrow.y - 15} textAnchor="middle">
         {arrow.label}
       </text>
       <circle
-        className={arrow.setup ? "po-step po-step-setup" : "po-step"}
+        className={arrow.tone ? `po-step ${stepClass[arrow.tone]}` : "po-step"}
         cx={middle}
         cy={arrow.y}
         r={9}
@@ -153,6 +165,46 @@ function FlowArrow({ arrow }: { arrow: Arrow }) {
         {arrow.step}
       </text>
     </g>
+  );
+}
+
+export function ArrowMarkers() {
+  return (
+    <defs>
+      <marker
+        id="po-head"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="7"
+        markerHeight="7"
+        orient="auto-start-reverse"
+      >
+        <path d="M 0 0 L 10 5 L 0 10 z" className="po-head" />
+      </marker>
+      <marker
+        id="po-head-setup"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="7"
+        markerHeight="7"
+        orient="auto-start-reverse"
+      >
+        <path d="M 0 0 L 10 5 L 0 10 z" className="po-head-setup" />
+      </marker>
+      <marker
+        id="po-head-optional"
+        viewBox="0 0 10 10"
+        refX="9"
+        refY="5"
+        markerWidth="7"
+        markerHeight="7"
+        orient="auto-start-reverse"
+      >
+        <path d="M 0 0 L 10 5 L 0 10 z" className="po-head-optional" />
+      </marker>
+    </defs>
   );
 }
 
@@ -238,6 +290,49 @@ export const protocolOverviewStyles = `
   stroke-dasharray: 5 4;
 }
 
+.po-arrow-consent {
+  stroke: #b45309;
+}
+
+.po-part-consent {
+  fill: #fff7ed;
+  stroke: #fdba74;
+}
+
+.po-lock {
+  fill: none;
+  stroke: #b45309;
+  stroke-width: 1.4;
+}
+
+.po-chip {
+  stroke-width: 1;
+}
+
+.po-chip-granted {
+  fill: #ecfdf5;
+  stroke: #a7f3d0;
+}
+
+.po-chip-denied {
+  fill: #f9fafb;
+  stroke: #d1d5db;
+  stroke-dasharray: 3 2;
+}
+
+.po-chip-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 9.5px;
+}
+
+.po-chip-text-granted {
+  fill: #047857;
+}
+
+.po-chip-text-denied {
+  fill: #9ca3af;
+}
+
 .po-arrow-optional {
   stroke: #b45309;
   stroke-dasharray: 2 4;
@@ -248,7 +343,7 @@ export const protocolOverviewStyles = `
   fill: #b45309;
 }
 
-.po-step-optional {
+.po-step.po-step-optional {
   fill: #b45309;
 }
 
@@ -309,41 +404,7 @@ export function ProtocolOverviewDiagram() {
         agent replies with a contextId, and the personal agent relays the answer. Optionally, the
         User logs in with the Brand and approves scopes so the agent can act on their account.
       </desc>
-      <defs>
-        <marker
-          id="po-head"
-          viewBox="0 0 10 10"
-          refX="9"
-          refY="5"
-          markerWidth="7"
-          markerHeight="7"
-          orient="auto-start-reverse"
-        >
-          <path d="M 0 0 L 10 5 L 0 10 z" className="po-head" />
-        </marker>
-        <marker
-          id="po-head-setup"
-          viewBox="0 0 10 10"
-          refX="9"
-          refY="5"
-          markerWidth="7"
-          markerHeight="7"
-          orient="auto-start-reverse"
-        >
-          <path d="M 0 0 L 10 5 L 0 10 z" className="po-head-setup" />
-        </marker>
-        <marker
-          id="po-head-optional"
-          viewBox="0 0 10 10"
-          refX="9"
-          refY="5"
-          markerWidth="7"
-          markerHeight="7"
-          orient="auto-start-reverse"
-        >
-          <path d="M 0 0 L 10 5 L 0 10 z" className="po-head-optional" />
-        </marker>
-      </defs>
+      <ArrowMarkers />
 
       <rect className="po-zone" x={-8} y={4} width={boundary + 8} height={474} rx={14} />
       <rect
@@ -408,7 +469,7 @@ export function ProtocolOverviewDiagram() {
         y={433}
         textAnchor="middle"
       >
-        Authorize (optional): User logs in with the Brand, approves scopes
+        Authorize (optional): User logs in with the Brand, approves scopes (spec §5)
       </text>
       <circle
         className="po-step po-step-optional"
