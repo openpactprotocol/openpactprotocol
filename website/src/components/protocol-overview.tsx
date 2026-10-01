@@ -166,7 +166,7 @@ export function ProtocolOverview() {
           role="img"
           aria-labelledby="protocol-overview-title protocol-overview-desc"
         >
-          <title id="protocol-overview-title">PAC2 at a glance</title>
+          <title id="protocol-overview-title">PACT at a glance</title>
           <desc id="protocol-overview-desc">
             The User asks their personal agent (PA) for help. The PA, onboarded once with the
             Provider, reads the Brand&apos;s Agent Card and sends a message signed with its PA JWT.

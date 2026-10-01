@@ -19,9 +19,9 @@ export function SiteShell({
   return (
     <div className="site-frame">
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="Personal Agent ↔ Customer Connector home">
+        <Link className="brand" href="/" aria-label="Personal Agent Consent & Trust Protocol home">
           <BrandMark />
-          <span className="brand-name">Personal Agent ↔ Customer Connector</span>
+          <span className="brand-name">Personal Agent Consent & Trust Protocol</span>
         </Link>
         <div className="topbar-right">
           <span className="topbar-caption">Developer documentation</span>
@@ -61,7 +61,7 @@ export function SiteShell({
           ))}
           <div className="sidebar-note">
             <span className="sidebar-note-icon">A2A</span>
-            <p>PAC2 uses the A2A 1.0 HTTP+JSON binding.</p>
+            <p>PACT uses the A2A 1.0 HTTP+JSON binding.</p>
           </div>
         </aside>
 

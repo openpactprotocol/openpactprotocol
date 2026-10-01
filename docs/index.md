@@ -1,9 +1,9 @@
 ---
 title: Introduction
-description: PAC2 extends A2A 1.0 with two things — which PA is calling, and what the User allowed.
+description: PACT extends A2A 1.0 with two things — which PA is calling, and what the User allowed.
 ---
 
-**PAC2** (Personal Agent ↔ Customer Connector) extends
+The **Personal Agent Consent & Trust (PACT) Protocol** extends
 [A2A 1.0](https://a2a-protocol.org) with the two things A2A leaves open:
 **which PA is calling**, and **what the User allowed**. A PA reaches a Brand's support agent as an identified party
 instead of driving a chat widget as an anonymous browser, and the User's
@@ -65,7 +65,7 @@ Delegated authority is standard OAuth 2.0 device code
 ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)), with the PA as the
 client:
 
-| OAuth 2.0             | PAC2                                                                        |
+| OAuth 2.0             | PACT                                                                        |
 | --------------------- | --------------------------------------------------------------------------- |
 | Client                | PA. `client_id` is its issuer URL.                                          |
 | Client registration   | Onboarding: `issuer`, `jwksUri`, assigned `audience`.                       |
@@ -77,7 +77,7 @@ client:
 | Access token          | Delegation token, sent in `X-A2A-User-Delegation` next to the PA JWT.       |
 | Resource server       | The Brand's agent, behind the interface URL.                                |
 
-## Not in PAC2
+## Not in PACT
 
 Streaming, push notifications, extended Agent Cards, payments. A2A Tasks
 appear only to ask for more authorization. How a Brand logs its Users in is

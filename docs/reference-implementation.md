@@ -13,7 +13,7 @@ thing.
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---: |
 | `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite): Agent Cards, JWT verification, `message:send`, task routes | 3000 |
 | `reference/personal-agent/server` | Demo PA's **JWKS server** — a static `/.well-known/jwks.json`                                                    | 3002 |
-| `reference/personal-agent/client` | Demo **PA UI** — one chat that fans out to Brands over PAC2, one `contextId` per Brand                           | 3001 |
+| `reference/personal-agent/client` | Demo **PA UI** — one chat that fans out to Brands over PACT, one `contextId` per Brand                           | 3001 |
 | `packages/protocol`               | `@pac2/protocol` — Zod schemas for Agent Card, messages, errors, JWT claims                                      |      |
 | `packages/client`                 | `@pac2/client` — signer, `discoverAgent`, `A2AClient`, `pac2` CLI                                                |      |
 | `e2e/`                            | Conformance suite (live HTTP)                                                                                    |      |

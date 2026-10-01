@@ -1,9 +1,9 @@
 ---
 title: Specification
-description: PAC2 extends A2A 1.0 with PA identity and delegated authority. This is the normative text.
+description: PACT extends A2A 1.0 with PA identity and delegated authority. This is the normative text.
 ---
 
-PAC2 extends [A2A 1.0](https://a2a-protocol.org) with the two things A2A leaves
+PACT extends [A2A 1.0](https://a2a-protocol.org) with the two things A2A leaves
 open: who is calling, and what the User allowed. A2A's transport, message shapes,
 and error envelope apply unchanged. MUST, SHOULD, and MAY are as in RFC 2119.
 
@@ -117,7 +117,7 @@ MUST NOT be derived from a card URL.
 
 Whether a Provider accepts only PAs it has allowlisted (a trusted-issuer
 registry) or any PA whose `iss` serves a JWKS is the Provider's policy, not
-PAC2's. An open Provider still verifies §3.2 in full; `jwksUri` MAY then be
+PACT's. An open Provider still verifies §3.2 in full; `jwksUri` MAY then be
 found through OIDC discovery at `{iss}/.well-known/openid-configuration`.
 
 ### 3.2 PA JWT
@@ -262,7 +262,7 @@ schemes:
 ### 5.2 Scopes
 
 A scope is `{ id, description }`. Each Brand defines its own — `orders:read`,
-`booking:change`, whatever its agent does — and PAC2 reserves no ids. The
+`booking:change`, whatever its agent does — and PACT reserves no ids. The
 Brand maps its agent's capabilities to scopes; unmapped capabilities stay
 available under §3. PAs pick scopes by reading the descriptions and MUST
 request only ids on the card. Providers show descriptions to the User
@@ -466,10 +466,10 @@ unknown Brands (§2.2), and OAuth endpoint errors
 
 | Profile            | Sections         |
 | ------------------ | ---------------- |
-| **PAC2 Identity**  | §2, §3, §4, §6   |
-| **PAC2 Delegated** | Identity plus §5 |
+| **PACT Identity**  | §2, §3, §4, §6   |
+| **PACT Delegated** | Identity plus §5 |
 
-This is PAC2 **1.0**. Breaking changes to either profile bump that number.
+This is PACT **1.0**. Breaking changes to either profile bump that number.
 
 ### 7.1 Implementing a Provider (Identity)
 

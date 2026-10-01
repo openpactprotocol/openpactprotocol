@@ -3,7 +3,7 @@ title: Quickstart
 description: Publish a key, onboard, find a Brand's agent, send a message.
 ---
 
-You need a Provider that speaks PAC2 and a Brand ID on it. To try it locally
+You need a Provider that speaks PACT and a Brand ID on it. To try it locally
 first, run the [reference implementation](reference-implementation.md); it ships
 three demo Brands.
 

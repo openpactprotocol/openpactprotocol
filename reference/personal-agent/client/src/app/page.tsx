@@ -273,8 +273,8 @@ export default async function HomePage({
             <Bot size={18} />
           </span>
           <div>
-            <h1>PAC2</h1>
-            <p>Personal Agent Customer Connector</p>
+            <h1>PACT</h1>
+            <p>Personal Agent Consent & Trust</p>
           </div>
           {issuer && privateJwk ? (
             <PlatformIdentity issuer={issuer} privateJwk={privateJwk} />

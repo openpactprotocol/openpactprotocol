@@ -4,10 +4,10 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "PAC2",
-    template: "%s · PAC2",
+    default: "PACT",
+    template: "%s · PACT",
   },
-  description: "Developer documentation for the Personal Agent Customer Connector Protocol.",
+  description: "Developer documentation for the Personal Agent Consent & Trust (PACT) Protocol.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {

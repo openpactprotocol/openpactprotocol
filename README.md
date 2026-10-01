@@ -1,6 +1,6 @@
-# PAC2 — Personal Agent ↔ Customer Connector
+# PACT — Personal Agent Consent & Trust Protocol
 
-PAC2 extends [A2A 1.0](https://a2a-protocol.org) with the two things A2A leaves
+PACT extends [A2A 1.0](https://a2a-protocol.org) with the two things A2A leaves
 open: **which PA is calling**, and **what the User allowed**.
 
 | Term         | Meaning                                                         |
