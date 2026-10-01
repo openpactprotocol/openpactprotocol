@@ -503,4 +503,4 @@ This is PACT **1.0**. Breaking changes to either profile bump that number.
 
 Step-by-step guides with a check per step: [Build a Provider](provider.md)
 (ends with running `e2e/` against yourself with `E2E_PROVIDER=any`) and
-[Build a PA integration](pa.md).
+[Build a PA integration](personal-agent.md).

@@ -12,7 +12,7 @@ export const navigation: ReadonlyArray<{
     title: "Overview",
     pages: [
       { title: "Introduction", href: "/", file: "index.md" },
-      { title: "Build a PA integration", href: "/pa", file: "pa.md" },
+      { title: "Build a PA integration", href: "/personal-agent", file: "personal-agent.md" },
       { title: "Build a Provider", href: "/provider", file: "provider.md" },
     ],
   },

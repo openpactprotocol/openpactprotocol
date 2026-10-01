@@ -7,8 +7,9 @@ Terms: **Provider** hosts Brands' support agents; **Brand** is a business;
 
 ## If you are integrating another codebase
 
-- Making a personal-agent platform speak PACT → follow `docs/pa.md` step by
-  step. The client to import or copy is `packages/client/src/index.ts`.
+- Making a personal-agent platform speak PACT → follow `docs/personal-agent.md`
+  step by step. The client to import or copy is
+  `packages/client/src/index.ts`.
 - Making a platform that hosts support agents speak PACT → follow
   `docs/provider.md`. Prove it with `E2E_PROVIDER=any pnpm e2e` (10 tests).
 - Exact rules and wire formats → `docs/spec.md`. It is the only normative
