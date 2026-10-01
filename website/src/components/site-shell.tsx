@@ -2,6 +2,7 @@ import { ChevronLeft, ChevronRight, ListTree } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { navigation, pageNeighbors } from "../nav";
+import { BrandMark } from "./brand-mark";
 import type { TableOfContentsItem } from "../markdoc";
 
 export function SiteShell({
@@ -18,9 +19,9 @@ export function SiteShell({
   return (
     <div className="site-frame">
       <header className="topbar">
-        <Link className="brand" href="/" aria-label="PAC2 docs home">
-          <span className="brand-mark">P2</span>
-          <span className="brand-name">PAC2 docs</span>
+        <Link className="brand" href="/" aria-label="Personal Agent ↔ Customer Connector home">
+          <BrandMark />
+          <span className="brand-name">Personal Agent ↔ Customer Connector</span>
         </Link>
         <div className="topbar-right">
           <span className="topbar-caption">Developer documentation</span>

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import * as React from "react";
 import { notFound } from "next/navigation";
 import { readDocContent, resolveDocPage, staticPageParams } from "../../content";
+import { CodeSample } from "../../components/code-sample";
 import { ProtocolOverview } from "../../components/protocol-overview";
 import { SiteShell } from "../../components/site-shell";
 import { findPageByHref } from "../../nav";
@@ -41,7 +42,7 @@ export default async function DocsPage({ params }: PageProps) {
   const content = readDocContent(navigationPage.file);
   const rendered = Markdoc.transform(content.ast, markdocConfig);
   const children = Markdoc.renderers.react(rendered, React, {
-    components: { ProtocolOverview },
+    components: { CodeSample, ProtocolOverview },
   });
 
   return (

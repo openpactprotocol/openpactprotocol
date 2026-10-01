@@ -4,8 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "PAC2 docs",
-    template: "%s · PAC2 docs",
+    default: "PAC2",
+    template: "%s · PAC2",
   },
   description: "Developer documentation for the Personal Agent Customer Connector Protocol.",
 };

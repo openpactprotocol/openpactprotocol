@@ -72,15 +72,11 @@ a:hover {
 
 .brand-mark {
   display: grid;
-  width: 31px;
-  height: 31px;
+  flex: none;
   place-items: center;
-  border-radius: 9px;
+  border-radius: 8px;
   background: var(--accent);
   color: white;
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: -0.04em;
 }
 
 .brand-name {
@@ -318,28 +314,60 @@ a:hover {
 .code-sample {
   overflow: hidden;
   margin: 19px 0;
-  border: 1px solid #e2e5ea;
+  border: 1px solid #1f2937;
   border-radius: 10px;
-  background: var(--code-bg);
+  background: #111827;
+}
+
+.code-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid #263041;
+  padding: 5px 8px 5px 14px;
 }
 
 .code-language {
-  border-bottom: 1px solid #e2e5ea;
-  color: #828a98;
+  color: #9ca3af;
   font-size: 10px;
   font-weight: 650;
   letter-spacing: 0.07em;
-  padding: 7px 13px;
   text-transform: uppercase;
+}
+
+.code-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid #374151;
+  border-radius: 6px;
+  background: transparent;
+  color: #d1d5db;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 550;
+  padding: 3px 8px;
+}
+
+.code-copy:hover {
+  border-color: #4b5563;
+  background: #1f2937;
+  color: #fff;
+}
+
+.code-copy:focus-visible {
+  outline: 2px solid #a5b4fc;
+  outline-offset: 1px;
 }
 
 .code-sample pre {
   overflow-x: auto;
   margin: 0;
   padding: 15px 16px;
-  color: #202939;
+  color: #e5e7eb;
   font:
-    12px/1.65 ui-monospace,
+    12.5px/1.65 ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
@@ -520,6 +548,10 @@ a:hover {
 
   .topbar-caption {
     display: none;
+  }
+
+  .brand-name {
+    font-size: 13px;
   }
 
   .site-grid {

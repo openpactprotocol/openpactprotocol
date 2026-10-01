@@ -64,10 +64,7 @@ export const markdocConfig: Config = {
       transform(node) {
         const language = String(node.attributes.language || "text");
         const content = String(node.attributes.content ?? "");
-        return new Tag("figure", { className: "code-sample" }, [
-          new Tag("div", { className: "code-language" }, [language]),
-          new Tag("pre", {}, [new Tag("code", { className: `language-${language}` }, [content])]),
-        ]);
+        return new Tag("CodeSample", { language, content });
       },
     },
   },
