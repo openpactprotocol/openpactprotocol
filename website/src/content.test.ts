@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Node } from "@markdoc/markdoc";
 import { allContentFiles, readDocContent, validateContent } from "./content";
@@ -40,7 +42,13 @@ describe("developer documentation content", () => {
       const markdownLinks = content.markdown.matchAll(/\]\(([^)\s]+)(?:\s+[^)]*)?\)/g);
       for (const match of markdownLinks) {
         const target = match[1];
-        if (!target || /^[a-z][a-z0-9+.-]*:/.test(target)) continue;
+        if (
+          !target ||
+          /\.(svg|png|jpe?g|gif)$/i.test(target) ||
+          /^[a-z][a-z0-9+.-]*:/.test(target)
+        ) {
+          continue;
+        }
         expect(target, `${navigation.file} links to ${target}`).not.toMatch(/^\//);
 
         const [rawPath = "", rawFragment] = hrefForMarkdownLink(target).split("#", 2);
@@ -54,6 +62,19 @@ describe("developer documentation content", () => {
         expect(headingIds(targetContent.ast), `${navigation.file} links to ${target}`).toContain(
           decodeURIComponent(rawFragment),
         );
+      }
+    }
+  });
+
+  it("resolves every image in the docs", () => {
+    for (const { navigation, content } of pages) {
+      const markdownImages = content.markdown.matchAll(/!\[[^\]]*\]\(([^)\s]+)(?:\s+[^)]*)?\)/g);
+      for (const match of markdownImages) {
+        const target = match[1];
+        expect(
+          target && existsSync(resolve(process.cwd(), "docs", target)),
+          `${navigation.file} references ${target}`,
+        ).toBe(true);
       }
     }
   });

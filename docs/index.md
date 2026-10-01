@@ -32,7 +32,7 @@ Provider hosts.
 
 ## How it works
 
-{% protocol-overview /%}
+![PACT at a glance](images/protocol-overview.svg)
 
 1. **Onboard (once per Provider).** The personal agent gives the Provider its issuer URL
    and public keys (JWKS); the Provider gives the personal agent an `audience` string.

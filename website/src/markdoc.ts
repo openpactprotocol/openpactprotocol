@@ -1,6 +1,8 @@
 import Markdoc, { Tag, type Config, type Node } from "@markdoc/markdoc";
 import { hrefForMarkdownLink } from "./nav";
 
+export const PROTOCOL_OVERVIEW_IMAGE = "images/protocol-overview.svg";
+
 export type TableOfContentsItem = {
   title: string;
   id: string;
@@ -67,12 +69,34 @@ export const markdocConfig: Config = {
         return new Tag("CodeSample", { language, content });
       },
     },
+    image: {
+      ...Markdoc.nodes.image,
+      transform(node, config) {
+        if (node.attributes.src === PROTOCOL_OVERVIEW_IMAGE) {
+          return new Tag("ProtocolOverview");
+        }
+        return new Tag("img", node.transformAttributes(config));
+      },
+    },
+    paragraph: {
+      ...Markdoc.nodes.paragraph,
+      transform(node, config) {
+        const inline = node.children[0];
+        const image = inline?.children[0];
+        if (
+          node.children.length === 1 &&
+          inline?.type === "inline" &&
+          inline.children.length === 1 &&
+          image?.type === "image" &&
+          image.attributes.src === PROTOCOL_OVERVIEW_IMAGE
+        ) {
+          return image.transform(config);
+        }
+        return new Tag("p", node.transformAttributes(config), node.transformChildren(config));
+      },
+    },
   },
   tags: {
-    "protocol-overview": {
-      render: "ProtocolOverview",
-      selfClosing: true,
-    },
     callout: {
       render: "aside",
       attributes: {
