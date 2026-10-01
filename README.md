@@ -17,7 +17,7 @@ can let it act on their account without ever giving it their password.
 | [Quickstart](docs/quickstart.md)                             | send your first message                                                |
 | [**Specification**](docs/spec.md)                            | implement a personal agent or a Provider (the only normative document) |
 | [Reference implementation](docs/reference-implementation.md) | run the Provider, demo personal agent and conformance tests            |
-| [TypeScript client](docs/typescript-client.md)               | use `@pact/client` and the `pact` CLI                                  |
+| [TypeScript client](docs/typescript-client.md)               | use `@pact/client`                                                     |
 
 The docs site in `website/` renders these pages.
 
@@ -26,7 +26,7 @@ The docs site in `website/` renders these pages.
 ```text
 docs/                      the pages above (single source for the site)
 packages/protocol          @pact/protocol — Zod schemas: Agent Card, messages, errors, JWT claims
-packages/client            @pact/client   — signer, fetchAgentCard, A2AClient, `pact` CLI
+packages/client            @pact/client   — signer, fetchAgentCard, A2AClient
 reference/provider         reference Provider (Next.js + PostgreSQL)
 reference/personal-agent/  demo personal agent: JWKS server + chat UI
 e2e/                       conformance tests — run against any Provider with E2E_PROVIDER=any

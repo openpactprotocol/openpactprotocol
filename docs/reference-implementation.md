@@ -18,7 +18,7 @@ built yet. Seed data, demo agents and the UI are examples, not protocol.
 | `reference/personal-agent/server` | Demo PA's **JWKS server** — a static `/.well-known/jwks.json`                                                    | 3002 |
 | `reference/personal-agent/client` | Demo **PA UI** — one chat that fans out to Brands over PACT, one `contextId` per Brand                           | 3001 |
 | `packages/protocol`               | `@pact/protocol` — Zod schemas for Agent Card, messages, errors, JWT claims                                      |      |
-| `packages/client`                 | `@pact/client` — signer, `fetchAgentCard`, `A2AClient`, `pact` CLI                                               |      |
+| `packages/client`                 | `@pact/client` — signer, `fetchAgentCard`, `A2AClient`                                                           |      |
 | `e2e/`                            | Conformance suite (live HTTP)                                                                                    |      |
 | `website`                         | This site; content is in `docs/`                                                                                 | 3003 |
 
@@ -83,8 +83,7 @@ PA_AUDIENCE=http://localhost:3000/a2a
 PA_PRIVATE_JWK=<written by pnpm gen-keys>
 ```
 
-**5. Chat** at `http://localhost:3001`. The `pact` CLI reads the same
-`.env.local`; give it one Brand with `CUSTOMER_ID`.
+**5. Chat** at `http://localhost:3001`.
 
 ## Provider settings
 

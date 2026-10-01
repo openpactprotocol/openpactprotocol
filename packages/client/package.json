@@ -6,13 +6,9 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "bin": {
-    "pact": "src/cli.ts"
-  },
   "scripts": {
     "typecheck": "tsc --noEmit",
-    "test": "vitest run",
-    "pact": "tsx src/cli.ts"
+    "test": "vitest run"
   },
   "dependencies": {
     "@pact/protocol": "workspace:*",

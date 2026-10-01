@@ -1,7 +1,7 @@
 # @pact/client
 
 PA-side client: `createPlatformSigner`, `fetchAgentCard`, `interfaceUrl`,
-`A2AClient`, typed errors, and the `pact` CLI.
+`A2AClient`, typed errors.
 
 ```ts
 const signer = createPlatformSigner({ issuer, privateJwk });
@@ -13,4 +13,4 @@ const client = new A2AClient({
 const reply = await client.sendMessage("Where is my order?");
 ```
 
-API and CLI: [TypeScript client](../../docs/typescript-client.md).
+API: [TypeScript client](../../docs/typescript-client.md).
