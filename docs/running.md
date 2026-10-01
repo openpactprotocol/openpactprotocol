@@ -1,66 +1,49 @@
 ---
 title: Run the reference stack
-description: Run a working Provider, demo PA and the conformance tests on your machine.
+description: Run the reference Provider, demo PA and conformance tests on your machine.
 ---
 
-Everything outside `docs/` is a runnable implementation of the
-[specification](spec.md)'s **Identity** profile. Delegated authority (§5) isn't
-built yet. Seed data, demo agents and the UI are examples, not protocol.
+Everything outside `docs/` implements the [specification](spec.md)'s
+**Identity** profile; delegated authority (§5) isn't built yet. Seed data and
+demo agents are examples, not protocol. The code calls Brands **customers**
+(`CUSTOMER_ID`, the `customers` table).
 
-> The code calls Brands **customers** (`CUSTOMER_ID`, the `customers` table).
-> They're the same thing.
-
-## What's here
-
-| Path                              | What it is                                                                                                       | Port |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---: |
-| `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite): Agent Cards, JWT verification, `message:send`, task routes | 3000 |
-| `reference/personal-agent/server` | Demo PA's **JWKS server** — a static `/.well-known/jwks.json`                                                    | 3002 |
-| `reference/personal-agent/client` | Demo **PA UI** — one chat that fans out to Brands over PACT, one `contextId` per Brand                           | 3001 |
-| `packages/protocol`               | `@pact/protocol` — Zod schemas for Agent Card, messages, errors, JWT claims                                      |      |
-| `packages/client`                 | `@pact/client` — signer, `fetchAgentCard`, `A2AClient`                                                           |      |
-| `e2e/`                            | Conformance suite (live HTTP)                                                                                    |      |
-| `website`                         | This site; content is in `docs/`                                                                                 | 3003 |
+| Path                              | What it is                                                | Port |
+| --------------------------------- | --------------------------------------------------------- | ---: |
+| `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite)      | 3000 |
+| `reference/personal-agent/client` | Demo **PA UI** — one chat fanning out to Brands over PACT | 3001 |
+| `reference/personal-agent/server` | Demo PA's **JWKS server**                                 | 3002 |
+| `packages/client`                 | `@pact/client` — signer, `fetchAgentCard`, `A2AClient`    |      |
+| `packages/protocol`               | `@pact/protocol` — Zod schemas                            |      |
+| `e2e/`                            | Conformance suite                                         |      |
+| `website`                         | This site; content is `docs/`                             | 3003 |
 
 ## Run it locally
 
-You need Node 20+ and pnpm 11.21.0.
-
-**1. Install and create a signing key.**
+Node 20+ and pnpm 11.21.0.
 
 ```sh
 pnpm install
 pnpm gen-keys        # public key → JWKS server, private key → PA client .env.local
 ```
 
-**2. Start four processes**, each in its own terminal:
+Four processes, each in its own terminal:
 
 ```sh
-# JWKS server, port 3002
-pnpm --filter @pact/personal-agent-server dev
-
-# Database (PGlite)
-PGLITE_DATA_DIR="$HOME/.local/share/pact-provider-db" pnpm --filter @pact/provider db:pglite
-
-# Provider, port 3000
-A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @pact/provider dev
-
-# Demo PA UI, port 3001
-pnpm --filter @pact/personal-agent-client dev
+pnpm --filter @pact/personal-agent-server dev                                                 # JWKS, :3002
+PGLITE_DATA_DIR="$HOME/.local/share/pact-provider-db" pnpm --filter @pact/provider db:pglite  # database
+A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @pact/provider dev                       # Provider, :3000
+pnpm --filter @pact/personal-agent-client dev                                                 # demo PA, :3001
 ```
 
-**3. Set up the database** once the database process is up. Any PostgreSQL
-works too; point `DATABASE_URL` at it.
+Once the database is up (any PostgreSQL works; point `DATABASE_URL` at it):
 
 ```sh
-export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
-export DATABASE_POOL_MAX=1
-export PA_ISSUER=http://localhost:3002
-pnpm --filter @pact/provider db:migrate
-pnpm --filter @pact/provider db:seed
+export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres DATABASE_POOL_MAX=1 PA_ISSUER=http://localhost:3002
+pnpm --filter @pact/provider db:migrate && pnpm --filter @pact/provider db:seed
 ```
 
-The seed creates three demo Brands:
+The seed creates three Brands and onboards the demo PA (`demo-pa`):
 
 | Brand           | ID                           |
 | --------------- | ---------------------------- |
@@ -68,11 +51,7 @@ The seed creates three demo Brands:
 | Loom & Co.      | `01M3R53Q5WKZ7A0GY4PZ8Y39TB` |
 | Bloom & Stem    | `01M3R53Q5WHQ1APYDKBW3NCDG3` |
 
-It also onboards two PAs: `demo-pa` (enabled) and `disabled-pa` (disabled). To
-try self-service registration instead, seed with `SEED_DEMO_PLATFORM=false`
-to skip `demo-pa`.
-
-**4. Configure the demo PA** in `reference/personal-agent/client/.env.local`:
+Put them in `reference/personal-agent/client/.env.local`:
 
 ```dotenv
 PROVIDER_URL=http://localhost:3000
@@ -83,70 +62,26 @@ PA_AUDIENCE=http://localhost:3000/a2a
 PA_PRIVATE_JWK=<written by pnpm gen-keys>
 ```
 
-**5. Chat** at `http://localhost:3001`.
+Chat at `http://localhost:3001`. With `OPENAI_API_KEY` set on either side the
+agents use OpenAI; without it they use scripted replies.
 
-## Provider settings
+## Register a PA
 
-| Variable         | Purpose                                                                                                   |
-| ---------------- | --------------------------------------------------------------------------------------------------------- |
-| `DATABASE_URL`   | PostgreSQL connection URL (`DATABASE_POOL_MAX=1` with the local PGlite socket)                            |
-| `A2A_AUDIENCE`   | Required. The audience given to PAs without a per-PA override                                             |
-| `PA_ISSUER`      | Issuer used by the seed for `demo-pa` / `disabled-pa`                                                     |
-| `PROVIDER_URL`   | Optional public base URL for Agent Card URLs; defaults to the request origin                              |
-| `OPENAI_API_KEY` | Optional. With it, demo agents reply via OpenAI; without it, or on error/timeout, they use canned replies |
-| `OPENAI_MODEL`   | Optional model name                                                                                       |
-
-## Self-service registration
-
-The reference Provider onboards PAs through `POST {PROVIDER_URL}/api/platforms`.
-The spec leaves onboarding to the Provider; others may do it out of band.
+The reference Provider onboards PAs at `POST {PROVIDER_URL}/api/platforms`
+(the spec leaves onboarding to each Provider):
 
 ```sh
 curl -X POST "$PROVIDER_URL/api/platforms" \
-  -H "Authorization: Bearer $REGISTRATION_TOKEN" \
-  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $REGISTRATION_TOKEN" -H "Content-Type: application/json" \
   -d '{"name":"my-pa","jwksUri":"https://pa.example.com/.well-known/jwks.json"}'
 ```
 
-`REGISTRATION_TOKEN` is an ES256 JWT signed with the PA's own key:
-`iss` = issuer, `sub` = `iss`, `aud` = the endpoint URL, `iat`/`exp` (≤ 300 s)
-and `jti`. The JWKS URI must share the issuer's origin; both must be HTTPS
-(HTTP allowed on `localhost`/`127.0.0.1`). `name` matches
-`^[a-z0-9][a-z0-9-]{1,62}$`.
-
-| Result | Meaning                                            |
-| ------ | -------------------------------------------------- |
-| `201`  | Registered and enabled; `{ "platform": … }`        |
-| `200`  | Same issuer, name, and JWKS URI already registered |
-| `409`  | Name or issuer already used with different details |
-| `400`  | Invalid body or URL                                |
-| `401`  | Missing or invalid assertion                       |
-
-The registered PA gets the Provider's `A2A_AUDIENCE` as its audience. The
-demo PA's "Register" button makes this call.
-
-## Demo PA
-
-`reference/personal-agent/client` signs requests server-side with
-`@pact/client`, discovers the Brands in `CUSTOMER_IDS`, routes each User
-message to the right agent, and keeps one `contextId` per Brand. With
-`OPENAI_API_KEY` it runs a tool-calling loop; without it, keyword routing
-forwards the User's text verbatim. Its **Register personal agent** panel
-calls the self-service endpoint above.
-
-`reference/personal-agent/server` only serves the public JWKS; the private key
-never leaves the client.
-
-**Demo agents.** Each seeded Brand has one skill (flight status, order
-status, flower orders) and a scripted multi-turn flow, so you can see
-`contextId` continuation working.
+`REGISTRATION_TOKEN` is a JWT signed with the PA's key: `iss` = issuer,
+`sub` = `iss`, `aud` = the endpoint URL, `exp` ≤ 300 s. The JWKS URI must share
+the issuer's origin. `201` registers (audience = `A2A_AUDIENCE`), `409` means
+the name or issuer is taken. The demo PA's **Register** button makes this call.
 
 ## Conformance tests
-
-`e2e/` drives a running Provider over HTTP and checks the Identity profile:
-card discovery, `contextId` continuation, duplicate `messageId`, cross-User
-and cross-Brand isolation, task routes, error envelopes, content types,
-unmatched routes, and every authentication negative.
 
 ```sh
 PROVIDER_URL=http://localhost:3000 \
@@ -156,40 +91,6 @@ pnpm e2e
 ```
 
 `PA_PRIVATE_JWK` comes from the environment or the PA client's `.env.local`.
-To test **another Provider**, add `E2E_PROVIDER=any`: every protocol assertion
-stays; only the reference Provider's seeded card text and canned replies are
-skipped. `E2E_TEST_TIMEOUT_MS` (default 60000) bounds each test.
-
-## Workspace checks
-
-```sh
-pnpm lint && pnpm typecheck && pnpm test && pnpm format:check
-pnpm --filter @pact/provider build
-pnpm --filter @pact/personal-agent-client build
-pnpm --filter @pact/docs build
-```
-
-## For maintainers
-
-### Data model
-
-Four tables: `customers` (Brands: ULID id, name),
-`agent_platforms` (PAs: name, issuer, JWKS URI, enabled, optional audience —
-`null` means `A2A_AUDIENCE`), `conversations` (UUID = `contextId`, Brand,
-`{pa}:{sub}` owner), `messages` (parts and `messageId`, unique per
-conversation).
-
-### Deploying the reference stack
-
-Three Vercel projects, all with root-directory builds:
-
-| Project     | Root directory                    | Notes                                                                                                                       |
-| ----------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| Provider    | `reference/provider`              | Build `pnpm run vercel-build` (migrates, then `next build`); needs a PostgreSQL `DATABASE_URL`, `A2A_AUDIENCE`, `PA_ISSUER` |
-| JWKS server | `reference/personal-agent/server` | Static; deploy before the Provider config that points at its issuer                                                         |
-| Docs        | `website`                         | Default Next.js build; reads `docs/` from the repository root                                                               |
-
-The root `packageManager` pins pnpm 11.21.0; set
-`ENABLE_EXPERIMENTAL_COREPACK=1` if Vercel does not honor it. Run the
-migration and seed against the deployed database once. The private PA key
-belongs in the client or test runner, never in the Provider project.
+Against another Provider add `E2E_PROVIDER=any`, which skips only the
+reference Provider's seeded card text and canned replies.
+`E2E_TEST_TIMEOUT_MS` (default 60000) bounds each test.

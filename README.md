@@ -20,9 +20,7 @@ identity (**Trust**) and, optionally, only the permissions the User granted
 | Checking the rules        | [Specification](docs/spec.md) — the normative text |
 | Trying it on your machine | [Run the reference stack](docs/running.md)         |
 
-Both guides are step-by-step with a check after each step, so an engineer or a
-coding agent can follow them end to end. [AGENTS.md](AGENTS.md) points agents
-at the right one.
+[AGENTS.md](AGENTS.md) points coding agents at the right guide.
 
 ## In this repository
 
