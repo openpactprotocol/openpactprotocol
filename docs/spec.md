@@ -210,8 +210,9 @@ without re-running the agent. If there is no stored reply yet, return
 
 ## 5. Delegated authority
 
-> Status: specified; no public implementation yet. Providers without it omit
-> §5.1 from their cards.
+> **Draft.** No Provider implements this yet and the wire details may change
+> before announcement; do not build to it. Identity-only (§2–4) is complete on
+> its own. Providers without it omit §5.1 from their cards.
 
 Lets the agent act on the User's Brand account. Standard OAuth 2.0 device
 code ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)): the Brand defines
