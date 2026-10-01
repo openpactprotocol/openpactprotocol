@@ -7,5 +7,5 @@ agent, keeps one `contextId` per Brand. History lives in the ignored
 `.data/pa-conversations.json`.
 
 Configuration and behavior:
-[Reference implementation → Demo PA](../../../docs/reference-implementation.md#demo-pa).
+[Run the reference stack](../../../docs/running.md#run-it-locally).
 `.env.example` lists the variables.
