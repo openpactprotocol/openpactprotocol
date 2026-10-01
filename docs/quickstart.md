@@ -9,14 +9,14 @@ conversation. You need four values:
 ```sh
 export PROVIDER_URL="https://provider.example.com"
 export BRAND_ID="01J…"                   # the Brand you want to reach
-export PA_ISSUER="https://pa.example.com" # your PA's URL
-export PA_AUDIENCE="…"                   # the Provider gives you this at onboarding
+export PA_ISSUER="https://pa.example.com" # your personal agent's URL
+export PA_AUDIENCE="…"                   # the Provider gives you this when you register
 ```
 
 ## Try it locally first
 
 The [reference implementation](reference-implementation.md#run-it-locally)
-runs a Provider with three demo Brands and has already onboarded a demo PA.
+runs a Provider with three demo Brands and has already registered a demo personal agent.
 Once it's running, use these values:
 
 ```sh
@@ -49,7 +49,7 @@ Publish `{ "keys": [publicJwk] }` at a public URL, for example
 `$PA_ISSUER/.well-known/jwks.json`. Keep `privateJwk` on your server. To rotate
 keys, add new ones at the same URL.
 
-## 2. Onboard with the Provider
+## 2. Register with the Provider
 
 Do this once per Provider, not per User or Brand. Give the Provider your
 issuer URL and JWKS URL; it gives you `PA_AUDIENCE`. Each Provider decides how

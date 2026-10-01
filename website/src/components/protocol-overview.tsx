@@ -16,7 +16,7 @@ const HEIGHT = 348;
 const arrows: Arrow[] = [
   {
     step: 1,
-    label: "Onboard (once)",
+    label: "Register (once)",
     y: 126,
     from: PLATFORM.x + PLATFORM.width,
     to: PROVIDER.x,
@@ -63,7 +63,7 @@ const platformParts: Part[] = [
 ];
 
 const providerParts: Part[] = [
-  { label: "Onboarded PAs", detail: "issuer · keys URL · audience", y: 106 },
+  { label: "Registered agents", detail: "issuer · keys URL · audience", y: 106 },
   { label: "Agent Card", detail: "/a2a/{brandId}", y: 158 },
   { label: "Token check", detail: "signature · issuer · audience", y: 216 },
   { label: "Brand's agent", detail: "one conversation per User", y: 318, accent: true },
@@ -168,11 +168,12 @@ export function ProtocolOverview() {
         >
           <title id="protocol-overview-title">PACT at a glance</title>
           <desc id="protocol-overview-desc">
-            The User asks their personal agent (PA) for help. The PA, onboarded once with the
-            Provider, reads the Brand&apos;s Agent Card and sends a message signed with its PA JWT.
-            The Provider verifies the JWT against the PA&apos;s JWKS, the Brand&apos;s agent replies
-            with a contextId, and the PA relays the answer. Optionally, the User logs in with the
-            Brand and approves scopes so the agent can act on their account.
+            The User asks their personal agent for help. The personal agent, registered once with
+            the Provider, reads the Brand&apos;s Agent Card and sends a message signed with its own
+            key. The Provider verifies the JWT against the personal agent&apos;s public keys, the
+            Brand&apos;s agent replies with a contextId, and the personal agent relays the answer.
+            Optionally, the User logs in with the Brand and approves scopes so the agent can act on
+            their account.
           </desc>
           <defs>
             <marker
@@ -220,7 +221,7 @@ export function ProtocolOverview() {
             rx={14}
           />
           <text className="po-zone-label" x={4} y={30}>
-            PA SIDE
+            PERSONAL AGENT SIDE
           </text>
           <text className="po-zone-label" x={boundary + 18} y={30}>
             PROVIDER SIDE
@@ -231,7 +232,7 @@ export function ProtocolOverview() {
           <ActorBox
             x={PLATFORM.x}
             width={PLATFORM.width}
-            title="Personal agent (PA)"
+            title="Personal agent"
             subtitle="acts for the User"
           />
           <ActorBox

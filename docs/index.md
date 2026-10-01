@@ -25,35 +25,35 @@ agent-to-agent protocol. Everything A2A defines works unchanged.
 
 ## Who's involved
 
-| Term         | Meaning                                                 | Example                        |
-| ------------ | ------------------------------------------------------- | ------------------------------ |
-| **User**     | The person.                                             | Jane                           |
-| **PA**       | The personal-agent platform acting for the User.        | Jane's assistant app           |
-| **Brand**    | The business the User wants help from.                  | Loom & Co.                     |
-| **Provider** | The platform that hosts support agents for many Brands. | Loom's customer-support vendor |
+| Term               | Meaning                                                          | Example                        |
+| ------------------ | ---------------------------------------------------------------- | ------------------------------ |
+| **User**           | The person.                                                      | Jane                           |
+| **Personal agent** | The assistant acting for the User. The spec calls it the **PA**. | Jane's assistant app           |
+| **Brand**          | The business the User wants help from.                           | Loom & Co.                     |
+| **Provider**       | The platform that hosts support agents for many Brands.          | Loom's customer-support vendor |
 
-A PA sets up a relationship with each **Provider** once, and can then talk to
+A personal agent sets up a relationship with each **Provider** once, and can then talk to
 every Brand that Provider hosts.
 
 ## How it works
 
 {% protocol-overview /%}
 
-1. **Onboard (once per Provider).** The PA publishes its public keys and
+1. **Register (once per Provider).** The personal agent publishes its public keys and
    gives the Provider its URL. The Provider returns an `audience` value for
-   the PA to put in its tokens.
-2. **Ask.** The User asks the PA for help with a Brand.
-3. **Find the agent.** The PA fetches the Brand's Agent Card, a public JSON
+   the personal agent to put in its tokens.
+2. **Ask.** The User asks the personal agent for help with a Brand.
+3. **Find the agent.** The personal agent fetches the Brand's Agent Card, a public JSON
    file that says where to send messages and what the agent supports.
-4. **Send.** The PA sends the message with a short-lived token signed by its
+4. **Send.** The personal agent sends the message with a short-lived token signed by its
    own key. The token carries an anonymous, stable id for the User.
-5. **Verify.** The Provider checks the signature against the PA's public keys.
+5. **Verify.** The Provider checks the signature against the personal agent's public keys.
 6. **Reply.** The Brand's agent answers and returns a conversation id
-   (`contextId`). The PA sends it with later messages to continue.
-7. **Answer.** The PA passes the reply to the User.
+   (`contextId`). The personal agent sends it with later messages to continue.
+7. **Answer.** The personal agent passes the reply to the User.
 
 **A. Authorize (optional).** If the Brand offers it, the User logs in with the
-Brand and approves specific permissions. The PA then sends a second token with
+Brand and approves specific permissions. The personal agent then sends a second token with
 its messages, and the agent can act on the User's account.
 
 Without step A, the agent knows _which PA_ is calling, not _who the User is_.
@@ -63,11 +63,11 @@ exactly as it would in a chat widget.
 ## If you know OAuth
 
 The identity token is not OAuth: there's no User login, consent screen or
-token endpoint. The PA signs its own JWT, much like an
+token endpoint. The personal agent signs its own JWT, much like an
 [RFC 7523](https://www.rfc-editor.org/rfc/rfc7523) assertion.
 
 Step A is standard OAuth 2.0 device code
-([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)), with the PA as the
+([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)), with the personal agent as the
 client and the Provider as the authorization server. See
 [Specification §5](spec.md#5-delegated-authority) for the full mapping.
 
@@ -83,5 +83,5 @@ logs its Users in is up to the Brand.
 - [Specification](spec.md) — the normative text. Building a Provider? Start at
   [§7.1](spec.md#71-implementing-a-provider-identity).
 - [Reference implementation](reference-implementation.md) — a working
-  Provider, demo PA and conformance tests.
+  Provider, demo personal agent and conformance tests.
 - [TypeScript client](typescript-client.md) — `@pact/client` and the `pact` CLI.
