@@ -70,6 +70,9 @@ importers:
       "@pact/protocol":
         specifier: workspace:*
         version: link:../../../packages/protocol
+      jose:
+        specifier: 6.1.0
+        version: 6.1.0
       lucide-react:
         specifier: 1.47.0
         version: 1.47.0(react@19.1.1)

@@ -1,25 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { importJWK, SignJWT, type JWK, type JWTPayload } from "jose";
 import {
   A2A_VERSION,
   A2AErrorResponseSchema,
   AgentCardSchema,
-  PlatformRegistrationResponseSchema,
   SendMessageResponseSchema,
   type A2AErrorResponse,
   type AgentCard,
   type Message,
-  type PlatformRegistrationRequest,
-  type RegisteredPlatform,
 } from "@pact/protocol";
 
 export type { AgentCard, Message };
-export type { PlatformRegistrationRequest, RegisteredPlatform };
-
-export type DiscoveredAgent = {
-  card: AgentCard;
-  url: string;
-};
 
 type A2AStatus = A2AErrorResponse["error"]["status"];
 type A2AErrorDetails = A2AErrorResponse["error"]["details"];
@@ -47,122 +37,28 @@ export class A2AHttpError extends Error {
   }
 }
 
-export interface PlatformSigner {
-  readonly issuer: string;
-  sign(input: { sub: string; aud: string; ttlSeconds?: number }): Promise<string>;
+export async function fetchAgentCard(
+  cardUrl: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<AgentCard> {
+  const response = await fetchImpl(cardUrl);
+  if (!response.ok) throw new A2AHttpError(response.status, await response.text());
+  return AgentCardSchema.parse(await response.json());
 }
 
-export function createPlatformSigner(input: {
-  privateJwk: string | JWK;
-  issuer: string;
-}): PlatformSigner {
-  const parsedJwk: JWK =
-    typeof input.privateJwk === "string" ? (JSON.parse(input.privateJwk) as JWK) : input.privateJwk;
-  const kid = typeof parsedJwk.kid === "string" ? parsedJwk.kid : undefined;
-  if (!kid) throw new Error("Private JWK must include kid");
-  const privateKey = importJWK(parsedJwk, "ES256");
-  return {
-    issuer: input.issuer,
-    async sign({ sub, aud, ttlSeconds = 120 }) {
-      if (!Number.isInteger(ttlSeconds) || ttlSeconds <= 0 || ttlSeconds > 300) {
-        throw new Error("ttlSeconds must be an integer between 1 and 300");
-      }
-      const key = await privateKey;
-      const iat = Math.floor(Date.now() / 1000);
-      return new SignJWT({ sub } satisfies JWTPayload)
-        .setProtectedHeader({ alg: "ES256", kid, typ: "JWT" })
-        .setIssuer(input.issuer)
-        .setAudience(aud)
-        .setIssuedAt(iat)
-        .setExpirationTime(iat + ttlSeconds)
-        .setJti(randomUUID())
-        .sign(key);
-    },
-  };
-}
-
-export type RegisterPlatformResult = {
-  created: boolean;
-  platform: RegisteredPlatform;
-};
-
-export class PlatformRegistrationError extends Error {
-  constructor(
-    readonly status: number,
-    message: string,
-  ) {
-    super(message);
-    this.name = "PlatformRegistrationError";
-  }
-}
-
-export async function registerPlatform(input: {
-  providerUrl: string;
-  name: string;
-  jwksUri?: string;
-  signer: PlatformSigner;
-}): Promise<RegisterPlatformResult> {
-  const endpoint = `${input.providerUrl.replace(/\/+$/, "")}/api/platforms`;
-  const jwksUri = input.jwksUri ?? `${input.signer.issuer}/.well-known/jwks.json`;
-  const token = await input.signer.sign({ sub: input.signer.issuer, aud: endpoint });
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ name: input.name, jwksUri } satisfies PlatformRegistrationRequest),
-  });
-  const text = await response.text();
-  let body: unknown = text;
-  if (text) {
-    try {
-      body = JSON.parse(text) as unknown;
-    } catch {
-      body = text;
-    }
-  }
-  if (!response.ok) {
-    const message =
-      response.status === 401
-        ? "Unauthorized"
-        : typeof body === "object" &&
-            body !== null &&
-            "error" in body &&
-            typeof body.error === "string"
-          ? body.error
-          : "Platform registration failed";
-    throw new PlatformRegistrationError(response.status, message);
-  }
-
-  const parsed = PlatformRegistrationResponseSchema.parse(body);
-  return { created: response.status === 201, platform: parsed.platform };
-}
-
-export async function discoverAgent(
-  providerUrl: string,
-  customerId: string,
-): Promise<DiscoveredAgent> {
-  const base = providerUrl.replace(/\/+$/, "");
-  const result = await fetch(
-    `${base}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`,
-  );
-  if (!result.ok) throw new A2AHttpError(result.status, await result.text());
-  const card = AgentCardSchema.parse(await result.json());
+export function interfaceUrl(card: AgentCard): string {
   const agentInterface = card.supportedInterfaces.find(
     (candidate) => candidate.protocolBinding === "HTTP+JSON" && candidate.protocolVersion === "1.0",
   );
-  if (!agentInterface) throw new Error("Agent does not expose an HTTP+JSON 1.0 interface");
-  return { card, url: agentInterface.url };
+  if (!agentInterface) throw new Error("Agent Card has no HTTP+JSON 1.0 interface");
+  return agentInterface.url;
 }
 
 export class A2AClient {
   constructor(
     readonly options: {
       url: string;
-      signer: PlatformSigner;
-      userId: string;
-      audience: string;
+      getToken: () => Promise<string> | string;
       fetchImpl?: typeof fetch;
     },
   ) {}
@@ -170,10 +66,7 @@ export class A2AClient {
   private async request(path: string, body: unknown): Promise<Message> {
     const baseUrl = this.options.url.replace(/\/+$/, "");
     const url = new URL(`${baseUrl}${path}`);
-    const token = await this.options.signer.sign({
-      sub: this.options.userId,
-      aud: this.options.audience,
-    });
+    const token = await this.options.getToken();
     const response = await (this.options.fetchImpl ?? fetch)(url, {
       method: "POST",
       headers: {

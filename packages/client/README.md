@@ -1,12 +1,11 @@
 # @pact/client
 
-PA-side client: `createPlatformSigner`, `discoverAgent`, `A2AClient`,
-`registerPlatform`, typed errors, and the `pact` CLI.
+PA-side client: `fetchAgentCard`, `interfaceUrl`, `A2AClient`, typed errors,
+and the `pact` CLI. Bring your own JWT.
 
 ```ts
-const signer = createPlatformSigner({ issuer, privateJwk });
-const { url } = await discoverAgent(providerUrl, brandId);
-const client = new A2AClient({ url, signer, userId, audience });
+const card = await fetchAgentCard(cardUrl);
+const client = new A2AClient({ url: interfaceUrl(card), getToken: () => signPaJwt(userId) });
 const reply = await client.sendMessage("Where is my order?");
 ```
 

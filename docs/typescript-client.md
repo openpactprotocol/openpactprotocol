@@ -1,85 +1,60 @@
 ---
 title: TypeScript client
-description: Sign tokens, find a Brand's agent and send messages from TypeScript or the pact CLI.
+description: Fetch a Brand's Agent Card and send messages from TypeScript or the pact CLI.
 ---
 
 `@pact/client` (`packages/client`) is the PA side of the
-[specification](spec.md): one file you can read in a few minutes.
+[specification](spec.md) in one short file: fetch a card, pick the interface,
+send `message:send`, parse errors. It does not sign tokens — use any JWT
+library ([Quickstart §3](quickstart.md#3-sign-a-token)).
 
 It isn't published to npm yet. Import it inside this repository, or copy
-`packages/client/src/index.ts` (it depends only on `jose` and
-`@pact/protocol`).
+`packages/client/src/index.ts` (depends only on `@pact/protocol`).
 
-## Sign
-
-```ts
-import { createPlatformSigner } from "@pact/client";
-
-const signer = createPlatformSigner({ issuer: "https://pa.example.com", privateJwk });
-```
-
-`sign({ sub, aud, ttlSeconds? })` produces an ES256 JWT with `iss`, `sub`,
-`aud`, `iat`, `exp`, and a `jti`. `ttlSeconds` defaults to 120 and is capped
-at 300. The private JWK must carry a `kid`.
-
-## Discover and send
+## Use
 
 ```ts
-import { A2AClient, discoverAgent } from "@pact/client";
+import { A2AClient, fetchAgentCard, interfaceUrl } from "@pact/client";
 
-const { card, url } = await discoverAgent(providerUrl, brandId);
-const client = new A2AClient({ url, signer, userId: "user-7f3a", audience });
+const card = await fetchAgentCard(cardUrl); // the Brand gives you this URL
+const client = new A2AClient({
+  url: interfaceUrl(card),
+  getToken: () => signPaJwt({ sub: "user-7f3a", aud: PA_AUDIENCE }), // your JWT code
+});
 
 const first = await client.sendMessage("I need help");
 const next = await client.sendMessage("Here is more detail", { contextId: first.contextId });
 ```
 
-- `discoverAgent` validates the card and selects the `HTTP+JSON` / `1.0`
-  interface.
-- `audience` is required: the value the Provider gave you at onboarding. No
-  default.
+- `fetchAgentCard(url)` validates the card against the schema.
+- `interfaceUrl(card)` returns the `HTTP+JSON` / `1.0` interface URL, or
+  throws.
+- `getToken()` is called once per request and must return a PA JWT for this
+  User ([spec §3.2](spec.md#32-pa-jwt)).
 - `sendMessage(text, { contextId? })` sends a `ROLE_USER` text message with a
   fresh `messageId`, sets `A2A-Version: 1.0`, and returns the agent `Message`.
 
 ## Errors
 
-| Class                       | Thrown when                                                       | Fields                                      |
-| --------------------------- | ----------------------------------------------------------------- | ------------------------------------------- |
-| `A2AError`                  | The Provider returned an A2A error envelope                       | `httpStatus`, `status`, `reason`, `details` |
-| `A2AHttpError`              | Non-2xx without an envelope, e.g. `401` or `404`                  | `status`, `body`                            |
-| `PlatformRegistrationError` | The reference Provider's registration endpoint rejected a request | `status`                                    |
-
-## Register with the reference Provider
-
-```ts
-import { registerPlatform } from "@pact/client";
-
-const { created, platform } = await registerPlatform({ providerUrl, name: "my-platform", signer });
-```
-
-Calls the reference Provider's self-service endpoint
-([Reference implementation](reference-implementation.md#self-service-registration)).
-`jwksUri` defaults to `{issuer}/.well-known/jwks.json`; `created` is `true`
-on `201`, `false` on an idempotent `200`. Not needed for Providers that onboard
-out of band.
+| Class          | Thrown when                                      | Fields                                      |
+| -------------- | ------------------------------------------------ | ------------------------------------------- |
+| `A2AError`     | The Provider returned an A2A error envelope      | `httpStatus`, `status`, `reason`, `details` |
+| `A2AHttpError` | Non-2xx without an envelope, e.g. `401` or `404` | `status`, `body`                            |
 
 ## CLI
 
 ```sh
-pact card                              # print the Brand's Agent Card
+pact card                              # print the Agent Card
 pact send <text> [--context <id>]      # one message:send, prints the reply Message
 pact chat                              # interactive loop that carries contextId
-pact register [--name <n>] [--jwks-uri <url>]   # reference Provider only
 ```
 
-| Variable                      | Used by                                         |
-| ----------------------------- | ----------------------------------------------- |
-| `PROVIDER_URL`                | all commands                                    |
-| `CUSTOMER_ID`                 | the Brand ID (`card`, `send`, `chat`)           |
-| `PA_ISSUER`, `PA_PRIVATE_JWK` | `send`, `chat`, `register`                      |
-| `PA_AUDIENCE`                 | `send`, `chat`                                  |
-| `PA_USER_ID`                  | optional `sub`; default `demo-user`             |
-| `PA_PLATFORM_NAME`            | optional name for `register`; default `demo-pa` |
+| Variable                      | Used by                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
+| `AGENT_CARD_URL`              | all commands; or `PROVIDER_URL` + `CUSTOMER_ID` (Brand ID) |
+| `PA_ISSUER`, `PA_PRIVATE_JWK` | `send`, `chat`                                             |
+| `PA_AUDIENCE`                 | `send`, `chat`                                             |
+| `PA_USER_ID`                  | optional `sub`; default `demo-user`                        |
 
 The CLI also reads `reference/personal-agent/client/.env.local`. In this
 workspace: `pnpm --filter @pact/client pact <command>`.

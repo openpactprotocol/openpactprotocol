@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { A2AHttpError, discoverAgent } from "@pact/client";
+import { A2AHttpError } from "@pact/client";
+import { agentCardUrl, discoverAgent } from "../lib/pact.js";
 import type { AgentCard } from "@pact/protocol";
 import {
   Bot,
@@ -62,10 +63,6 @@ function formatDay(timestamp: string | undefined): string {
 function formatClock(timestamp: string | undefined): string {
   if (!timestamp) return "";
   return new Date(timestamp).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
-}
-
-function agentCardUrl(providerUrl: string, customerId: string): string {
-  return `${providerUrl.replace(/\/+$/, "")}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`;
 }
 
 type ConnectedBusiness = {

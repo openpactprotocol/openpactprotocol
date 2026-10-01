@@ -4,11 +4,10 @@ description: Send your first message to a Brand's agent and continue the convers
 ---
 
 You'll send a message to a Brand's support agent, then continue the
-conversation. You need four values:
+conversation. You need three values:
 
 ```sh
-export PROVIDER_URL="https://provider.example.com"
-export BRAND_ID="01J…"                   # the Brand you want to reach
+export AGENT_CARD_URL="…"                 # the Brand gives you this
 export PA_ISSUER="https://pa.example.com" # your personal agent's URL
 export PA_AUDIENCE="…"                   # the Provider gives you this when you register
 ```
@@ -20,18 +19,17 @@ runs a Provider with three demo Brands and has already registered a demo persona
 Once it's running, use these values:
 
 ```sh
-export PROVIDER_URL="http://localhost:3000"
-export BRAND_ID="01M3R53Q5WKZ7A0GY4PZ8Y39TB"   # Loom & Co.
+export AGENT_CARD_URL="http://localhost:3000/a2a/01M3R53Q5WKZ7A0GY4PZ8Y39TB/.well-known/agent-card.json" # Loom & Co.
 export PA_ISSUER="http://localhost:3002"
 export PA_AUDIENCE="http://localhost:3000/a2a"
 ```
 
 `pnpm gen-keys` has already created a signing key (`PA_PRIVATE_JWK` in
 `reference/personal-agent/client/.env.local`), so you can skip to
-[step 3](#3-send-a-message). Or send a message straight from the CLI:
+[step 3](#3-sign-a-token). Or send a message straight from the CLI:
 
 ```sh
-CUSTOMER_ID="$BRAND_ID" pnpm --filter @pact/client pact send "Where is my order?"
+pnpm --filter @pact/client pact send "Where is my order?"
 ```
 
 ## 1. Create a signing key
@@ -56,26 +54,51 @@ issuer URL and JWKS URL; it gives you `PA_AUDIENCE`. Each Provider decides how
 — usually a partner form. The reference Provider has a
 [self-service endpoint](reference-implementation.md#self-service-registration).
 
-## 3. Send a message
+## 3. Sign a token
+
+Every request carries a JWT signed with your key: `iss` = your issuer,
+`aud` = `PA_AUDIENCE`, `sub` = your id for the User, short expiry.
 
 ```ts
-import { A2AClient, createPlatformSigner, discoverAgent } from "@pact/client";
+import { importJWK, SignJWT } from "jose";
 
-const signer = createPlatformSigner({ issuer: PA_ISSUER, privateJwk });
-const { url } = await discoverAgent(PROVIDER_URL, BRAND_ID);
-const client = new A2AClient({ url, signer, userId: "user-7f3a", audience: PA_AUDIENCE });
+async function signPaJwt({ sub, aud }: { sub: string; aud: string }): Promise<string> {
+  const iat = Math.floor(Date.now() / 1000);
+  return new SignJWT({ sub })
+    .setProtectedHeader({ alg: "ES256", kid: privateJwk.kid, typ: "JWT" })
+    .setIssuer(PA_ISSUER)
+    .setAudience(aud)
+    .setIssuedAt(iat)
+    .setExpirationTime(iat + 120)
+    .sign(await importJWK(privateJwk, "ES256"));
+}
+```
+
+`sub` must be stable and opaque: the same User always gets the same id, and
+it contains no personal data.
+
+## 4. Send a message
+
+The Brand tells you where its Agent Card is. The card says where to send
+messages.
+
+```ts
+import { A2AClient, fetchAgentCard, interfaceUrl } from "@pact/client";
+
+const card = await fetchAgentCard(AGENT_CARD_URL);
+const client = new A2AClient({
+  url: interfaceUrl(card),
+  getToken: () => signPaJwt({ sub: "user-7f3a", aud: PA_AUDIENCE }),
+});
 
 const reply = await client.sendMessage("Where is my order?");
 ```
 
-`userId` is your id for the User. It must be stable and opaque: the same User
-always gets the same id, and it contains no personal data.
-
 `@pact/client` isn't published to npm yet. Use it inside this repository, or
-copy `packages/client/src/index.ts` (one file, depends only on `jose` and
+copy `packages/client/src/index.ts` (one file, depends only on
 `@pact/protocol`).
 
-## 4. Continue the conversation
+## 5. Continue the conversation
 
 The reply includes a `contextId`. Send it with the next message:
 
@@ -95,27 +118,20 @@ reference Provider yet.
 
 The client makes two HTTP calls. To make them yourself:
 
-**Find the agent.** No token needed.
+**Fetch the Agent Card.** No token needed.
 
 ```sh
-curl "$PROVIDER_URL/a2a/$BRAND_ID/.well-known/agent-card.json"
+curl "$AGENT_CARD_URL"
 ```
 
 In `supportedInterfaces`, take the entry with `protocolBinding: "HTTP+JSON"`
 and `protocolVersion: "1.0"`. Its `url` is the interface URL.
 
-**Sign a token.** A JWT with `iss` = your issuer, `aud` = `PA_AUDIENCE`,
-`sub` = the User's id, and a short expiry. With the client's signer:
-
-```ts
-console.log(await signer.sign({ sub: "user-7f3a", aud: PA_AUDIENCE }));
-```
-
 **Send the message.**
 
 ```sh
 export INTERFACE_URL="…"   # from the Agent Card
-export TOKEN="…"           # from signer.sign()
+export TOKEN="…"           # from signPaJwt()
 
 curl -X POST "$INTERFACE_URL/message:send" \
   -H "Authorization: Bearer $TOKEN" \

@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { createPlatformSigner, registerPlatform } from "@pact/client";
+import { PlatformRegistrationResponseSchema } from "@pact/protocol";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
@@ -12,6 +12,7 @@ import {
   USER_ID_COOKIE_OPTIONS,
   type RegistrationNotice,
 } from "../lib/session.js";
+import { signPaJwt } from "../lib/pact.js";
 
 type Connection = { providerUrl: string; customerIds: string[] };
 function readConnection(formData: FormData): Connection {
@@ -50,12 +51,28 @@ export async function registerPersonalAgent(formData: FormData): Promise<void> {
     throw new Error("Set PA_ISSUER and PA_PRIVATE_JWK in the server environment");
   let registration: RegistrationNotice;
   try {
-    const result = await registerPlatform({
-      providerUrl: connection.providerUrl,
-      name,
-      signer: createPlatformSigner({ issuer, privateJwk }),
+    const endpoint = `${connection.providerUrl.replace(/\/+$/, "")}/api/platforms`;
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${await signPaJwt({ issuer, privateJwk, sub: issuer, aud: endpoint })}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ name, jwksUri: `${issuer}/.well-known/jwks.json` }),
     });
-    registration = { status: result.created ? "created" : "existing", name };
+    const body: unknown = await response.json().catch(() => undefined);
+    if (!response.ok) {
+      const error =
+        typeof body === "object" &&
+        body !== null &&
+        "error" in body &&
+        typeof body.error === "string"
+          ? body.error
+          : `Registration failed (${response.status})`;
+      throw new Error(response.status === 401 ? "Unauthorized" : error);
+    }
+    PlatformRegistrationResponseSchema.parse(body);
+    registration = { status: response.status === 201 ? "created" : "existing", name };
   } catch (cause) {
     const message = cause instanceof Error ? cause.message : "Registration failed";
     registration = { status: "error", name, message };
