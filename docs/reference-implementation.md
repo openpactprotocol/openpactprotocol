@@ -1,13 +1,16 @@
 ---
 title: Reference implementation
-description: Run the reference Provider, the demo PA, and the conformance suite in this repository.
+description: Run a working Provider, demo PA and conformance tests on your machine.
 ---
 
-Everything outside `docs/` is a runnable reference implementation of the
-[specification](spec.md)'s **Identity** profile. Delegated authority (§5) is not
-implemented here yet. Seed data, demo agents, and UI are not protocol. The
-code and env vars call Brands `customers` (`CUSTOMER_ID`); that is the same
-thing.
+Everything outside `docs/` is a runnable implementation of the
+[specification](spec.md)'s **Identity** profile. Delegated authority (§5) isn't
+built yet. Seed data, demo agents and the UI are examples, not protocol.
+
+> The code calls Brands **customers** (`CUSTOMER_ID`, the `customers` table).
+> They're the same thing.
+
+## What's here
 
 | Path                              | What it is                                                                                                       | Port |
 | --------------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---: |
@@ -21,24 +24,33 @@ thing.
 
 ## Run it locally
 
-Node 20+, pnpm 11.21.0.
+You need Node 20+ and pnpm 11.21.0.
+
+**1. Install and create a signing key.**
 
 ```sh
 pnpm install
-pnpm gen-keys        # ES256 key pair: public → JWKS server, private → PA client .env.local
+pnpm gen-keys        # public key → JWKS server, private key → PA client .env.local
 ```
 
-Four processes, in separate terminals:
+**2. Start four processes**, each in its own terminal:
 
 ```sh
+# JWKS server, port 3002
 pnpm --filter @pact/personal-agent-server dev
+
+# Database (PGlite)
 PGLITE_DATA_DIR="$HOME/.local/share/pact-provider-db" pnpm --filter @pact/provider db:pglite
+
+# Provider, port 3000
 A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @pact/provider dev
+
+# Demo PA UI, port 3001
 pnpm --filter @pact/personal-agent-client dev
 ```
 
-Initialize the database once PGlite is up (any PostgreSQL works too — point
-`DATABASE_URL` at it):
+**3. Set up the database** once the database process is up. Any PostgreSQL
+works too; point `DATABASE_URL` at it.
 
 ```sh
 export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres
@@ -48,7 +60,7 @@ pnpm --filter @pact/provider db:migrate
 pnpm --filter @pact/provider db:seed
 ```
 
-The seed creates three demo Brands and prints their IDs:
+The seed creates three demo Brands:
 
 | Brand           | ID                           |
 | --------------- | ---------------------------- |
@@ -56,11 +68,11 @@ The seed creates three demo Brands and prints their IDs:
 | Loom & Co.      | `01M3R53Q5WKZ7A0GY4PZ8Y39TB` |
 | Bloom & Stem    | `01M3R53Q5WHQ1APYDKBW3NCDG3` |
 
-It also registers the PAs `demo-pa` (enabled) and `disabled-pa` (disabled).
-`SEED_DEMO_PLATFORM=false` skips `demo-pa` so you can try self-service
-registration.
+It also onboards two PAs: `demo-pa` (enabled) and `disabled-pa` (disabled). To
+try self-service registration instead, seed with `SEED_DEMO_PLATFORM=false`
+to skip `demo-pa`.
 
-Then configure the demo PA in `reference/personal-agent/client/.env.local`:
+**4. Configure the demo PA** in `reference/personal-agent/client/.env.local`:
 
 ```dotenv
 PROVIDER_URL=http://localhost:3000
@@ -68,15 +80,13 @@ CUSTOMER_IDS=01M3R53Q5SZQ6FQSMSDBSSREAA,01M3R53Q5WKZ7A0GY4PZ8Y39TB,01M3R53Q5WHQ1
 PA_ISSUER=http://localhost:3002
 PA_PLATFORM_NAME=demo-pa
 PA_AUDIENCE=http://localhost:3000/a2a
-PA_PRIVATE_JWK=<from pnpm gen-keys>
+PA_PRIVATE_JWK=<written by pnpm gen-keys>
 ```
 
-Open `http://localhost:3001` and chat. The `pact` CLI reads the same
-`.env.local` plus one `CUSTOMER_ID`.
+**5. Chat** at `http://localhost:3001`. The `pact` CLI reads the same
+`.env.local`; give it one Brand with `CUSTOMER_ID`.
 
-## Provider
-
-**Environment**
+## Provider settings
 
 | Variable         | Purpose                                                                                                   |
 | ---------------- | --------------------------------------------------------------------------------------------------------- |
@@ -87,17 +97,7 @@ Open `http://localhost:3001` and chat. The `pact` CLI reads the same
 | `OPENAI_API_KEY` | Optional. With it, demo agents reply via OpenAI; without it, or on error/timeout, they use canned replies |
 | `OPENAI_MODEL`   | Optional model name                                                                                       |
 
-**Data model** — four tables: `customers` (Brands: ULID id, name),
-`agent_platforms` (PAs: name, issuer, JWKS URI, enabled, optional audience —
-`null` means `A2A_AUDIENCE`), `conversations` (UUID = `contextId`, Brand,
-`{pa}:{sub}` owner), `messages` (parts and `messageId`, unique per
-conversation).
-
-**Demo agents** — each seeded Brand has one skill (flight status, order
-status, flower orders) and a scripted multi-turn flow so `contextId`
-continuation is visible. Fixture, not protocol.
-
-### Self-service registration
+## Self-service registration
 
 The reference Provider onboards PAs through `POST {PROVIDER_URL}/api/platforms`.
 The spec leaves onboarding to the Provider; others may do it out of band.
@@ -139,6 +139,10 @@ it, keyword routing forwards the User's text verbatim. Its
 `reference/personal-agent/server` only serves the public JWKS; the private key
 never leaves the client.
 
+**Demo agents.** Each seeded Brand has one skill (flight status, order
+status, flower orders) and a scripted multi-turn flow, so you can see
+`contextId` continuation working.
+
 ## Conformance tests
 
 `e2e/` drives a running Provider over HTTP and checks the Identity profile:
@@ -167,7 +171,17 @@ pnpm --filter @pact/personal-agent-client build
 pnpm --filter @pact/docs build
 ```
 
-## Deploying the reference stack
+## For maintainers
+
+### Data model
+
+Four tables: `customers` (Brands: ULID id, name),
+`agent_platforms` (PAs: name, issuer, JWKS URI, enabled, optional audience —
+`null` means `A2A_AUDIENCE`), `conversations` (UUID = `contextId`, Brand,
+`{pa}:{sub}` owner), `messages` (parts and `messageId`, unique per
+conversation).
+
+### Deploying the reference stack
 
 Three Vercel projects, all with root-directory builds:
 

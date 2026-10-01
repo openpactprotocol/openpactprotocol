@@ -1,10 +1,14 @@
 ---
 title: TypeScript client
-description: Use @pact/client — signer, Agent Card discovery, A2AClient, errors, and the pact CLI.
+description: Sign tokens, find a Brand's agent and send messages from TypeScript or the pact CLI.
 ---
 
 `@pact/client` (`packages/client`) is the PA side of the
-[specification](spec.md). Small enough to read; copy it or import it.
+[specification](spec.md): one file you can read in a few minutes.
+
+It isn't published to npm yet. Import it inside this repository, or copy
+`packages/client/src/index.ts` (it depends only on `jose` and
+`@pact/protocol`).
 
 ## Sign
 
@@ -71,7 +75,7 @@ pact register [--name <n>] [--jwks-uri <url>]   # reference Provider only
 | Variable                      | Used by                                         |
 | ----------------------------- | ----------------------------------------------- |
 | `PROVIDER_URL`                | all commands                                    |
-| `CUSTOMER_ID`                 | the Brand ID; `card`, `send`, `chat`            |
+| `CUSTOMER_ID`                 | the Brand ID (`card`, `send`, `chat`)           |
 | `PA_ISSUER`, `PA_PRIVATE_JWK` | `send`, `chat`, `register`                      |
 | `PA_AUDIENCE`                 | `send`, `chat`                                  |
 | `PA_USER_ID`                  | optional `sub`; default `demo-user`             |

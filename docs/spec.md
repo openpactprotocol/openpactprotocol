@@ -37,7 +37,7 @@ One card per Brand:
 GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 ```
 
-- No authentication. Unknown `brandId` → `404` with no A2A body.
+- No authentication. An unknown `brandId` gets `404` with no A2A body.
 - MUST list a `supportedInterfaces` entry with `protocolBinding: "HTTP+JSON"`
   and `protocolVersion: "1.0"`. Its `url` is the **interface URL**. PAs pick
   the interface by binding and version, not by position.
@@ -94,7 +94,7 @@ return A2A errors so generic A2A clients fail cleanly.
 | `GET`, `POST`   | `tasks/{id}/pushNotificationConfigs`            | `PUSH_NOTIFICATION_NOT_SUPPORTED`                                |
 | `GET`, `DELETE` | `tasks/{id}/pushNotificationConfigs/{configId}` | `PUSH_NOTIFICATION_NOT_SUPPORTED`                                |
 
-Anything else → `404` or `405` with no A2A body. Routing happens before
+Any other route gets `404` or `405` with no A2A body. Routing happens before
 authentication; an unknown Brand is `404` even with a valid token.
 
 ## 3. PA identity
@@ -104,7 +104,7 @@ verifies it against the PA's JWKS. No shared secrets.
 
 ### 3.1 Onboarding
 
-| Held by  | Value      | Rule                                                                               |
+| Kept by  | Value      | Rule                                                                               |
 | -------- | ---------- | ---------------------------------------------------------------------------------- |
 | Provider | `issuer`   | URL the PA puts in `iss`. Exact string match.                                      |
 | Provider | `jwksUri`  | HTTPS URL of the PA's JWKS. Rotate keys by publishing new ones; the URI is stable. |
@@ -182,24 +182,26 @@ Content-Type: application/json
 
 - An A2A `SendMessageRequest`. `configuration` and `metadata` MAY be ignored.
 - `role` MUST be `ROLE_USER`. `parts` MUST have at least one non-blank `text`
-  part. Other part kinds → `CONTENT_TYPE_NOT_SUPPORTED`.
-- `taskId` MUST be absent (→ `TASK_NOT_FOUND`).
+  part. Other part kinds get `CONTENT_TYPE_NOT_SUPPORTED`.
+- `taskId` MUST be absent; otherwise `TASK_NOT_FOUND`.
 - `messageId` MUST be unique within the context.
 
 ### 4.2 Context
 
 - The reply is synchronous: `{ "message": Message }` with `role: ROLE_AGENT`
   and `contextId` set (or a task, §5.5).
-- No `contextId` → new conversation; the Provider mints an opaque one.
-- With `contextId` → continue. The context MUST belong to this Brand and this
+- Without `contextId`, the message starts a new conversation and the Provider
+  mints an opaque `contextId`.
+- With `contextId`, the message continues that conversation. The context MUST belong to this Brand and this
   `(PA, sub)`; otherwise `INVALID_PARAMS`, without saying whether it exists for
   someone else.
 - `contextId` is state, not a credential. Ordinary turns create no A2A Task.
 
 ### 4.3 Retries
 
-Same `contextId` + same `messageId` → the stored reply, without re-running
-the agent. No stored reply yet → `INVALID_PARAMS`.
+A repeated `messageId` in the same `contextId` returns the stored reply
+without re-running the agent. If there is no stored reply yet, return
+`INVALID_PARAMS`.
 
 ## 5. Delegated authority
 
@@ -212,6 +214,20 @@ its own scopes for its own use cases; the User logs in with the Brand — never
 with the PA — and approves some of them; the Provider issues a delegation
 token; every turn under it returns a signed receipt. The PA needs a generic
 device-code client.
+
+In OAuth 2.0 terms:
+
+| OAuth 2.0             | PACT                                                                        |
+| --------------------- | --------------------------------------------------------------------------- |
+| Client                | PA. `client_id` is its issuer URL.                                          |
+| Client registration   | Onboarding (§3.1): `issuer`, `jwksUri`, assigned `audience`.                |
+| Client authentication | PA JWT as `Authorization: Bearer`, on every call including the token call.  |
+| Resource owner        | User — `sub` in the PA JWT; the Brand's own user id in a delegation token.  |
+| Authorization server  | Provider, per Brand. The login step is the Brand's own login.               |
+| Server metadata       | Agent Card, which links RFC 8414 metadata when the Brand offers delegation. |
+| Scopes                | Defined by each Brand and listed on its card.                               |
+| Access token          | Delegation token, sent in `X-A2A-User-Delegation` next to the PA JWT.       |
+| Resource server       | The Brand's agent, behind the interface URL.                                |
 
 ```text
 PA   ──POST device_authorization {scopes}──▶ Provider           (auth: PA JWT)
@@ -292,7 +308,7 @@ client_id=https://pa.example.com&scope=orders:read%20orders:cancel
 }
 ```
 
-- Unknown scope id → OAuth `invalid_scope`. Bad PA JWT → `401` (§3.4).
+- An unknown scope id gets OAuth `invalid_scope`. A bad PA JWT gets `401` (§3.4).
 - The PA shows the User `verification_uri_complete`. It MUST NOT proxy, frame,
   or observe the login.
 - The link opens the Brand's login. The Brand authenticates the User and
@@ -358,12 +374,12 @@ Content-Type: application/json
 The Provider MUST (1) verify the PA JWT (§3.2); (2) verify the delegation
 token's signature, `aud`, `exp`, that `client_id` equals the PA's `iss`, and
 that the grant is not revoked; (3) run the agent as Brand user `sub`, limited
-to `scope`. A bad delegation token → `401` with
+to `scope`. A bad delegation token gets `401` with
 `WWW-Authenticate: Bearer realm="a2a", error="invalid_token"`, no A2A body.
 
 `contextId` rules (§4.2) are unchanged. A context started under §3 MAY
 continue under delegation. Once a context has run as one `sub`, a token for a
-different `sub` → `INVALID_PARAMS`.
+different `sub` gets `INVALID_PARAMS`.
 
 **Step-up.** If a turn needs a scope the token lacks, the Provider MUST NOT
 fail it. It returns a task in `TASK_STATE_AUTH_REQUIRED` with the missing ids
@@ -449,14 +465,18 @@ the status alone.
 }
 ```
 
-| Reason                            | HTTP | `status`              | When                                                                                                                                                   |
-| --------------------------------- | ---: | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Bad JSON or schema, wrong role, blank text, bad `pageSize`, unknown or foreign `contextId`, duplicate `messageId` with no reply, `sub` mismatch (§5.5) |
-| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Non-text part                                                                                                                                          |
-| `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Streaming, subscribe, extended card                                                                                                                    |
-| `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push-notification routes                                                                                                                               |
-| `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Task lookup or cancel; `taskId` on `message:send`                                                                                                      |
-| `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                                                                                                                       |
+| Reason                            | HTTP | `status`              | When                                              |
+| --------------------------------- | ---: | --------------------- | ------------------------------------------------- |
+| `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Invalid request (see below)                       |
+| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Non-text part                                     |
+| `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Streaming, subscribe, extended card               |
+| `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push-notification routes                          |
+| `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Task lookup or cancel; `taskId` on `message:send` |
+| `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                  |
+
+`INVALID_PARAMS` covers: bad JSON or schema, wrong role, blank text, bad
+`pageSize`, an unknown or foreign `contextId`, a repeated `messageId` with no
+stored reply, and a `sub` mismatch (§5.5).
 
 Not A2A errors: `401` (§3.4, §5.5), `404`/`405` for unmatched routes or
 unknown Brands (§2.2), and OAuth endpoint errors

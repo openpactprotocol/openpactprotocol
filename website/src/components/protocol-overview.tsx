@@ -32,21 +32,21 @@ const arrows: Arrow[] = [
   },
   {
     step: 4,
-    label: "message:send + JWT",
+    label: "Message + token",
     y: 236,
     from: PLATFORM.x + PLATFORM.width,
     to: PROVIDER.x,
   },
   {
     step: 5,
-    label: "Fetch JWKS, verify",
+    label: "Fetch keys, verify",
     y: 294,
     from: PROVIDER.x,
     to: PLATFORM.x + PLATFORM.width,
   },
   {
     step: 6,
-    label: "Reply + contextId",
+    label: "Reply + conversation id",
     y: 362,
     from: PROVIDER.x,
     to: PLATFORM.x + PLATFORM.width,
@@ -59,14 +59,14 @@ type Part = { label: string; detail: string; y: number; accent?: boolean };
 const platformParts: Part[] = [
   { label: "Assistant", detail: "talks to the User", y: 158 },
   { label: "Signing key", detail: "private, server-only", y: 216 },
-  { label: "JWKS", detail: "/.well-known/jwks.json", y: 274 },
+  { label: "Public keys", detail: "/.well-known/jwks.json", y: 274 },
 ];
 
 const providerParts: Part[] = [
-  { label: "PA registry", detail: "issuer · jwksUri · aud", y: 106 },
+  { label: "Onboarded PAs", detail: "issuer · keys URL · audience", y: 106 },
   { label: "Agent Card", detail: "/a2a/{brandId}", y: 158 },
-  { label: "JWT verification", detail: "iss · sub · aud · exp", y: 216 },
-  { label: "Brand's agent", detail: "one contextId per User", y: 318, accent: true },
+  { label: "Token check", detail: "signature · issuer · audience", y: 216 },
+  { label: "Brand's agent", detail: "one conversation per User", y: 318, accent: true },
 ];
 
 function ActorBox({
@@ -227,12 +227,12 @@ export function ProtocolOverview() {
           </text>
           <line className="po-boundary" x1={boundary} y1={40} x2={boundary} y2={472} />
 
-          <ActorBox x={USER.x} width={USER.width} title="User" subtitle="pseudonymous sub" />
+          <ActorBox x={USER.x} width={USER.width} title="User" subtitle="anonymous id" />
           <ActorBox
             x={PLATFORM.x}
             width={PLATFORM.width}
             title="Personal agent (PA)"
-            subtitle="the A2A client"
+            subtitle="acts for the User"
           />
           <ActorBox
             x={PROVIDER.x}

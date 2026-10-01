@@ -41,7 +41,6 @@ export function SiteShell({
 
       <div className="site-grid">
         <aside className="sidebar" aria-label="Documentation navigation">
-          <div className="sidebar-label">Documentation</div>
           {navigation.map((section) => (
             <section className="nav-section" key={section.title}>
               <h2>{section.title}</h2>
@@ -60,8 +59,8 @@ export function SiteShell({
             </section>
           ))}
           <div className="sidebar-note">
-            <span className="sidebar-note-icon">A2A</span>
-            <p>PACT uses the A2A 1.0 HTTP+JSON binding.</p>
+            <span className="sidebar-note-icon">1.0</span>
+            <p>Identity is implemented. Delegated authority is specified, not yet built.</p>
           </div>
         </aside>
 
