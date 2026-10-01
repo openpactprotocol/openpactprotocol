@@ -1,5 +1,5 @@
 {
-  "name": "personal-agent-protocol",
+  "name": "openpactprotocol",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.21.0",

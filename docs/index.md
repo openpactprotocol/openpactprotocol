@@ -15,7 +15,7 @@ The **Personal Agent Consent & Trust (PACT) Protocol** fixes both:
 - **Consent** — optionally, the person logs in with the business and approves
   specific actions. The agent never sees their password.
 
-PACT is a profile of [A2A 1.0](https://a2a-protocol.org), the open
+PACT is a new protocol built on [A2A 1.0](https://a2a-protocol.org), the open
 agent-to-agent protocol. Everything A2A defines works unchanged.
 
 > **Example.** Jane asks her assistant to cancel an order at Loom & Co. The
