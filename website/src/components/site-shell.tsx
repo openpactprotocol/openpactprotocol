@@ -27,7 +27,7 @@ export function SiteShell({
           <span className="topbar-caption">Developer documentation</span>
           <a
             className="github-link"
-            href="https://github.com/decagon-external/personal-agent-protocol"
+            href="https://github.com/openpactprotocol/openpactprotocol"
             target="_blank"
             rel="noreferrer"
           >
