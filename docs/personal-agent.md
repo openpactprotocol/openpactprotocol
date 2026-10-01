@@ -8,8 +8,9 @@ are in the [specification](spec.md); this is the happy path. `@pact/client`
 (`packages/client/src/index.ts`, one file — import it from this repository or
 copy it) does steps 3–5 in TypeScript; any language works.
 
-Two values come from outside: each Brand's **Agent Card URL** (the Brand gives
-it to you) and each Provider's **audience** string (step 2).
+Two values come from outside: each Brand's **Agent Card URL** (at the Brand's
+own `/.well-known/agent-card.json`, or from a public registry of Agent Cards)
+and each Provider's **audience** string (step 2).
 
 ## 1. Publish a signing key
 

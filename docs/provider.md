@@ -28,7 +28,9 @@ Unauthenticated; unknown `brandId` → `404`. The card
 `protocolBinding: "HTTP+JSON"`, `protocolVersion: "1.0"` and the `url` the
 other routes hang off; declares `httpAuthSecurityScheme`
 `{ scheme: "Bearer", bearerFormat: "JWT" }`; and sets `capabilities.streaming`,
-`pushNotifications`, `extendedAgentCard` to `false`. Brands give personal agents this URL.
+`pushNotifications`, `extendedAgentCard` to `false`. Personal agents find it through
+the Brand's own `/.well-known/agent-card.json` or a public registry of Agent
+Cards.
 
 **Done when** a Brand's card is served and an unknown id returns `404`.
 

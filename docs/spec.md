@@ -37,8 +37,10 @@ One card per Brand, served by the Provider:
 GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 ```
 
-- The personal agent gets the card URL from the Brand (a link, or the Brand's own
-  `/.well-known/agent-card.json`); it never builds it from a Brand ID.
+- The personal agent discovers the card through the Brand: the standard path on
+  the Brand's own domain (`https://{brandDomain}/.well-known/agent-card.json`),
+  a shared public registry of Agent Cards, or a link the Brand gives it. It
+  never builds the card URL from a Brand ID.
 - No authentication. An unknown `brandId` gets `404` with no A2A body.
 - MUST list a `supportedInterfaces` entry with `protocolBinding: "HTTP+JSON"`
   and `protocolVersion: "1.0"`. Its `url` is the **interface URL**. Personal agents pick
