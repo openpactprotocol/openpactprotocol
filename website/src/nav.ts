@@ -12,7 +12,8 @@ export const navigation: ReadonlyArray<{
     title: "Overview",
     pages: [
       { title: "Introduction", href: "/", file: "index.md" },
-      { title: "Quickstart", href: "/quickstart", file: "quickstart.md" },
+      { title: "Build a PA integration", href: "/pa", file: "pa.md" },
+      { title: "Build a Provider", href: "/provider", file: "provider.md" },
     ],
   },
   {
@@ -21,14 +22,7 @@ export const navigation: ReadonlyArray<{
   },
   {
     title: "Reference",
-    pages: [
-      {
-        title: "Reference implementation",
-        href: "/reference-implementation",
-        file: "reference-implementation.md",
-      },
-      { title: "TypeScript client", href: "/typescript-client", file: "typescript-client.md" },
-    ],
+    pages: [{ title: "Run the reference stack", href: "/running", file: "running.md" }],
   },
 ];
 

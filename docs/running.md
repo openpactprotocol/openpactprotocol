@@ -1,6 +1,6 @@
 ---
-title: Reference implementation
-description: Run a working Provider, demo PA and conformance tests on your machine.
+title: Run the reference stack
+description: Run a working Provider, demo PA and the conformance tests on your machine.
 ---
 
 Everything outside `docs/` is a runnable implementation of the
@@ -127,13 +127,12 @@ demo PA's "Register" button makes this call.
 
 ## Demo PA
 
-`reference/personal-agent/client` signs requests server-side, discovers the
-Brands in `CUSTOMER_IDS`, routes each User message to the right agent, and
-keeps one context per Brand. Its history lives in
-`.data/pa-conversations.json`; the Provider exposes none. With
-`OPENAI_API_KEY` it runs a tool-calling loop (`contact_support_a2a`); without
-it, keyword routing forwards the User's text verbatim. Its
-**Register personal agent** panel calls the self-service endpoint above.
+`reference/personal-agent/client` signs requests server-side with
+`@pact/client`, discovers the Brands in `CUSTOMER_IDS`, routes each User
+message to the right agent, and keeps one `contextId` per Brand. With
+`OPENAI_API_KEY` it runs a tool-calling loop; without it, keyword routing
+forwards the User's text verbatim. Its **Register personal agent** panel
+calls the self-service endpoint above.
 
 `reference/personal-agent/server` only serves the public JWKS; the private key
 never leaves the client.

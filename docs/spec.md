@@ -498,24 +498,8 @@ endpoint errors
 
 This is PACT **1.0**. Breaking changes to either profile bump that number.
 
-### 7.1 Implementing a Provider (Identity)
+### 7.1 Implementing
 
-1. Decide your trust policy (§3.1): allowlist PAs, or accept any issuer that
-   serves a JWKS. Pick one `audience` string and give it to every PA.
-2. Serve one Agent Card per Brand at `/a2a/{brandId}/.well-known/agent-card.json`
-   (§2.1), unauthenticated, with the `HTTP+JSON` 1.0 interface and the
-   Bearer-JWT scheme.
-3. On every other route, verify the PA JWT first (§3.2): signature via the
-   issuer's JWKS, `iss`, `aud`, `exp`, `iat`, allowed `alg`. Fail with `401` +
-   `WWW-Authenticate: Bearer` and no A2A body (§3.4).
-4. Key each conversation by `(PA, sub, Brand)`. Reject a `contextId` from
-   anyone else with `INVALID_PARAMS`, not `NOT_FOUND` (§4.2).
-5. Answer `message:send` synchronously; return the stored reply for a repeated
-   `messageId` (§4.3). Answer the other A2A operations per §2.2.
-6. Use the §6 envelope for A2A errors and plain HTTP for everything else.
-7. Run `e2e/` against yourself with `E2E_PROVIDER=any`; see
-   [Reference implementation](reference-implementation.md#conformance-tests).
-
-For Delegated, add §5: scopes and login per Brand, the OAuth device-code
-server under `{interfaceUrl}/oauth/`, delegation-token checks, step-up, and
-receipts.
+Step-by-step guides with a check per step: [Build a Provider](provider.md)
+(ends with running `e2e/` against yourself with `E2E_PROVIDER=any`) and
+[Build a PA integration](pa.md).

@@ -7,4 +7,4 @@ routes, and self-service PA registration. Brand agents are scripted demos
 (optionally OpenAI-backed). The code calls Brands `customers`.
 
 Setup, environment, data model, deployment:
-[Reference implementation](../../docs/reference-implementation.md#provider).
+[Run the reference stack](../../docs/running.md#run-it-locally).

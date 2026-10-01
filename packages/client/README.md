@@ -13,4 +13,4 @@ const client = new A2AClient({
 const reply = await client.sendMessage("Where is my order?");
 ```
 
-API: [TypeScript client](../../docs/typescript-client.md).
+How to use it: [Build a PA integration](../../docs/pa.md).

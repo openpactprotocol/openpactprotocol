@@ -14,4 +14,4 @@ the PA client's `.env.local`. Against a Provider other than the reference one,
 add `E2E_PROVIDER=any` (skips only the reference Provider's seeded card text
 and canned replies). `E2E_TEST_TIMEOUT_MS` (default 60000) bounds each test.
 Full setup:
-[Reference implementation → Conformance tests](../docs/reference-implementation.md#conformance-tests).
+[Run the reference stack → Conformance tests](../docs/running.md#conformance-tests).
