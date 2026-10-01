@@ -15,7 +15,7 @@ identity (**Trust**) and, optionally, only the permissions the User granted
 
 | You are                   | Read                                               |
 | ------------------------- | -------------------------------------------------- |
-| Building a PA             | [Build a PA integration](docs/pa.md)               |
+| Building a PA             | [Build a PA integration](docs/personal-agent.md)   |
 | Building a Provider       | [Build a Provider](docs/provider.md)               |
 | Checking the rules        | [Specification](docs/spec.md) — the normative text |
 | Trying it on your machine | [Run the reference stack](docs/running.md)         |

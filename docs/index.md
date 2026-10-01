@@ -52,7 +52,7 @@ a chat widget would.
 
 ## Start here
 
-- Building a PA → [Build a PA integration](pa.md)
+- Building a PA → [Build a PA integration](personal-agent.md)
 - Building a Provider → [Build a Provider](provider.md)
 - The rules → [Specification](spec.md) (the only normative document)
 - Try it → [Run the reference stack](running.md)
