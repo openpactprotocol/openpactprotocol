@@ -1,50 +1,88 @@
 import { exportJWK, generateKeyPair, jwtVerify } from "jose";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import {
   A2AClient,
   A2AError,
   A2AHttpError,
   createPlatformSigner,
-  PlatformRegistrationError,
-  registerPlatform,
+  fetchAgentCard,
+  interfaceUrl,
 } from "../src/index.js";
 
 const skylineCustomerId = "01M3R53Q5SZQ6FQSMSDBSSREAA";
+const skylineInterfaceUrl = `https://provider.example/a2a/${skylineCustomerId}`;
+const skylineCard = {
+  name: "Skyline Airways",
+  description: "Flight status and trip changes.",
+  supportedInterfaces: [
+    { url: skylineInterfaceUrl, protocolBinding: "HTTP+JSON", protocolVersion: "1.0" },
+  ],
+  version: "1.0",
+  capabilities: {},
+  defaultInputModes: ["text/plain"],
+  defaultOutputModes: ["text/plain"],
+  skills: [
+    {
+      id: "flight-status",
+      name: "Flight status",
+      description: "Check departure and arrival times for a booked flight.",
+      tags: ["flight", "delay"],
+      examples: ["Is my Friday flight on time?"],
+    },
+  ],
+};
 
-describe("reference client", () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  it("signs short ES256 tokens with required claims and a generated jti", async () => {
+describe("@pact/client", () => {
+  it("signs ES256 PA JWTs with the PACT claims", async () => {
     const { privateKey, publicKey } = await generateKeyPair("ES256", { extractable: true });
-    const privateJwk = await exportJWK(privateKey);
-    privateJwk.kid = "demo-key";
-    const token = await createPlatformSigner({
-      privateJwk,
+    const privateJwk = { ...(await exportJWK(privateKey)), kid: "key-1" };
+    const signer = createPlatformSigner({ issuer: "https://pa.example", privateJwk });
+    const token = await signer.sign({ sub: "user-7f3a", aud: "aud-1" });
+    const { payload, protectedHeader } = await jwtVerify(token, publicKey, {
       issuer: "https://pa.example",
-    }).sign({
-      sub: "user-1",
-      aud: "https://provider.example/a2a",
-      ttlSeconds: 90,
+      audience: "aud-1",
     });
-    const verified = await jwtVerify(token, publicKey);
-    expect(verified.protectedHeader).toMatchObject({ alg: "ES256", kid: "demo-key", typ: "JWT" });
-    expect(verified.payload).toMatchObject({
-      iss: "https://pa.example",
-      sub: "user-1",
-      aud: "https://provider.example/a2a",
-    });
-    expect(verified.payload.jti).toBeTypeOf("string");
+    expect(protectedHeader).toMatchObject({ alg: "ES256", kid: "key-1", typ: "JWT" });
+    expect(payload.sub).toBe("user-7f3a");
+    expect(payload.exp! - payload.iat!).toBe(120);
+    expect(payload.jti).toEqual(expect.any(String));
+    await expect(signer.sign({ sub: "u", aud: "a", ttlSeconds: 301 })).rejects.toThrow(
+      "ttlSeconds",
+    );
+    expect(() => createPlatformSigner({ issuer: "x", privateJwk: { kty: "EC" } })).toThrow("kid");
   });
 
-  it("sends message-only REST requests with fresh JWTs and A2A headers", async () => {
-    const signed: { sub: string; aud: string }[] = [];
-    const signer = {
-      issuer: "https://pa.example",
-      sign: async (input: { sub: string; aud: string }) => {
-        signed.push(input);
-        return `token-${signed.length}`;
+  it("fetches and validates an Agent Card and selects the HTTP+JSON 1.0 interface", async () => {
+    const fetched: string[] = [];
+    const card = await fetchAgentCard(
+      `${skylineInterfaceUrl}/.well-known/agent-card.json`,
+      async (input) => {
+        fetched.push(input.toString());
+        return Response.json(skylineCard);
       },
-    };
+    );
+    expect(fetched).toEqual([`${skylineInterfaceUrl}/.well-known/agent-card.json`]);
+    expect(card.name).toBe("Skyline Airways");
+    expect(interfaceUrl(card)).toBe(skylineInterfaceUrl);
+    expect(() =>
+      interfaceUrl({
+        ...card,
+        supportedInterfaces: [{ ...card.supportedInterfaces[0]!, protocolBinding: "GRPC" }],
+      }),
+    ).toThrow("HTTP+JSON 1.0");
+  });
+
+  it("turns a non-2xx card response into A2AHttpError", async () => {
+    await expect(
+      fetchAgentCard(
+        "https://provider.example/missing",
+        async () => new Response("", { status: 404 }),
+      ),
+    ).rejects.toMatchObject({ name: "A2AHttpError", status: 404 });
+  });
+
+  it("sends message:send with a fresh token and A2A headers", async () => {
+    let tokens = 0;
     const requests: { url: URL; init: RequestInit }[] = [];
     const message = {
       messageId: "agent-message",
@@ -53,10 +91,8 @@ describe("reference client", () => {
       parts: [{ text: "I can check that. What's your confirmation code?" }],
     };
     const client = new A2AClient({
-      url: `https://provider.example/a2a/${skylineCustomerId}/`,
-      signer,
-      userId: "user-1",
-      audience: "https://provider.example/a2a",
+      url: `${skylineInterfaceUrl}/`,
+      getToken: () => `token-${++tokens}`,
       fetchImpl: async (input, init) => {
         requests.push({ url: new URL(input.toString()), init: init ?? {} });
         return Response.json({ message });
@@ -67,11 +103,7 @@ describe("reference client", () => {
       await client.sendMessage("Is my Friday flight on time?", { contextId: message.contextId }),
     ).toEqual(message);
     expect(await client.sendMessage("ABC123")).toEqual(message);
-    expect(signed).toEqual([
-      { sub: "user-1", aud: "https://provider.example/a2a" },
-      { sub: "user-1", aud: "https://provider.example/a2a" },
-    ]);
-    expect(requests.map(({ url }) => `${url.pathname}${url.search}`)).toEqual([
+    expect(requests.map(({ url }) => url.pathname)).toEqual([
       `/a2a/${skylineCustomerId}/message:send`,
       `/a2a/${skylineCustomerId}/message:send`,
     ]);
@@ -83,95 +115,23 @@ describe("reference client", () => {
         "Content-Type": "application/json",
       },
     });
-    expect(JSON.parse(String(requests[0]?.init.body))).toMatchObject({
+    expect(new Headers(requests[1]?.init.headers).get("Authorization")).toBe("Bearer token-2");
+    const body = JSON.parse(String(requests[0]?.init.body));
+    expect(body).toMatchObject({
       message: {
         contextId: message.contextId,
         role: "ROLE_USER",
         parts: [{ text: "Is my Friday flight on time?", mediaType: "text/plain" }],
       },
     });
-    expect(JSON.parse(String(requests[0]?.init.body)).message).not.toHaveProperty("taskId");
-  });
-
-  it("allows an explicit A2A audience", async () => {
-    const signed: { sub: string; aud: string }[] = [];
-    const client = new A2AClient({
-      url: "https://provider.example/a2a/customer-id",
-      signer: {
-        issuer: "https://pa.example",
-        sign: async (input: { sub: string; aud: string }) => {
-          signed.push(input);
-          return "token";
-        },
-      },
-      userId: "user-1",
-      audience: "https://custom.example/audience",
-      fetchImpl: async () =>
-        Response.json({
-          message: {
-            messageId: "reply",
-            contextId: "context",
-            role: "ROLE_AGENT",
-            parts: [{ text: "Hello" }],
-          },
-        }),
-    });
-    await client.sendMessage("hello");
-    expect(signed).toEqual([{ sub: "user-1", aud: "https://custom.example/audience" }]);
-  });
-
-  it("discovers a card using a customer ID", async () => {
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      Response.json({
-        name: "Skyline Airways",
-        description: "Flight status and trip changes.",
-        supportedInterfaces: [
-          {
-            url: `https://provider.example/a2a/${skylineCustomerId}`,
-            protocolBinding: "HTTP+JSON",
-            protocolVersion: "1.0",
-          },
-        ],
-        version: "1.0",
-        capabilities: {},
-        defaultInputModes: ["text/plain"],
-        defaultOutputModes: ["text/plain"],
-        skills: [
-          {
-            id: "flight-status",
-            name: "Flight status",
-            description: "Check departure and arrival times for a booked flight.",
-            tags: [
-              "flight",
-              "flights",
-              "airline",
-              "delay",
-              "delayed",
-              "departure",
-              "boarding",
-              "gate",
-              "trip",
-            ],
-            examples: ["Is my Friday flight on time?"],
-          },
-        ],
-      }),
-    );
-    const { discoverAgent } = await import("../src/index.js");
-    const discovered = await discoverAgent("https://provider.example/", skylineCustomerId);
-    expect(fetchSpy).toHaveBeenCalledWith(
-      `https://provider.example/a2a/${skylineCustomerId}/.well-known/agent-card.json`,
-    );
-    expect(discovered.url).toBe(`https://provider.example/a2a/${skylineCustomerId}`);
+    expect(body.message).not.toHaveProperty("taskId");
+    expect(JSON.parse(String(requests[1]?.init.body)).message).not.toHaveProperty("contextId");
   });
 
   it("parses AIP-193 errors and preserves bare HTTP errors", async () => {
-    const signer = { issuer: "https://pa.example", sign: async () => "token" };
     const a2aClient = new A2AClient({
-      url: `https://provider.example/a2a/${skylineCustomerId}`,
-      signer,
-      userId: "demo",
-      audience: "https://provider.example/a2a",
+      url: skylineInterfaceUrl,
+      getToken: () => "token",
       fetchImpl: async () =>
         Response.json(
           {
@@ -200,10 +160,8 @@ describe("reference client", () => {
     });
 
     const httpClient = new A2AClient({
-      url: `https://provider.example/a2a/${skylineCustomerId}`,
-      signer,
-      userId: "demo",
-      audience: "https://provider.example/a2a",
+      url: skylineInterfaceUrl,
+      getToken: () => "token",
       fetchImpl: async () => new Response(null, { status: 401 }),
     });
     await expect(httpClient.sendMessage("hello")).rejects.toBeInstanceOf(A2AHttpError);
@@ -224,75 +182,6 @@ describe("reference client", () => {
       reason: "UNSUPPORTED_OPERATION",
       message: "Unsupported",
       details: [],
-    });
-  });
-});
-
-describe("platform registration client", () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  it("self-signs registration assertions and maps 201/200 to created", async () => {
-    const { privateKey, publicKey } = await generateKeyPair("ES256", { extractable: true });
-    const privateJwk = await exportJWK(privateKey);
-    privateJwk.kid = "registration-key";
-    const issuer = "https://pa.example";
-    const providerUrl = "https://provider.example";
-    const endpoint = `${providerUrl}/api/platforms`;
-    const platform = {
-      id: "00000000-0000-4000-8000-000000000000",
-      name: "instinct",
-      issuer,
-      jwksUri: `${issuer}/.well-known/jwks.json`,
-      enabled: true,
-    };
-    const calls: { input: RequestInfo | URL; init?: RequestInit }[] = [];
-    let requestCount = 0;
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
-      calls.push({ input, ...(init === undefined ? {} : { init }) });
-      const status = requestCount++ === 0 ? 201 : 200;
-      return Response.json({ platform }, { status });
-    });
-
-    const signer = createPlatformSigner({ issuer, privateJwk });
-    const first = await registerPlatform({ providerUrl, name: "instinct", signer });
-    const second = await registerPlatform({ providerUrl, name: "instinct", signer });
-
-    expect(first).toEqual({ created: true, platform });
-    expect(second).toEqual({ created: false, platform });
-    expect(calls.map(({ input }) => String(input))).toEqual([endpoint, endpoint]);
-    const firstInit = calls[0]?.init;
-    expect(JSON.parse(String(firstInit?.body))).toEqual({
-      name: "instinct",
-      jwksUri: `${issuer}/.well-known/jwks.json`,
-    });
-    const authorization = new Headers(firstInit?.headers).get("Authorization");
-    const token = authorization?.replace(/^Bearer /, "");
-    if (!token) throw new Error("Registration bearer token was not sent");
-    const { payload } = await jwtVerify(token, publicKey, {
-      issuer,
-      audience: endpoint,
-      algorithms: ["ES256"],
-    });
-    expect(payload).toMatchObject({ iss: issuer, sub: issuer, aud: endpoint });
-  });
-
-  it("throws PlatformRegistrationError with the provider conflict message", async () => {
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(
-      Response.json({ error: "Platform name is already registered" }, { status: 409 }),
-    );
-    const signer = {
-      issuer: "https://pa.example",
-      sign: async () => "signed-token",
-    };
-    const error = await registerPlatform({
-      providerUrl: "https://provider.example",
-      name: "instinct",
-      signer,
-    }).catch((cause: unknown) => cause);
-    expect(error).toBeInstanceOf(PlatformRegistrationError);
-    expect(error).toMatchObject({
-      status: 409,
-      message: "Platform name is already registered",
     });
   });
 });

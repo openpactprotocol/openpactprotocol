@@ -26,7 +26,7 @@ The docs site in `website/` renders these pages.
 ```text
 docs/                      the pages above (single source for the site)
 packages/protocol          @pact/protocol — Zod schemas: Agent Card, messages, errors, JWT claims
-packages/client            @pact/client   — signer, discoverAgent, A2AClient, `pact` CLI
+packages/client            @pact/client   — signer, fetchAgentCard, A2AClient, `pact` CLI
 reference/provider         reference Provider (Next.js + PostgreSQL)
 reference/personal-agent/  demo personal agent: JWKS server + chat UI
 e2e/                       conformance tests — run against any Provider with E2E_PROVIDER=any

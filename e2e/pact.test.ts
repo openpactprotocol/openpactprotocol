@@ -3,7 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
 import { A2AErrorResponseSchema } from "@pact/protocol";
-import { A2AClient, createPlatformSigner, discoverAgent, type DiscoveredAgent } from "@pact/client";
+import { A2AClient, fetchAgentCard, interfaceUrl, type AgentCard } from "@pact/client";
 
 function readLocalEnv(): void {
   const path = fileURLToPath(
@@ -33,7 +33,7 @@ let otherCustomerId = "";
 let issuer = "";
 let audience = "";
 let privateJwk: (JWK & { kid: string }) | undefined;
-let cardResult: DiscoveredAgent | undefined;
+let cardResult: { card: AgentCard; url: string } | undefined;
 let multiTurnClient: A2AClient | undefined;
 
 type TokenOptions = {
@@ -153,9 +153,7 @@ function client(userId: string): A2AClient {
   if (!cardResult || !privateJwk) throw new Error("The card and PA key must be loaded first");
   return new A2AClient({
     url: cardResult.url,
-    signer: createPlatformSigner({ privateJwk, issuer }),
-    userId,
-    audience,
+    getToken: () => signedToken({ subject: userId }),
   });
 }
 
@@ -169,7 +167,10 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
   });
 
   it("discovers the public Agent Card with the customer-ID interface URL", async () => {
-    cardResult = await discoverAgent(providerUrl, customerId);
+    const card = await fetchAgentCard(
+      `${providerUrl}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`,
+    );
+    cardResult = { card, url: interfaceUrl(card) };
     expect(cardResult.card.supportedInterfaces[0]).toMatchObject({
       url: `${providerUrl}/a2a/${customerId}`,
       protocolBinding: "HTTP+JSON",

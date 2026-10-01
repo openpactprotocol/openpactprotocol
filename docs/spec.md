@@ -31,12 +31,14 @@ A2A 1.0 HTTP+JSON. Requests SHOULD send `A2A-Version: 1.0` and
 
 ### 2.1 Agent Card
 
-One card per Brand:
+One card per Brand, served by the Provider:
 
 ```http
 GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 ```
 
+- The PA gets the card URL from the Brand (a link, or the Brand's own
+  `/.well-known/agent-card.json`); it never builds it from a Brand ID.
 - No authentication. An unknown `brandId` gets `404` with no A2A body.
 - MUST list a `supportedInterfaces` entry with `protocolBinding: "HTTP+JSON"`
   and `protocolVersion: "1.0"`. Its `url` is the **interface URL**. PAs pick

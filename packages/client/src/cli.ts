@@ -3,7 +3,7 @@ import { createInterface } from "node:readline/promises";
 import { stdin as input, stdout as output } from "node:process";
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { A2AClient, createPlatformSigner, discoverAgent, registerPlatform } from "./index.js";
+import { A2AClient, createPlatformSigner, fetchAgentCard, interfaceUrl } from "./index.js";
 
 const envFile = fileURLToPath(
   new URL("../../../reference/personal-agent/client/.env.local", import.meta.url),
@@ -16,68 +16,43 @@ if (existsSync(envFile)) {
   }
 }
 
-const providerUrl = process.env.PROVIDER_URL;
-const customerId = process.env.CUSTOMER_ID;
-const issuer = process.env.PA_ISSUER;
-const privateJwk = process.env.PA_PRIVATE_JWK;
 const userId = process.env.PA_USER_ID ?? "demo-user";
 const [command = "help", ...args] = process.argv.slice(2);
 
-const usage =
-  "Usage: pact register [--name <name>] [--jwks-uri <url>] | card | send <text> [--context <id>] | chat";
+const usage = "Usage: pact card | send <text> [--context <id>] | chat";
+
+function cardUrl(): string {
+  if (process.env.AGENT_CARD_URL) return process.env.AGENT_CARD_URL;
+  const providerUrl = process.env.PROVIDER_URL;
+  const customerId = process.env.CUSTOMER_ID;
+  if (!providerUrl || !customerId)
+    throw new Error("Set AGENT_CARD_URL, or PROVIDER_URL and CUSTOMER_ID");
+  return `${providerUrl.replace(/\/+$/, "")}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`;
+}
+
+function signer(): { sign(sub: string): Promise<string> } {
+  const issuer = process.env.PA_ISSUER;
+  const privateJwk = process.env.PA_PRIVATE_JWK;
+  const aud = process.env.PA_AUDIENCE;
+  if (!issuer || !privateJwk || !aud)
+    throw new Error("Set PA_ISSUER, PA_PRIVATE_JWK, and PA_AUDIENCE");
+  const platformSigner = createPlatformSigner({ issuer, privateJwk });
+  return { sign: (sub) => platformSigner.sign({ sub, aud }) };
+}
 
 async function main(): Promise<void> {
-  if (command === "help" || command === "--help") {
-    console.log(usage);
-    return;
-  }
-  if (!providerUrl) throw new Error("Set PROVIDER_URL");
-
-  if (command === "register") {
-    if (!issuer || !privateJwk) throw new Error("Set PA_ISSUER and PA_PRIVATE_JWK");
-    let name = process.env.PA_PLATFORM_NAME || "demo-pa";
-    let jwksUri: string | undefined;
-    for (let index = 0; index < args.length; index += 1) {
-      const argument = args[index];
-      if (argument === "--name" || argument === "--jwks-uri") {
-        const value = args[index + 1];
-        if (!value) throw new Error(`${argument} requires a value`);
-        if (argument === "--name") name = value;
-        else jwksUri = value;
-        index += 1;
-      } else {
-        throw new Error(`Unknown register option: ${argument}`);
-      }
-    }
-    const result = await registerPlatform({
-      providerUrl,
-      name,
-      ...(jwksUri === undefined ? {} : { jwksUri }),
-      signer: createPlatformSigner({ issuer, privateJwk }),
-    });
-    console.log(
-      `${result.created ? "created" : "already registered"}\n${JSON.stringify(result.platform, null, 2)}`,
-    );
-    return;
-  }
-
   if (!["card", "send", "chat"].includes(command)) {
     console.log(usage);
     return;
   }
-  if (!customerId) throw new Error("Set CUSTOMER_ID");
 
-  const discovered = await discoverAgent(providerUrl, customerId);
+  const card = await fetchAgentCard(cardUrl());
   if (command === "card") {
-    console.log(JSON.stringify(discovered.card, null, 2));
+    console.log(JSON.stringify(card, null, 2));
     return;
   }
-  const audience = process.env.PA_AUDIENCE;
-  if (!issuer || !privateJwk || !audience) {
-    throw new Error("Set PA_ISSUER, PA_PRIVATE_JWK, and PA_AUDIENCE");
-  }
-  const signer = createPlatformSigner({ issuer, privateJwk });
-  const client = new A2AClient({ url: discovered.url, signer, userId, audience });
+  const paSigner = signer();
+  const client = new A2AClient({ url: interfaceUrl(card), getToken: () => paSigner.sign(userId) });
   if (command === "send") {
     const contextIndex = args.indexOf("--context");
     const contextId = contextIndex < 0 ? undefined : args[contextIndex + 1];
