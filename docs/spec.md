@@ -1,6 +1,6 @@
 ---
 title: Specification
-description: PACT extends A2A 1.0 with PA identity and delegated authority. This is the normative text.
+description: PACT extends A2A 1.0 with personal-agent identity and delegated authority. This is the normative text.
 ---
 
 PACT extends [A2A 1.0](https://a2a-protocol.org) with the two things A2A leaves
@@ -9,19 +9,19 @@ and error envelope apply unchanged. MUST, SHOULD, and MAY are as in RFC 2119.
 
 ## 1. Terms
 
-| Term         | Meaning                                                                                         |
-| ------------ | ----------------------------------------------------------------------------------------------- |
-| **Provider** | Builds and hosts Brands' support agents. Serves Agent Cards, verifies tokens, answers messages. |
-| **Brand**    | A business whose agent runs on a Provider. Has a Provider-assigned `brandId`.                   |
-| **PA**       | A personal-agent platform. Has a signing key and publishes its public keys as a JWKS.           |
-| **User**     | The person using the PA.                                                                        |
+| Term               | Meaning                                                                                           |
+| ------------------ | ------------------------------------------------------------------------------------------------- |
+| **Provider**       | Builds and hosts Brands' support agents. Serves Agent Cards, verifies tokens, answers messages.   |
+| **Brand**          | A business whose agent runs on a Provider. Has a Provider-assigned `brandId`.                     |
+| **Personal agent** | An agent platform acting for the User. Has a signing key and publishes its public keys as a JWKS. |
+| **User**           | The person using the personal agent.                                                              |
 
-| Section                | Required?                              | Adds                                                                                  |
-| ---------------------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
-| §2 Transport           | yes                                    | Where a Brand's Agent Card is; which A2A operations exist.                            |
-| §3 PA identity         | yes                                    | The bearer token is a JWT the PA signs; the Provider checks its JWKS.                 |
-| §4 Messages            | yes                                    | One `contextId` per (PA, User, Brand); retries are idempotent.                        |
-| §5 Delegated authority | no — a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account. |
+| Section                    | Required?                              | Adds                                                                                  |
+| -------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
+| §2 Transport               | yes                                    | Where a Brand's Agent Card is; which A2A operations exist.                            |
+| §3 Personal-agent identity | yes                                    | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.     |
+| §4 Messages                | yes                                    | One `contextId` per (personal agent, User, Brand); retries are idempotent.            |
+| §5 Delegated authority     | no — a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account. |
 
 ## 2. Transport
 
@@ -37,13 +37,13 @@ One card per Brand, served by the Provider:
 GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 ```
 
-- The PA gets the card URL from the Brand (a link, or the Brand's own
+- The personal agent gets the card URL from the Brand (a link, or the Brand's own
   `/.well-known/agent-card.json`); it never builds it from a Brand ID.
 - No authentication. An unknown `brandId` gets `404` with no A2A body.
 - MUST list a `supportedInterfaces` entry with `protocolBinding: "HTTP+JSON"`
-  and `protocolVersion: "1.0"`. Its `url` is the **interface URL**. PAs pick
+  and `protocolVersion: "1.0"`. Its `url` is the **interface URL**. Personal agents pick
   the interface by binding and version, not by position.
-- MUST declare the PA JWT (§3) as an `httpAuthSecurityScheme` with
+- MUST declare the personal-agent JWT (§3) as an `httpAuthSecurityScheme` with
   `scheme: "Bearer"`, `bearerFormat: "JWT"`, listed alone in one
   `securityRequirements` entry.
 - MAY declare delegated authority (§5.1).
@@ -99,30 +99,30 @@ return A2A errors so generic A2A clients fail cleanly.
 Any other route gets `404` or `405` with no A2A body. Routing happens before
 authentication; an unknown Brand is `404` even with a valid token.
 
-## 3. PA identity
+## 3. Personal agent identity
 
-The bearer token is a JWT the PA signs with its own key. The Provider
-verifies it against the PA's JWKS. No shared secrets.
+The bearer token is a JWT the personal agent signs with its own key. The Provider
+verifies it against the personal agent's JWKS. No shared secrets.
 
 ### 3.1 Onboarding
 
-| Kept by  | Value      | Rule                                                                               |
-| -------- | ---------- | ---------------------------------------------------------------------------------- |
-| Provider | `issuer`   | URL the PA puts in `iss`. Exact string match.                                      |
-| Provider | `jwksUri`  | HTTPS URL of the PA's JWKS. Rotate keys by publishing new ones; the URI is stable. |
-| Provider | enabled    | Providers MAY disable a PA; its requests then get `401`.                           |
-| PA       | `audience` | Opaque string the Provider assigns. Goes in `aud` verbatim.                        |
+| Kept by        | Value      | Rule                                                                                           |
+| -------------- | ---------- | ---------------------------------------------------------------------------------------------- |
+| Provider       | `issuer`   | URL the personal agent puts in `iss`. Exact string match.                                      |
+| Provider       | `jwksUri`  | HTTPS URL of the personal agent's JWKS. Rotate keys by publishing new ones; the URI is stable. |
+| Provider       | enabled    | Providers MAY disable a personal agent; its requests then get `401`.                           |
+| Personal agent | `audience` | Opaque string the Provider assigns. Goes in `aud` verbatim.                                    |
 
-How these are exchanged is out of scope. Onboarding happens once per PA and
+How these are exchanged is out of scope. Onboarding happens once per personal agent and
 Provider, not per User or Brand. `audience` is one value per Provider and
 MUST NOT be derived from a card URL.
 
-Whether a Provider accepts only PAs it has allowlisted (a trusted-issuer
-registry) or any PA whose `iss` serves a JWKS is the Provider's policy, not
+Whether a Provider accepts only personal agents it has allowlisted (a trusted-issuer
+registry) or any personal agent whose `iss` serves a JWKS is the Provider's policy, not
 PACT's. An open Provider still verifies §3.2 in full; `jwksUri` MAY then be
 found through OIDC discovery at `{iss}/.well-known/openid-configuration`.
 
-### 3.2 PA JWT
+### 3.2 Personal-agent JWT
 
 Every request except the card carries `Authorization: Bearer <pa-jwt>`.
 
@@ -138,15 +138,15 @@ Every request except the card carries `Authorization: Bearer <pa-jwt>`.
 | `jti` | MAY be present. Providers need not track replay.                               |
 
 Providers MUST verify the signature via `jwksUri`, allow at most 30 s clock
-skew, and reject unknown or disabled PAs. The User is the pair `(PA, sub)`;
-the PA MUST reuse the same `sub` for the same User.
+skew, and reject unknown or disabled personal agents. The User is the pair `(personal agent, sub)`;
+the personal agent MUST reuse the same `sub` for the same User.
 
-### 3.3 What the PA JWT proves
+### 3.3 What the personal-agent JWT proves
 
-That a known PA is calling for someone it calls `sub`. Not that `sub` owns a
+That a known personal agent is calling for someone it calls `sub`. Not that `sub` owns a
 Brand account. Without §5, the agent verifies the User the way it does in a
-chat widget — it asks for an order number, email, etc. — and the PA relays the
-User's answers. Account credentials never pass through the PA.
+chat widget — it asks for an order number, email, etc. — and the personal agent relays the
+User's answers. Account credentials never pass through the personal agent.
 
 ### 3.4 Failure
 
@@ -195,12 +195,12 @@ Content-Type: application/json
 - Without `contextId`, the message starts a new conversation and the Provider
   mints an opaque `contextId`.
 - With `contextId`, the message continues that conversation. The context MUST belong to this Brand and this
-  `(PA, sub)`; otherwise `INVALID_PARAMS`, without saying whether it exists for
+  `(personal agent, sub)`; otherwise `INVALID_PARAMS`, without saying whether it exists for
   someone else.
 - `contextId` is state, not a credential. Ordinary turns create no A2A Task.
 - A Provider MAY close a conversation (the Brand's agent ended it, or it
   expired). A message to a closed `contextId` gets `UNSUPPORTED_OPERATION`;
-  the PA starts a new conversation by omitting `contextId`.
+  the personal agent starts a new conversation by omitting `contextId`.
 
 ### 4.3 Retries
 
@@ -217,30 +217,30 @@ without re-running the agent. If there is no stored reply yet, return
 Lets the agent act on the User's Brand account. Standard OAuth 2.0 device
 code ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)): the Brand defines
 its own scopes for its own use cases; the User logs in with the Brand — never
-with the PA — and approves some of them; the Provider issues a delegation
-token; every turn under it returns a signed receipt. The PA needs a generic
+with the personal agent — and approves some of them; the Provider issues a delegation
+token; every turn under it returns a signed receipt. The personal agent needs a generic
 device-code client.
 
 In OAuth 2.0 terms:
 
-| OAuth 2.0             | PACT                                                                        |
-| --------------------- | --------------------------------------------------------------------------- |
-| Client                | PA. `client_id` is its issuer URL.                                          |
-| Client registration   | Onboarding (§3.1): `issuer`, `jwksUri`, assigned `audience`.                |
-| Client authentication | PA JWT as `Authorization: Bearer`, on every call including the token call.  |
-| Resource owner        | User — `sub` in the PA JWT; the Brand's own user id in a delegation token.  |
-| Authorization server  | Provider, per Brand. The login step is the Brand's own login.               |
-| Server metadata       | Agent Card, which links RFC 8414 metadata when the Brand offers delegation. |
-| Scopes                | Defined by each Brand and listed on its card.                               |
-| Access token          | Delegation token, sent in `X-A2A-User-Delegation` next to the PA JWT.       |
-| Resource server       | The Brand's agent, behind the interface URL.                                |
+| OAuth 2.0             | PACT                                                                                   |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| Client                | Personal agent. `client_id` is its issuer URL.                                         |
+| Client registration   | Onboarding (§3.1): `issuer`, `jwksUri`, assigned `audience`.                           |
+| Client authentication | Personal-agent JWT as `Authorization: Bearer`, on every call including the token call. |
+| Resource owner        | User — `sub` in the personal-agent JWT; the Brand's own user id in a delegation token. |
+| Authorization server  | Provider, per Brand. The login step is the Brand's own login.                          |
+| Server metadata       | Agent Card, which links RFC 8414 metadata when the Brand offers delegation.            |
+| Scopes                | Defined by each Brand and listed on its card.                                          |
+| Access token          | Delegation token, sent in `X-A2A-User-Delegation` next to the personal-agent JWT.      |
+| Resource server       | The Brand's agent, behind the interface URL.                                           |
 
 ```text
-PA   ──POST device_authorization {scopes}──▶ Provider           (auth: PA JWT)
-PA   ◀── verification_uri_complete ───────── Provider
+Agent ──POST device_authorization {scopes}──▶ Provider           (auth: personal-agent JWT)
+Agent ◀── verification_uri_complete ───────── Provider
 User ──opens link──▶ Brand login ──identity assertion──▶ Provider consent ──approve──▶ grant
-PA   ──POST token ──▶ Provider ──▶ delegation token {sub, client_id, scope, exp}
-PA   ──message:send + PA JWT + delegation token──▶ agent acts as the User, within scope ──▶ reply + receipt
+Agent ──POST token ──▶ Provider ──▶ delegation token {sub, client_id, scope, exp}
+Agent ──message:send + personal-agent JWT + delegation token──▶ agent acts as the User, within scope ──▶ reply + receipt
 ```
 
 ### 5.1 Card
@@ -276,7 +276,7 @@ schemes:
 }
 ```
 
-- The PA-JWT-only entry MUST stay. A PA MAY always talk with §3 alone.
+- The entry that needs only the personal-agent JWT MUST stay. A personal agent MAY always talk with §3 alone.
 - `oauth2MetadataUrl` MUST serve [RFC 8414](https://www.rfc-editor.org/rfc/rfc8414)
   metadata; its `jwks_uri` publishes the keys that sign delegation tokens and
   receipts.
@@ -286,13 +286,13 @@ schemes:
 A scope is `{ id, description }`. Each Brand defines its own — `orders:read`,
 `booking:change`, whatever its agent does — and PACT reserves no ids. The
 Brand maps its agent's capabilities to scopes; unmapped capabilities stay
-available under §3. PAs pick scopes by reading the descriptions and MUST
+available under §3. Personal agents pick scopes by reading the descriptions and MUST
 request only ids on the card. Providers show descriptions to the User
 verbatim on consent.
 
 ### 5.3 Getting a token
 
-RFC 8628 with two rules: the OAuth client is the PA, authenticated with its
+RFC 8628 with two rules: the OAuth client is the personal agent, authenticated with its
 §3 JWT (`client_id` = its issuer URL); the login step is the Brand's own login.
 
 ```http
@@ -314,16 +314,16 @@ client_id=https://pa.example.com&scope=orders:read%20orders:cancel
 }
 ```
 
-- An unknown scope id gets OAuth `invalid_scope`. A bad PA JWT gets `401` (§3.4).
-- The PA shows the User `verification_uri_complete`. It MUST NOT proxy, frame,
+- An unknown scope id gets OAuth `invalid_scope`. A bad personal-agent JWT gets `401` (§3.4).
+- The personal agent shows the User `verification_uri_complete`. It MUST NOT proxy, frame,
   or observe the login.
 - The link opens the Brand's login. The Brand authenticates the User and
   redirects back to the Provider with an identity assertion (whatever it
   already uses for its other channels; out of scope here). The Provider then
-  shows consent as the logged-in User: which PA, which Brand, each scope as a
+  shows consent as the logged-in User: which personal agent, which Brand, each scope as a
   checkbox the User MAY uncheck. Login comes first so the grant is bound to a
   verified account.
-- Consent MAY be skipped when an unexpired grant for `(User, PA)` already
+- Consent MAY be skipped when an unexpired grant for `(User, personal agent)` already
   covers the request.
 
 ```http
@@ -347,7 +347,7 @@ Until approval: `authorization_pending`, `slow_down`, `access_denied`, or
 }
 ```
 
-`scope` is what the User approved, which may be less than requested. The PA
+`scope` is what the User approved, which may be less than requested. The personal agent
 MUST read it.
 
 ### 5.4 Delegation token
@@ -355,19 +355,19 @@ MUST read it.
 `access_token` is a JWT signed by the Provider (`ES256`/`RS256`; keys at the
 `jwks_uri` from §5.1).
 
-| Claim        | Meaning                                                                  |
-| ------------ | ------------------------------------------------------------------------ |
-| `iss`        | The Brand's authorization server (as in its RFC 8414 metadata).          |
-| `aud`        | The Brand's interface URL. One Brand per token.                          |
-| `sub`        | The User's id at the Brand — the same id the Brand's other channels use. |
-| `client_id`  | The PA's issuer URL. MUST equal the `iss` of the PA JWT sent with it.    |
-| `scope`      | Space-separated granted scope ids.                                       |
-| `grant_id`   | Opaque id of the grant. Appears in receipts.                             |
-| `iat`, `exp` | Lifetime SHOULD be ≤ 1 h. Refresh within the grant's lifetime.           |
+| Claim        | Meaning                                                                                       |
+| ------------ | --------------------------------------------------------------------------------------------- |
+| `iss`        | The Brand's authorization server (as in its RFC 8414 metadata).                               |
+| `aud`        | The Brand's interface URL. One Brand per token.                                               |
+| `sub`        | The User's id at the Brand — the same id the Brand's other channels use.                      |
+| `client_id`  | The personal agent's issuer URL. MUST equal the `iss` of the personal-agent JWT sent with it. |
+| `scope`      | Space-separated granted scope ids.                                                            |
+| `grant_id`   | Opaque id of the grant. Appears in receipts.                                                  |
+| `iat`, `exp` | Lifetime SHOULD be ≤ 1 h. Refresh within the grant's lifetime.                                |
 
 ### 5.5 Sending with it
 
-Both tokens go on the request. The PA JWT is checked first, unchanged.
+Both tokens go on the request. The personal-agent JWT is checked first, unchanged.
 
 ```http
 POST {interfaceUrl}/message:send
@@ -377,8 +377,8 @@ A2A-Version: 1.0
 Content-Type: application/json
 ```
 
-The Provider MUST (1) verify the PA JWT (§3.2); (2) verify the delegation
-token's signature, `aud`, `exp`, that `client_id` equals the PA's `iss`, and
+The Provider MUST (1) verify the personal-agent JWT (§3.2); (2) verify the delegation
+token's signature, `aud`, `exp`, that `client_id` equals the personal agent's `iss`, and
 that the grant is not revoked; (3) run the agent as Brand user `sub`, limited
 to `scope`. A bad delegation token gets `401` with
 `WWW-Authenticate: Bearer realm="a2a", error="invalid_token"`, no A2A body.
@@ -411,7 +411,7 @@ and a new link; the conversation stays open:
 }
 ```
 
-The PA repeats §5.3 for the missing scopes (login is skipped if the User's
+The personal agent repeats §5.3 for the missing scopes (login is skipped if the User's
 session with the Provider is still live), gets a new token, and re-sends with
 the same `contextId`. The step-up task MAY be ephemeral; `tasks/{id}` MAY
 return `TASK_NOT_FOUND` for it.
@@ -446,7 +446,7 @@ reply's `metadata` a receipt signed with the same keys as the token:
 }
 ```
 
-`jws` is the compact JWS of `claims`. PAs SHOULD verify and keep receipts.
+`jws` is the compact JWS of `claims`. Personal agents SHOULD verify and keep receipts.
 
 ## 6. Errors
 
@@ -486,7 +486,7 @@ stored reply, and a `sub` mismatch (§5.5).
 
 Not A2A errors: `401` (§3.4, §5.5), `404`/`405` for unmatched routes or
 unknown Brands (§2.2), `429` with `Retry-After` when a Provider rate-limits a
-PA or a `(PA, sub)` (PAs SHOULD wait that long before retrying), and OAuth
+personal agent or a `(personal agent, sub)` (personal agents SHOULD wait that long before retrying), and OAuth
 endpoint errors
 ([RFC 6749 §5.2](https://www.rfc-editor.org/rfc/rfc6749#section-5.2), RFC 8628).
 
@@ -503,4 +503,4 @@ This is PACT **1.0**. Breaking changes to either profile bump that number.
 
 Step-by-step guides with a check per step: [Build a Provider](provider.md)
 (ends with running `e2e/` against yourself with `E2E_PROVIDER=any`) and
-[Build a PA integration](personal-agent.md).
+[Build a personal agent integration](personal-agent.md).

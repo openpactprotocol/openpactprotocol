@@ -1,6 +1,6 @@
 ---
 title: Run the reference stack
-description: Run the reference Provider, demo PA and conformance tests on your machine.
+description: Run the reference Provider, demo personal agent and conformance tests on your machine.
 ---
 
 Everything outside `docs/` implements the [specification](spec.md)'s
@@ -8,15 +8,15 @@ Everything outside `docs/` implements the [specification](spec.md)'s
 demo agents are examples, not protocol. The code calls Brands **customers**
 (`CUSTOMER_ID`, the `customers` table).
 
-| Path                              | What it is                                                | Port |
-| --------------------------------- | --------------------------------------------------------- | ---: |
-| `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite)      | 3000 |
-| `reference/personal-agent/client` | Demo **PA UI** — one chat fanning out to Brands over PACT | 3001 |
-| `reference/personal-agent/server` | Demo PA's **JWKS server**                                 | 3002 |
-| `packages/client`                 | `@pact/client` — signer, `fetchAgentCard`, `A2AClient`    |      |
-| `packages/protocol`               | `@pact/protocol` — Zod schemas                            |      |
-| `e2e/`                            | Conformance suite                                         |      |
-| `website`                         | This site; content is `docs/`                             | 3003 |
+| Path                              | What it is                                                            | Port |
+| --------------------------------- | --------------------------------------------------------------------- | ---: |
+| `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite)                  | 3000 |
+| `reference/personal-agent/client` | Demo **personal-agent UI** — one chat fanning out to Brands over PACT | 3001 |
+| `reference/personal-agent/server` | Demo personal agent's **JWKS server**                                 | 3002 |
+| `packages/client`                 | `@pact/client` — signer, `fetchAgentCard`, `A2AClient`                |      |
+| `packages/protocol`               | `@pact/protocol` — Zod schemas                                        |      |
+| `e2e/`                            | Conformance suite                                                     |      |
+| `website`                         | This site; content is `docs/`                                         | 3003 |
 
 ## Run it locally
 
@@ -24,7 +24,7 @@ Node 20+ and pnpm 11.21.0.
 
 ```sh
 pnpm install
-pnpm gen-keys        # public key → JWKS server, private key → PA client .env.local
+pnpm gen-keys        # public key → JWKS server, private key → personal-agent client .env.local
 ```
 
 Four processes, each in its own terminal:
@@ -33,7 +33,7 @@ Four processes, each in its own terminal:
 pnpm --filter @pact/personal-agent-server dev                                                 # JWKS, :3002
 PGLITE_DATA_DIR="$HOME/.local/share/pact-provider-db" pnpm --filter @pact/provider db:pglite  # database
 A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @pact/provider dev                       # Provider, :3000
-pnpm --filter @pact/personal-agent-client dev                                                 # demo PA, :3001
+pnpm --filter @pact/personal-agent-client dev                                                 # demo personal agent, :3001
 ```
 
 Once the database is up (any PostgreSQL works; point `DATABASE_URL` at it):
@@ -43,7 +43,7 @@ export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres DATABAS
 pnpm --filter @pact/provider db:migrate && pnpm --filter @pact/provider db:seed
 ```
 
-The seed creates three Brands and onboards the demo PA (`demo-pa`):
+The seed creates three Brands and onboards the demo personal agent (`demo-pa`):
 
 | Brand           | ID                           |
 | --------------- | ---------------------------- |
@@ -65,9 +65,9 @@ PA_PRIVATE_JWK=<written by pnpm gen-keys>
 Chat at `http://localhost:3001`. With `OPENAI_API_KEY` set on either side the
 agents use OpenAI; without it they use scripted replies.
 
-## Register a PA
+## Register a personal agent
 
-The reference Provider onboards PAs at `POST {PROVIDER_URL}/api/platforms`
+The reference Provider onboards personal agents at `POST {PROVIDER_URL}/api/platforms`
 (the spec leaves onboarding to each Provider):
 
 ```sh
@@ -76,10 +76,10 @@ curl -X POST "$PROVIDER_URL/api/platforms" \
   -d '{"name":"my-pa","jwksUri":"https://pa.example.com/.well-known/jwks.json"}'
 ```
 
-`REGISTRATION_TOKEN` is a JWT signed with the PA's key: `iss` = issuer,
+`REGISTRATION_TOKEN` is a JWT signed with the personal agent's key: `iss` = issuer,
 `sub` = `iss`, `aud` = the endpoint URL, `exp` ≤ 300 s. The JWKS URI must share
 the issuer's origin. `201` registers (audience = `A2A_AUDIENCE`), `409` means
-the name or issuer is taken. The demo PA's **Register** button makes this call.
+the name or issuer is taken. The demo personal agent's **Register** button makes this call.
 
 ## Conformance tests
 
@@ -90,7 +90,7 @@ PA_ISSUER=http://localhost:3002 PA_AUDIENCE=http://localhost:3000/a2a \
 pnpm e2e
 ```
 
-`PA_PRIVATE_JWK` comes from the environment or the PA client's `.env.local`.
+`PA_PRIVATE_JWK` comes from the environment or the personal-agent client's `.env.local`.
 Against another Provider add `E2E_PROVIDER=any`, which skips only the
 reference Provider's seeded card text and canned replies.
 `E2E_TEST_TIMEOUT_MS` (default 60000) bounds each test.

@@ -1,9 +1,9 @@
 ---
-title: Build a PA integration
+title: Build a personal agent integration
 description: Make a personal-agent platform speak PACT.
 ---
 
-For engineers adding PACT to a personal-agent platform (a **PA**). The rules
+For engineers adding PACT to a personal agent. The rules
 are in the [specification](spec.md); this is the happy path. `@pact/client`
 (`packages/client/src/index.ts`, one file — import it from this repository or
 copy it) does steps 3–5 in TypeScript; any language works.
@@ -23,13 +23,13 @@ becomes the `iss` claim.
 
 Once per Provider, not per User or Brand. Send your issuer and JWKS URL;
 receive `PA_AUDIENCE`. The reference Provider has a
-[self-service endpoint](running.md#register-a-pa).
+[self-service endpoint](running.md#register-a-personal-agent).
 
 **Done when** you have `PA_AUDIENCE`.
 
-## 3. Sign a PA JWT
+## 3. Sign a personal-agent JWT
 
-One per request, valid ≤ 300 s ([spec §3.2](spec.md#32-pa-jwt)): header
+One per request, valid ≤ 300 s ([spec §3.2](spec.md#32-personal-agent-jwt)): header
 `kid`; `iss` = `PA_ISSUER`; `sub` = your stable, opaque id for the User;
 `aud` = `PA_AUDIENCE`; `iat`, `exp`.
 
@@ -89,13 +89,13 @@ second message with that `contextId` continues the conversation.
 
 ## 6. Handle errors
 
-| Response                                 | Meaning                                        | Do                                    |
-| ---------------------------------------- | ---------------------------------------------- | ------------------------------------- |
-| `401` + `WWW-Authenticate: Bearer`       | Token rejected (claims, signature, unknown PA) | Fix the token; don't retry as is      |
-| `429` + `Retry-After`                    | Rate limited                                   | Wait that long, then retry            |
-| `404`                                    | Unknown Brand or route                         | Check the card URL                    |
-| Envelope, reason `INVALID_PARAMS`        | Bad request, or a `contextId` that isn't yours | Fix the request / start a new context |
-| Envelope, reason `UNSUPPORTED_OPERATION` | Conversation closed, or an unsupported route   | Omit `contextId` to start a new one   |
+| Response                                 | Meaning                                                    | Do                                    |
+| ---------------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
+| `401` + `WWW-Authenticate: Bearer`       | Token rejected (claims, signature, unknown personal agent) | Fix the token; don't retry as is      |
+| `429` + `Retry-After`                    | Rate limited                                               | Wait that long, then retry            |
+| `404`                                    | Unknown Brand or route                                     | Check the card URL                    |
+| Envelope, reason `INVALID_PARAMS`        | Bad request, or a `contextId` that isn't yours             | Fix the request / start a new context |
+| Envelope, reason `UNSUPPORTED_OPERATION` | Conversation closed, or an unsupported route               | Omit `contextId` to start a new one   |
 
 The reason is `error.details[0].reason` ([spec §6](spec.md#6-errors)).
 `A2AClient` throws `A2AError` for envelopes and `A2AHttpError` for the rest.
