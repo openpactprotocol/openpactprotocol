@@ -26,11 +26,7 @@ export PA_AUDIENCE="http://localhost:3000/a2a"
 
 `pnpm gen-keys` has already created a signing key (`PA_PRIVATE_JWK` in
 `reference/personal-agent/client/.env.local`), so you can skip to
-[step 3](#3-sign-a-token). Or send a message straight from the CLI:
-
-```sh
-pnpm --filter @pact/client pact send "Where is my order?"
-```
+[step 3](#3-sign-a-token).
 
 ## 1. Create a signing key
 

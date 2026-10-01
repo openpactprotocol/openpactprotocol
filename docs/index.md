@@ -84,4 +84,4 @@ logs its Users in is up to the Brand.
   [§7.1](spec.md#71-implementing-a-provider-identity).
 - [Reference implementation](reference-implementation.md) — a working
   Provider, demo personal agent and conformance tests.
-- [TypeScript client](typescript-client.md) — `@pact/client` and the `pact` CLI.
+- [TypeScript client](typescript-client.md) — `@pact/client`.
