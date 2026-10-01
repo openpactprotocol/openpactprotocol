@@ -196,6 +196,9 @@ Content-Type: application/json
   `(PA, sub)`; otherwise `INVALID_PARAMS`, without saying whether it exists for
   someone else.
 - `contextId` is state, not a credential. Ordinary turns create no A2A Task.
+- A Provider MAY close a conversation (the Brand's agent ended it, or it
+  expired). A message to a closed `contextId` gets `UNSUPPORTED_OPERATION`;
+  the PA starts a new conversation by omitting `contextId`.
 
 ### 4.3 Retries
 
@@ -465,21 +468,23 @@ the status alone.
 }
 ```
 
-| Reason                            | HTTP | `status`              | When                                              |
-| --------------------------------- | ---: | --------------------- | ------------------------------------------------- |
-| `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Invalid request (see below)                       |
-| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Non-text part                                     |
-| `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Streaming, subscribe, extended card               |
-| `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push-notification routes                          |
-| `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Task lookup or cancel; `taskId` on `message:send` |
-| `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                  |
+| Reason                            | HTTP | `status`              | When                                                |
+| --------------------------------- | ---: | --------------------- | --------------------------------------------------- |
+| `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Invalid request (see below)                         |
+| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Non-text part                                       |
+| `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Streaming, subscribe, extended card, closed context |
+| `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push-notification routes                            |
+| `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Task lookup or cancel; `taskId` on `message:send`   |
+| `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                    |
 
 `INVALID_PARAMS` covers: bad JSON or schema, wrong role, blank text, bad
 `pageSize`, an unknown or foreign `contextId`, a repeated `messageId` with no
 stored reply, and a `sub` mismatch (§5.5).
 
 Not A2A errors: `401` (§3.4, §5.5), `404`/`405` for unmatched routes or
-unknown Brands (§2.2), and OAuth endpoint errors
+unknown Brands (§2.2), `429` with `Retry-After` when a Provider rate-limits a
+PA or a `(PA, sub)` (PAs SHOULD wait that long before retrying), and OAuth
+endpoint errors
 ([RFC 6749 §5.2](https://www.rfc-editor.org/rfc/rfc6749#section-5.2), RFC 8628).
 
 ## 7. Conformance
