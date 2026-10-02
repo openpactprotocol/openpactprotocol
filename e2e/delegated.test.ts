@@ -52,7 +52,8 @@ const card = await fetchAgentCard(`${providerUrl}/a2a/${customerId}/.well-known/
 const scheme: DelegationScheme | undefined = card ? delegationScheme(card.card) : undefined;
 
 function field(html: string, name: string): string {
-  const value = html.match(new RegExp(`name="${name}" value="([^"]+)"`))?.[1];
+  const tag = html.match(new RegExp(`<input\\b[^>]*\\bname="${name}"[^>]*>`))?.[0];
+  const value = tag?.match(/\bvalue="([^"]+)"/)?.[1];
   if (!value) throw new Error(`No ${name} field in page`);
   return value;
 }
@@ -71,7 +72,7 @@ async function approveInBrowser(
     body: new URLSearchParams({ return_to: returnTo, email: brandEmail, password: brandPassword }),
   });
   const loginHtml = await login.text();
-  const consentAction = loginHtml.match(/<form[^>]*action="([^"]+)"/)?.[1] ?? "";
+  const consentAction = loginHtml.match(/<form[^>]*\baction="([^"]+)"/)?.[1] ?? "";
   const consent = await fetch(consentAction, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -79,7 +80,7 @@ async function approveInBrowser(
   });
   const consentHtml = await consent.text();
   expect(consent.status).toBe(200);
-  const decisionAction = consentHtml.match(/<form method="post" action="([^"]+)"/)?.[1] ?? "";
+  const decisionAction = consentHtml.match(/<form[^>]*\baction="([^"]+)"/)?.[1] ?? "";
   const body = new URLSearchParams({ session: field(consentHtml, "session"), decision });
   for (const scope of scopes) body.append("scope", scope);
   const result = await fetch(decisionAction.replace(/&amp;/g, "&"), {
