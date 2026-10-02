@@ -126,6 +126,9 @@ export async function startAuthorization(input: {
     businessName: input.businessName,
     url: authorization.verificationUriComplete,
     scopes,
+    scopeLabels: Object.fromEntries(
+      input.scheme.scopes.map((scope) => [scope.id, scope.description]),
+    ),
     status: "pending",
   };
 }

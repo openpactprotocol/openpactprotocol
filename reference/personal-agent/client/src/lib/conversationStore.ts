@@ -10,6 +10,7 @@ export type SignInCard = {
   scopes: string[];
   status: "pending" | "connected" | "denied" | "expired";
   grantedScopes?: string[];
+  scopeLabels?: Record<string, string>;
 };
 
 export type PhoneMessage =
@@ -37,6 +38,7 @@ export type BusinessThread = {
   contextId: string;
   messages: ThreadMessage[];
   awaitingReply: boolean;
+  scopeLabels?: Record<string, string>;
 };
 
 export type PaConversation = {

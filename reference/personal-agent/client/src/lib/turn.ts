@@ -319,6 +319,13 @@ export async function runTurn(
           { ...agentMessage, at: replyAt },
         ],
         awaitingReply: !missingScopes && reply.trimEnd().endsWith("?"),
+        ...(business.delegation
+          ? {
+              scopeLabels: Object.fromEntries(
+                business.delegation.scopes.map((scope) => [scope.id, scope.description]),
+              ),
+            }
+          : {}),
       };
       if (existingIndex < 0) conversation.threads.push(updatedThread);
       else conversation.threads[existingIndex] = updatedThread;

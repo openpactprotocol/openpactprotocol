@@ -1,5 +1,48 @@
+import { KeyRound, ShieldAlert, ShieldCheck } from "lucide-react";
 import type { ReactElement } from "react";
-import type { BusinessThread } from "../lib/conversationStore.js";
+import type { BusinessThread, ReceiptSummary } from "../lib/conversationStore.js";
+
+function toolLabel(tool: string): string {
+  const words = tool.replace(/[_-]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
+function ReceiptView(input: {
+  receipt: ReceiptSummary;
+  scopeLabel: (scope: string) => string;
+}): ReactElement {
+  const { receipt } = input;
+  return (
+    <details className={receipt.verified ? "treceipt" : "treceipt unverified"}>
+      <summary>
+        {receipt.verified ? (
+          <ShieldCheck size={13} aria-hidden />
+        ) : (
+          <ShieldAlert size={13} aria-hidden />
+        )}
+        {receipt.verified ? "Verified receipt" : "Receipt not verified"}
+      </summary>
+      <dl>
+        {receipt.actions.length > 0 ? (
+          <>
+            <dt>Actions</dt>
+            <dd>{receipt.actions.map(toolLabel).join(", ")}</dd>
+          </>
+        ) : null}
+        {receipt.scopesUsed.length > 0 ? (
+          <>
+            <dt>Access used</dt>
+            <dd>{receipt.scopesUsed.map(input.scopeLabel).join(", ")}</dd>
+          </>
+        ) : null}
+        <dt>Grant</dt>
+        <dd>
+          <code>{receipt.grantId}</code>
+        </dd>
+      </dl>
+    </details>
+  );
+}
 
 export function ThreadCard(input: {
   thread: BusinessThread;
@@ -9,6 +52,7 @@ export function ThreadCard(input: {
 }): ReactElement {
   const { thread } = input;
   const needsSignIn = thread.messages.at(-1)?.authRequired !== undefined;
+  const scopeLabel = (scope: string) => thread.scopeLabels?.[scope] ?? scope;
   return (
     <article className="thread-card">
       <header style={{ background: input.color }}>
@@ -23,32 +67,31 @@ export function ThreadCard(input: {
         </div>
       </header>
       <div className="thread-card-body">
-        {thread.messages.map((message, index) => (
-          <div className="tmessage" key={`${message.at}-${index}`}>
-            <p
-              className={message.role === "ROLE_USER" ? "tbubble from-pa" : "tbubble from-business"}
-            >
-              {message.text}
-            </p>
-            {message.authRequired ? (
-              <span className="tmeta auth">Auth required · {message.authRequired.join(", ")}</span>
-            ) : null}
-            {message.receipt ? (
-              <span
-                className={message.receipt.verified ? "tmeta receipt" : "tmeta auth"}
-                title={`grant ${message.receipt.grantId}`}
+        {thread.messages.map((message, index) => {
+          const resent =
+            message.role === "ROLE_USER" && thread.messages[index - 1]?.authRequired !== undefined;
+          return (
+            <div className="tmessage" key={`${message.at}-${index}`}>
+              {resent ? <span className="tnote">Resent after sign-in</span> : null}
+              <p
+                className={
+                  message.role === "ROLE_USER" ? "tbubble from-pa" : "tbubble from-business"
+                }
               >
-                {message.receipt.verified ? "Signed receipt ✓" : "Receipt not verified"}
-                {message.receipt.actions.length > 0
-                  ? ` · ${message.receipt.actions.join(", ")}`
-                  : ""}
-                {message.receipt.scopesUsed.length > 0
-                  ? ` · ${message.receipt.scopesUsed.join(", ")}`
-                  : ""}
-              </span>
-            ) : null}
-          </div>
-        ))}
+                {message.text}
+              </p>
+              {message.receipt ? (
+                <ReceiptView receipt={message.receipt} scopeLabel={scopeLabel} />
+              ) : null}
+              {message.authRequired ? (
+                <span className="tevent">
+                  <KeyRound size={12} aria-hidden />
+                  Sign-in requested · {message.authRequired.map(scopeLabel).join(", ")}
+                </span>
+              ) : null}
+            </div>
+          );
+        })}
         {input.error ? <p className="tbubble from-business">{input.error}</p> : null}
         {input.typing ? (
           <p

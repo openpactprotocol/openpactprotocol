@@ -2,13 +2,13 @@ import { describe, expect, it } from "vitest";
 import { composeFallbackReply } from "./composer.js";
 
 describe("composeFallbackReply", () => {
-  it("labels a single business reply", () => {
+  it("passes a single business reply through unlabeled", () => {
     expect(
       composeFallbackReply({
         replies: [{ businessName: "Skyline Airways", reply: "Flight SK 482 is delayed." }],
         unreachable: [],
       }),
-    ).toBe("Skyline Airways: Flight SK 482 is delayed.");
+    ).toBe("Flight SK 482 is delayed.");
   });
 
   it("joins several business replies", () => {
