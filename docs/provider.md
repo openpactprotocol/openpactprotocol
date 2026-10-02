@@ -91,8 +91,8 @@ and `429` + `Retry-After` when you rate-limit.
 ## 6. Run the conformance suite
 
 Needs two Brand IDs and a personal agent you trust (`pnpm gen-keys` makes one; see
-[conformance tests](running.md#conformance-tests)). The code calls Brands
-`customers`, hence `CUSTOMER_ID`.
+[conformance tests](running.md#conformance-tests)). The `PA_*` (personal agent)
+variables describe it. The code calls Brands `customers`, hence `CUSTOMER_ID`.
 
 ```sh
 E2E_PROVIDER=any PROVIDER_URL=https://provider.example.com \

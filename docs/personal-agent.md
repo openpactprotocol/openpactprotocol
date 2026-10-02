@@ -12,6 +12,8 @@ Two values come from outside: each Brand's **Agent Card URL** (standard:
 the Brand's own `/.well-known/agent-card.json`; or a link or public registry
 entry pointing to it) and each Provider's **audience** string (step 2).
 
+Variables prefixed `PA_` (personal agent) configure your platform.
+
 ## 1. Publish a signing key
 
 Generate an ES256 key with a `kid`. Serve the public JWK as a JWKS at

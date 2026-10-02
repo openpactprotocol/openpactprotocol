@@ -9,12 +9,12 @@ and error envelope apply unchanged. MUST, SHOULD, and MAY are as in RFC 2119.
 
 ## 1. Terms
 
-| Term               | Meaning                                                                                           |
-| ------------------ | ------------------------------------------------------------------------------------------------- |
-| **Provider**       | Builds and hosts Brands' support agents. Serves Agent Cards, verifies tokens, answers messages.   |
-| **Brand**          | A business whose agent runs on a Provider. Has a Provider-assigned `brandId`.                     |
-| **Personal agent** | An agent platform acting for the User. Has a signing key and publishes its public keys as a JWKS. |
-| **User**           | The person using the personal agent.                                                              |
+| Term               | Meaning                                                                                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Provider**       | Builds and hosts Brands' support agents. Serves Agent Cards, verifies tokens, answers messages.                                                               |
+| **Brand**          | A business whose agent runs on a Provider. Has a Provider-assigned `brandId`.                                                                                 |
+| **Personal agent** | An agent platform acting for the User. Has a signing key and publishes its public keys as a JWKS. Abbreviated `PA`/`pa` in identifiers (`paJwt`, `<pa-jwt>`). |
+| **User**           | The person using the personal agent.                                                                                                                          |
 
 | Section                    | Required?                              | Adds                                                                                  |
 | -------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------- |

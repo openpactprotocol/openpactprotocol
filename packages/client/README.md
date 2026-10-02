@@ -1,6 +1,6 @@
 # @pact/client
 
-PA-side client: `createPlatformSigner`, `fetchAgentCard`, `interfaceUrl`,
+Personal-agent-side client: `createPlatformSigner`, `fetchAgentCard`, `interfaceUrl`,
 `A2AClient`, typed errors.
 
 ```ts
