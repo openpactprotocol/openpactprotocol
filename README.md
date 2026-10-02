@@ -15,6 +15,7 @@ identity (**Trust**) and, optionally, only the permissions the User granted
 
 | You are                   | Read                                                         |
 | ------------------------- | ------------------------------------------------------------ |
+| New to PACT               | [Introduction](docs/index.md) — what it is and how it works  |
 | Building a personal agent | [Build a personal agent integration](docs/personal-agent.md) |
 | Building a Provider       | [Build a Provider](docs/provider.md)                         |
 | Checking the rules        | [Specification](docs/spec.md) — the normative text           |
