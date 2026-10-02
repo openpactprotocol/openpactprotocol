@@ -51,8 +51,7 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
   `scheme: "Bearer"`, `bearerFormat: "JWT"`, listed alone in one
   `securityRequirements` entry.
 - MAY declare delegated authority (§5.1).
-- `capabilities.streaming`, `pushNotifications`, and `extendedAgentCard` MUST
-  be `false`. `name`, `description`, `skills` are informational.
+- `name`, `description`, `skills` are informational.
 
 ```json
 {
@@ -86,19 +85,15 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 
 ### 2.2 Operations
 
-Relative to the interface URL. Only `message:send` does work; the others
-return A2A errors so generic A2A clients fail cleanly.
+Relative to the interface URL. Only `message:send` is required. Other A2A
+operations behave as A2A defines.
 
-| Method          | Path                                            | Result                                                           |
-| --------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
-| `POST`          | `message:send`                                  | `200` `{ "message": Message }` (§4) or `{ "task": Task }` (§5.5) |
-| `GET`           | `tasks`                                         | `200` empty `ListTasksResponse` (`pageSize` 1–100, default 50)   |
-| `GET`           | `tasks/{id}`                                    | `TASK_NOT_FOUND`                                                 |
-| `POST`          | `tasks/{id}:cancel`                             | `TASK_NOT_FOUND`                                                 |
-| `POST`          | `tasks/{id}:subscribe`, `message:stream`        | `UNSUPPORTED_OPERATION`                                          |
-| `GET`           | `extendedAgentCard`                             | `UNSUPPORTED_OPERATION`                                          |
-| `GET`, `POST`   | `tasks/{id}/pushNotificationConfigs`            | `PUSH_NOTIFICATION_NOT_SUPPORTED`                                |
-| `GET`, `DELETE` | `tasks/{id}/pushNotificationConfigs/{configId}` | `PUSH_NOTIFICATION_NOT_SUPPORTED`                                |
+| Method | Path                | Result                                                           |
+| ------ | ------------------- | ---------------------------------------------------------------- |
+| `POST` | `message:send`      | `200` `{ "message": Message }` (§4) or `{ "task": Task }` (§5.5) |
+| `GET`  | `tasks`             | `200` empty `ListTasksResponse` (`pageSize` 1–100, default 50)   |
+| `GET`  | `tasks/{id}`        | `TASK_NOT_FOUND`                                                 |
+| `POST` | `tasks/{id}:cancel` | `TASK_NOT_FOUND`                                                 |
 
 Any other route gets `404` or `405` with no A2A body. Routing happens before
 authentication; an unknown Brand is `404` even with a valid token.
@@ -481,14 +476,14 @@ the status alone.
 }
 ```
 
-| Reason                            | HTTP | `status`              | When                                                |
-| --------------------------------- | ---: | --------------------- | --------------------------------------------------- |
-| `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Invalid request (see below)                         |
-| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Non-text part                                       |
-| `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Streaming, subscribe, extended card, closed context |
-| `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push-notification routes                            |
-| `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Task lookup or cancel; `taskId` on `message:send`   |
-| `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                    |
+| Reason                            | HTTP | `status`              | When                                              |
+| --------------------------------- | ---: | --------------------- | ------------------------------------------------- |
+| `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Invalid request (see below)                       |
+| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Non-text part                                     |
+| `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Unsupported operation, closed context             |
+| `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push notifications not supported                  |
+| `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Task lookup or cancel; `taskId` on `message:send` |
+| `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                  |
 
 `INVALID_PARAMS` covers: bad JSON or schema, wrong role, blank text, bad
 `pageSize`, an unknown or foreign `contextId`, a repeated `messageId` with no

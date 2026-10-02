@@ -303,6 +303,8 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
 
   it("maps task, unsupported, and push routes to the specified A2A errors", async () => {
     const taskId = crypto.randomUUID();
+    if (!cardResult) throw new Error("The Agent Card must be loaded first");
+    const capabilities = cardResult.card.capabilities;
     for (const [method, route] of [
       ["GET", `tasks/${taskId}`],
       ["POST", `tasks/${taskId}:cancel`],
@@ -314,28 +316,38 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
         message: `Task not found: ${taskId}`,
       });
     }
-    for (const [method, route] of [
-      ["POST", "message:stream"],
-      ["POST", `tasks/${taskId}:subscribe`],
-      ["GET", "extendedAgentCard"],
-    ] as const) {
-      await expectA2AError(await rawRequest(route, { method }), {
+    if (capabilities.streaming !== true) {
+      for (const [method, route] of [
+        ["POST", "message:stream"],
+        ["POST", `tasks/${taskId}:subscribe`],
+      ] as const) {
+        await expectA2AError(await rawRequest(route, { method }), {
+          httpStatus: 400,
+          status: "FAILED_PRECONDITION",
+          reason: "UNSUPPORTED_OPERATION",
+        });
+      }
+    }
+    if (capabilities.extendedAgentCard !== true) {
+      await expectA2AError(await rawRequest("extendedAgentCard", { method: "GET" }), {
         httpStatus: 400,
         status: "FAILED_PRECONDITION",
         reason: "UNSUPPORTED_OPERATION",
       });
     }
-    for (const [method, route] of [
-      ["GET", `tasks/${taskId}/pushNotificationConfigs`],
-      ["POST", `tasks/${taskId}/pushNotificationConfigs`],
-      ["GET", `tasks/${taskId}/pushNotificationConfigs/config-1`],
-      ["DELETE", `tasks/${taskId}/pushNotificationConfigs/config-1`],
-    ] as const) {
-      await expectA2AError(await rawRequest(route, { method }), {
-        httpStatus: 400,
-        status: "FAILED_PRECONDITION",
-        reason: "PUSH_NOTIFICATION_NOT_SUPPORTED",
-      });
+    if (capabilities.pushNotifications !== true) {
+      for (const [method, route] of [
+        ["GET", `tasks/${taskId}/pushNotificationConfigs`],
+        ["POST", `tasks/${taskId}/pushNotificationConfigs`],
+        ["GET", `tasks/${taskId}/pushNotificationConfigs/config-1`],
+        ["DELETE", `tasks/${taskId}/pushNotificationConfigs/config-1`],
+      ] as const) {
+        await expectA2AError(await rawRequest(route, { method }), {
+          httpStatus: 400,
+          status: "FAILED_PRECONDITION",
+          reason: "PUSH_NOTIFICATION_NOT_SUPPORTED",
+        });
+      }
     }
   });
 
