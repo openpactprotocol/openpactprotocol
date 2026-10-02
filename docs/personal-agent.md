@@ -18,7 +18,29 @@ Variables prefixed `PA_` (personal agent) configure your platform.
 
 Generate an ES256 key with a `kid`. Serve the public JWK as a JWKS at
 `{PA_ISSUER}/.well-known/jwks.json`. `PA_ISSUER` is your platform's URL and
-becomes the `iss` claim.
+becomes the `iss` claim. In this repository, `pnpm gen-keys` generates a key
+pair in this format.
+
+An example JWKS with one public key:
+
+```json
+{
+  "keys": [
+    {
+      "kty": "EC",
+      "crv": "P-256",
+      "x": "32yODbRN1le9sJisAM16fORoi3d_i19xMlEFQsSz6uw",
+      "y": "WufjW10h9FnHjf6vvEgMRlhRllzt4EYYFNB0HRSU_F8",
+      "kid": "EkP2hB9FBw2yq4fSePcMSsPN8g5LtvKa7JDorgV0yvA",
+      "alg": "ES256",
+      "use": "sig"
+    }
+  ]
+}
+```
+
+Publish only the public key. The private key has an extra `d` field; keep it
+secret and use it to sign tokens (step 3).
 
 **Done when** `curl $PA_ISSUER/.well-known/jwks.json` returns `{ "keys": [ … ] }`.
 
