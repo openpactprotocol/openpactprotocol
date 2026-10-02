@@ -324,18 +324,10 @@ client_id=https://pa.example.com&scope=orders:read%20orders:cancel
 - The personal agent shows the User `verification_uri_complete`. It MUST NOT proxy, frame,
   or observe the login.
 - The link opens the Brand's login. The Brand authenticates the User and
-  returns the User to the Provider's consent endpoint with a
-  **login assertion**: a token the Brand signs for this purpose only. It MUST
-  be single-use, MUST carry the `user_code` it was issued for, MUST expire
-  within a few minutes, and MUST be delivered by `POST` (form post or
-  back-channel), never in a URL. Credentials the Brand issues for other channels (a chat-widget
-  session, for example) MUST NOT be accepted. The Provider MUST reject an
-  assertion whose `user_code` does not match the pending request or that it
-  has seen before. Its exact format is agreed between Brand and Provider.
-- The Provider then shows consent as the logged-in User: the personal agent's
-  issuer origin (not only a display name), the Brand, when the request was
-  made, and each scope as a checkbox the User MAY uncheck
-  ([RFC 8628 §5.4](https://www.rfc-editor.org/rfc/rfc8628#section-5.4)).
+  returns the User to the Provider with a single-use assertion bound to the
+  `user_code`, sent by `POST` — not a credential from another channel. The
+  Provider then shows consent as the logged-in User: the personal agent's
+  issuer origin, the Brand, and each scope as a checkbox the User MAY uncheck.
   Login comes first so the grant is bound to a verified account.
 - Consent MAY be skipped when an unexpired grant for `(User, personal agent)` already
   covers the request.
