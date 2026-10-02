@@ -2,8 +2,8 @@ import { generateKeyPair, importJWK, SignJWT, type CryptoKey, type JWK } from "j
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
-import { A2AErrorResponseSchema } from "@pact/protocol";
-import { A2AClient, fetchAgentCard, interfaceUrl, type AgentCard } from "@pact/client";
+import { A2AErrorResponseSchema } from "@openpactprotocol/protocol";
+import { A2AClient, fetchAgentCard, interfaceUrl, type AgentCard } from "@openpactprotocol/client";
 
 function readLocalEnv(): void {
   const path = fileURLToPath(

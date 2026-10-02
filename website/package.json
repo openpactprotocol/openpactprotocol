@@ -1,5 +1,5 @@
 {
-  "name": "@pact/docs",
+  "name": "@openpactprotocol/docs",
   "version": "0.1.0",
   "private": true,
   "type": "module",

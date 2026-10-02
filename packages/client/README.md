@@ -1,4 +1,4 @@
-# @pact/client
+# @openpactprotocol/client
 
 Personal-agent-side client: `createPlatformSigner`, `fetchAgentCard`, `interfaceUrl`,
 `A2AClient`, typed errors.

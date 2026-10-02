@@ -4,7 +4,7 @@ description: Make a personal-agent platform speak PACT.
 ---
 
 For engineers adding PACT to a personal agent. The rules
-are in the [specification](spec.md); this is the happy path. `@pact/client`
+are in the [specification](spec.md); this is the happy path. `@openpactprotocol/client`
 (`packages/client/src/index.ts`, one file — import it from this repository or
 copy it) does steps 3–5 in TypeScript; any language works.
 
@@ -37,7 +37,7 @@ One per request, valid ≤ 300 s ([spec §3.2](spec.md#32-personal-agent-jwt)): 
 `aud` = `PA_AUDIENCE`; `iat`, `exp`.
 
 ```ts
-import { createPlatformSigner } from "@pact/client";
+import { createPlatformSigner } from "@openpactprotocol/client";
 
 const signer = createPlatformSigner({ issuer: PA_ISSUER, privateJwk });
 const token = await signer.sign({ sub: "user-7f3a", aud: PA_AUDIENCE });
@@ -52,7 +52,7 @@ No token. The **interface URL** is the `url` of the `supportedInterfaces`
 entry with `protocolBinding: "HTTP+JSON"` and `protocolVersion: "1.0"`.
 
 ```ts
-import { fetchAgentCard, interfaceUrl } from "@pact/client";
+import { fetchAgentCard, interfaceUrl } from "@openpactprotocol/client";
 
 const url = interfaceUrl(await fetchAgentCard(AGENT_CARD_URL));
 ```
@@ -74,7 +74,7 @@ curl -X POST "$INTERFACE_URL/message:send" \
 ```
 
 ```ts
-import { A2AClient } from "@pact/client";
+import { A2AClient } from "@openpactprotocol/client";
 
 const client = new A2AClient({
   url,

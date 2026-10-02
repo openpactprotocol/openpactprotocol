@@ -8,7 +8,7 @@ import {
   type A2AErrorResponse,
   type AgentCard,
   type Message,
-} from "@pact/protocol";
+} from "@openpactprotocol/protocol";
 
 export type { AgentCard, Message };
 

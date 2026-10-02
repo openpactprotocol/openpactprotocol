@@ -1,4 +1,4 @@
-import { AgentCardSchema, type AgentCard } from "@pact/protocol";
+import { AgentCardSchema, type AgentCard } from "@openpactprotocol/protocol";
 import { businessProfile } from "../agent/index.js";
 import type { customers } from "../db/schema.js";
 
