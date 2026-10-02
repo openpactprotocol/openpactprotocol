@@ -53,22 +53,15 @@ describe("protocol schemas", () => {
     expect(AgentCardSchema.parse(JSON.parse(JSON.stringify(card)))).toEqual(card);
   });
 
-  it("accepts a Message or Task reply and lists tasks", () => {
+  it("returns a Message only and describes an empty task list", () => {
     const message = {
       messageId: "message-1",
       contextId: "00000000-0000-4000-8000-000000000000",
       role: "ROLE_AGENT",
       parts: [{ text: "Open until 5 PM." }],
     };
-    const task = {
-      id: "task-1",
-      contextId: "00000000-0000-4000-8000-000000000000",
-      status: { state: "TASK_STATE_COMPLETED" },
-    };
     expect(SendMessageResponseSchema.parse({ message })).toEqual({ message });
-    expect(SendMessageResponseSchema.parse({ task })).toEqual({ task });
     expect(SendMessageResponseSchema.safeParse({ task: {} }).success).toBe(false);
-    expect(SendMessageResponseSchema.safeParse({ message, task }).success).toBe(false);
     expect(
       ListTasksResponseSchema.parse({
         tasks: [],
@@ -77,14 +70,6 @@ describe("protocol schemas", () => {
         totalSize: 0,
       }).tasks,
     ).toEqual([]);
-    expect(
-      ListTasksResponseSchema.parse({
-        tasks: [task],
-        nextPageToken: "",
-        pageSize: 50,
-        totalSize: 1,
-      }).tasks,
-    ).toEqual([task]);
     expect(
       ListTasksResponseSchema.safeParse({
         tasks: [{ id: "task-1" }],

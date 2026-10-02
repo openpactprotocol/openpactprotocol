@@ -171,12 +171,10 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
       `${providerUrl}/a2a/${encodeURIComponent(customerId)}/.well-known/agent-card.json`,
     );
     cardResult = { card, url: interfaceUrl(card) };
-    const httpJsonInterface = cardResult.card.supportedInterfaces.find(
-      (agentInterface) =>
-        agentInterface.protocolBinding === "HTTP+JSON" && agentInterface.protocolVersion === "1.0",
-    );
-    expect(httpJsonInterface).toMatchObject({
+    expect(cardResult.card.supportedInterfaces[0]).toMatchObject({
       url: `${providerUrl}/a2a/${customerId}`,
+      protocolBinding: "HTTP+JSON",
+      protocolVersion: "1.0",
     });
     expect(cardResult.card.securitySchemes?.platformJwt).toHaveProperty(
       "httpAuthSecurityScheme.scheme",
@@ -216,37 +214,27 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
     await expectNoA2AError(unknown);
   });
 
-  it("returns a reply and continues the flight-detail flow by contextId", async () => {
+  it("returns Message replies and continues the flight-detail flow by contextId", async () => {
     const reply = await client("flight-user").sendMessage("Is my Friday flight on time?");
-    expect(reply.contextId).toEqual(expect.any(String));
-    if (referenceProvider) expect("parts" in reply).toBe(true);
-    if (referenceProvider && "parts" in reply) {
-      expect(reply).toMatchObject({
-        role: "ROLE_AGENT",
-        contextId: expect.any(String),
-        parts: [textPart("I can check that. What's your confirmation code?")],
-      });
-      expect(reply).not.toHaveProperty("taskId");
-    }
+    expect(reply).toMatchObject({
+      role: "ROLE_AGENT",
+      contextId: expect.any(String),
+      parts: [textPart("I can check that. What's your confirmation code?")],
+    });
+    expect(reply).not.toHaveProperty("taskId");
 
     multiTurnClient = client("multi-turn-user");
     const prompt = await multiTurnClient.sendMessage("Is my Friday flight on time?");
-    if (referenceProvider) expect("parts" in prompt).toBe(true);
-    if (referenceProvider && "parts" in prompt) {
-      expect(prompt.parts).toEqual([textPart("I can check that. What's your confirmation code?")]);
-    }
+    expect(prompt.parts).toEqual([textPart("I can check that. What's your confirmation code?")]);
     const contextId = prompt.contextId;
     if (!contextId) throw new Error("The clarification reply did not include a contextId");
     const answer = await multiTurnClient.sendMessage("ABC123", { contextId });
     expect(answer.contextId).toBe(contextId);
-    if (referenceProvider) expect("parts" in answer).toBe(true);
-    if (referenceProvider && "parts" in answer) {
-      expect(answer.parts).toEqual([
-        textPart(
-          "Flight SK 482 on Friday is delayed 4.5 hours. It now leaves SFO at 2:40 PM and lands at O'Hare at 8:50 PM.",
-        ),
-      ]);
-    }
+    expect(answer.parts).toEqual([
+      textPart(
+        "Flight SK 482 on Friday is delayed 4.5 hours. It now leaves SFO at 2:40 PM and lands at O'Hare at 8:50 PM.",
+      ),
+    ]);
   });
 
   it("returns the same reply for a duplicate messageId", async () => {
@@ -257,24 +245,18 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
       subject,
       body: messageBody("Is my Friday flight on time?", { messageId }),
     });
-    const firstReply = (await first.json()) as {
-      message?: { messageId: string; contextId?: string };
-      task?: { id: string; contextId: string };
-    };
-    const firstMessageId = firstReply.message?.messageId ?? firstReply.task?.id;
-    const contextId = firstReply.message?.contextId ?? firstReply.task?.contextId;
-    if (!firstMessageId || !contextId)
-      throw new Error("The first reply is missing its id or contextId");
+    const firstMessage = (await first.json()).message as { messageId: string; contextId: string };
     const retry = await rawRequest("message:send", {
       method: "POST",
       subject,
       body: messageBody("Is my Friday flight on time?", {
         messageId,
-        contextId,
+        contextId: firstMessage.contextId,
       }),
     });
-    const retryReply = (await retry.json()) as typeof firstReply;
-    expect(retryReply.message?.messageId ?? retryReply.task?.id).toBe(firstMessageId);
+    expect(((await retry.json()).message as { messageId: string }).messageId).toBe(
+      firstMessage.messageId,
+    );
   });
 
   it("rejects contexts owned by another user or customer", async () => {
@@ -319,10 +301,8 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
     });
   });
 
-  it("maps task routes, and unadvertised streaming, extended card and push routes, to the specified A2A errors", async () => {
+  it("maps task, unsupported, and push routes to the specified A2A errors", async () => {
     const taskId = crypto.randomUUID();
-    if (!cardResult) throw new Error("The Agent Card must be loaded first");
-    const capabilities = cardResult.card.capabilities;
     for (const [method, route] of [
       ["GET", `tasks/${taskId}`],
       ["POST", `tasks/${taskId}:cancel`],
@@ -334,38 +314,28 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
         message: `Task not found: ${taskId}`,
       });
     }
-    if (capabilities.streaming !== true) {
-      for (const [method, route] of [
-        ["POST", "message:stream"],
-        ["POST", `tasks/${taskId}:subscribe`],
-      ] as const) {
-        await expectA2AError(await rawRequest(route, { method }), {
-          httpStatus: 400,
-          status: "FAILED_PRECONDITION",
-          reason: "UNSUPPORTED_OPERATION",
-        });
-      }
-    }
-    if (capabilities.extendedAgentCard !== true) {
-      await expectA2AError(await rawRequest("extendedAgentCard", { method: "GET" }), {
+    for (const [method, route] of [
+      ["POST", "message:stream"],
+      ["POST", `tasks/${taskId}:subscribe`],
+      ["GET", "extendedAgentCard"],
+    ] as const) {
+      await expectA2AError(await rawRequest(route, { method }), {
         httpStatus: 400,
         status: "FAILED_PRECONDITION",
         reason: "UNSUPPORTED_OPERATION",
       });
     }
-    if (capabilities.pushNotifications !== true) {
-      for (const [method, route] of [
-        ["GET", `tasks/${taskId}/pushNotificationConfigs`],
-        ["POST", `tasks/${taskId}/pushNotificationConfigs`],
-        ["GET", `tasks/${taskId}/pushNotificationConfigs/config-1`],
-        ["DELETE", `tasks/${taskId}/pushNotificationConfigs/config-1`],
-      ] as const) {
-        await expectA2AError(await rawRequest(route, { method }), {
-          httpStatus: 400,
-          status: "FAILED_PRECONDITION",
-          reason: "PUSH_NOTIFICATION_NOT_SUPPORTED",
-        });
-      }
+    for (const [method, route] of [
+      ["GET", `tasks/${taskId}/pushNotificationConfigs`],
+      ["POST", `tasks/${taskId}/pushNotificationConfigs`],
+      ["GET", `tasks/${taskId}/pushNotificationConfigs/config-1`],
+      ["DELETE", `tasks/${taskId}/pushNotificationConfigs/config-1`],
+    ] as const) {
+      await expectA2AError(await rawRequest(route, { method }), {
+        httpStatus: 400,
+        status: "FAILED_PRECONDITION",
+        reason: "PUSH_NOTIFICATION_NOT_SUPPORTED",
+      });
     }
   });
 
@@ -486,23 +456,16 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
       status: "INVALID_ARGUMENT",
       reason: "INVALID_PARAMS",
     });
-    if (!cardResult) throw new Error("The Agent Card must be loaded first");
-    const inputModes = [
-      ...cardResult.card.defaultInputModes,
-      ...cardResult.card.skills.flatMap((skill) => skill.inputModes ?? []),
-    ];
-    if (inputModes.every((mode) => mode.startsWith("text/"))) {
-      await expectA2AError(
-        await rawRequest("message:send", {
-          method: "POST",
-          body: messageBody("", { parts: [{ raw: "aGVsbG8=" }] }),
-        }),
-        {
-          httpStatus: 400,
-          status: "INVALID_ARGUMENT",
-          reason: "CONTENT_TYPE_NOT_SUPPORTED",
-        },
-      );
-    }
+    await expectA2AError(
+      await rawRequest("message:send", {
+        method: "POST",
+        body: messageBody("", { parts: [{ raw: "aGVsbG8=" }] }),
+      }),
+      {
+        httpStatus: 400,
+        status: "INVALID_ARGUMENT",
+        reason: "CONTENT_TYPE_NOT_SUPPORTED",
+      },
+    );
   });
 });

@@ -27,11 +27,10 @@ Unauthenticated; unknown `brandId` → `404`. The card
 ([spec §2.1](spec.md#21-agent-card)) lists a `supportedInterfaces` entry with
 `protocolBinding: "HTTP+JSON"`, `protocolVersion: "1.0"` and the `url` the
 other routes hang off; declares `httpAuthSecurityScheme`
-`{ scheme: "Bearer", bearerFormat: "JWT" }`; and sets `capabilities` to what
-you implement (the reference Provider sets `streaming`, `pushNotifications`
-and `extendedAgentCard` to `false`). Personal agents reach it from the Brand's
-own `/.well-known/agent-card.json` (which serves this card or redirects here),
-or from a link or registry entry.
+`{ scheme: "Bearer", bearerFormat: "JWT" }`; and sets `capabilities.streaming`,
+`pushNotifications`, `extendedAgentCard` to `false`. Personal agents reach it
+from the Brand's own `/.well-known/agent-card.json` (which serves this card or
+redirects here), or from a link or registry entry.
 
 **Done when** a Brand's card is served and an unknown id returns `404`.
 
@@ -59,7 +58,7 @@ and a disabled personal agent all get that `401`, and a good token passes.
 ## 4. Answer `message:send`
 
 `POST {interfaceUrl}/message:send` ([spec §4](spec.md#4-messages)). Require
-`role: "ROLE_USER"` and accept non-blank `text` parts. Key conversations by
+`role: "ROLE_USER"` and a non-blank `text` part. Key conversations by
 `(iss, sub, brandId)`:
 
 | Request                                       | Do                                                |
@@ -70,27 +69,24 @@ and a disabled personal agent all get that `401`, and a good token passes.
 | Same `messageId` again                        | Return the stored reply                           |
 | Conversation closed                           | `UNSUPPORTED_OPERATION`                           |
 
-Reply with a `ROLE_AGENT` message, or a Task for work you run as an A2A task,
-carrying the `contextId`, `Content-Type: application/a2a+json`. The token says
-which personal agent is calling for `sub`, not who the User is — the agent
-verifies the User as it would in a chat widget.
+Reply synchronously with a `ROLE_AGENT` message carrying the `contextId`,
+`Content-Type: application/a2a+json`. The token says which personal agent is calling for
+`sub`, not who the User is — the agent verifies the User as it would in a chat
+widget.
 
 **Done when** two messages with one `contextId` continue one conversation,
 and that `contextId` from another `sub` or Brand gets `INVALID_PARAMS`.
 
 ## 5. Other routes, errors, limits
 
-Implement the other A2A operations your card advertises, and scope tasks to
-their caller as you scope contexts ([spec §4.2](spec.md#42-context)). For the
-rest, return the error listed in [spec §2.2](spec.md#22-operations)
-(`TASK_NOT_FOUND`, `UNSUPPORTED_OPERATION`, `PUSH_NOTIFICATION_NOT_SUPPORTED`;
-`GET tasks` → the caller's tasks, often an empty list). A2A errors use the
-envelope in [spec §6](spec.md#6-errors) with the reason in
-`error.details[0].reason`. Plain HTTP for `401`, `404`/`405`, and `429` +
-`Retry-After` when you rate-limit.
+Generic A2A clients will call the other operations; return the A2A error
+listed in [spec §2.2](spec.md#22-operations) (`TASK_NOT_FOUND`,
+`UNSUPPORTED_OPERATION`, `PUSH_NOTIFICATION_NOT_SUPPORTED`; `GET tasks` → an
+empty list). A2A errors use the envelope in [spec §6](spec.md#6-errors) with
+the reason in `error.details[0].reason`. Plain HTTP for `401`, `404`/`405`,
+and `429` + `Retry-After` when you rate-limit.
 
-**Done when** each operation you don't advertise returns its listed error
-after a valid token.
+**Done when** each operation returns its listed error after a valid token.
 
 ## 6. Run the conformance suite
 

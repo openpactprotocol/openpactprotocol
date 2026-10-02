@@ -128,21 +128,6 @@ describe("@openpactprotocol/client", () => {
     expect(JSON.parse(String(requests[1]?.init.body)).message).not.toHaveProperty("contextId");
   });
 
-  it("returns a Task response", async () => {
-    const task = {
-      id: "task-1",
-      contextId: "00000000-0000-4000-8000-000000000000",
-      status: { state: "TASK_STATE_COMPLETED" },
-    };
-    const client = new A2AClient({
-      url: skylineInterfaceUrl,
-      getToken: () => "token",
-      fetchImpl: async () => Response.json({ task }),
-    });
-
-    expect(await client.sendMessage("Check my order")).toEqual(task);
-  });
-
   it("parses AIP-193 errors and preserves bare HTTP errors", async () => {
     const a2aClient = new A2AClient({
       url: skylineInterfaceUrl,

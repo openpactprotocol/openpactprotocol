@@ -8,10 +8,9 @@ import {
   type A2AErrorResponse,
   type AgentCard,
   type Message,
-  type Task,
 } from "@openpactprotocol/protocol";
 
-export type { AgentCard, Message, Task };
+export type { AgentCard, Message };
 
 type A2AStatus = A2AErrorResponse["error"]["status"];
 type A2AErrorDetails = A2AErrorResponse["error"]["details"];
@@ -99,7 +98,7 @@ export class A2AClient {
     },
   ) {}
 
-  private async request(path: string, body: unknown): Promise<Message | Task> {
+  private async request(path: string, body: unknown): Promise<Message> {
     const baseUrl = this.options.url.replace(/\/+$/, "");
     const url = new URL(`${baseUrl}${path}`);
     const token = await this.options.getToken();
@@ -135,11 +134,10 @@ export class A2AClient {
       }
       throw new A2AHttpError(response.status, responseBody);
     }
-    const parsed = SendMessageResponseSchema.parse(responseBody);
-    return "message" in parsed ? parsed.message : parsed.task;
+    return SendMessageResponseSchema.parse(responseBody).message;
   }
 
-  async sendMessage(text: string, options: { contextId?: string } = {}): Promise<Message | Task> {
+  async sendMessage(text: string, options: { contextId?: string } = {}): Promise<Message> {
     return this.request("/message:send", {
       message: {
         messageId: randomUUID(),
