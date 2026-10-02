@@ -69,7 +69,9 @@ agents use OpenAI; without it they use scripted replies.
 ## Register a personal agent
 
 The reference Provider onboards personal agents at `POST {PROVIDER_URL}/api/platforms`
-(the spec leaves onboarding to each Provider):
+(the spec leaves onboarding to each Provider). This route is demo-only: anyone
+can register, names are first come first served, and `localhost` JWKS URIs are
+accepted outside production.
 
 ```sh
 curl -X POST "$PROVIDER_URL/api/platforms" \

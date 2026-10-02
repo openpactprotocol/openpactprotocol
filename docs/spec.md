@@ -126,16 +126,16 @@ found through OIDC discovery at `{iss}/.well-known/openid-configuration`.
 
 Every request except the card carries `Authorization: Bearer <pa-jwt>`.
 
-| Field | Rule                                                                           |
-| ----- | ------------------------------------------------------------------------------ |
-| `alg` | `ES256` or `RS256`. Providers MUST reject others.                              |
-| `kid` | SHOULD match a key in the JWKS.                                                |
-| `iss` | MUST equal the registered issuer.                                              |
-| `sub` | MUST be present. Stable, opaque, per User. MUST NOT contain personal data.     |
-| `aud` | MUST equal the assigned audience. One string.                                  |
-| `iat` | MUST be present. Reject if more than 30 s in the future.                       |
-| `exp` | MUST be present. SHOULD be short (the reference signer uses 120 s, max 300 s). |
-| `jti` | MAY be present. Providers need not track replay.                               |
+| Field | Rule                                                                             |
+| ----- | -------------------------------------------------------------------------------- |
+| `alg` | `ES256` or `RS256`. Providers MUST reject others.                                |
+| `kid` | SHOULD match a key in the JWKS.                                                  |
+| `iss` | MUST equal the registered issuer.                                                |
+| `sub` | MUST be present. Stable, opaque, per User. MUST NOT contain personal data.       |
+| `aud` | MUST equal the assigned audience. One string.                                    |
+| `iat` | MUST be present. Reject if more than 30 s in the future.                         |
+| `exp` | MUST be present and at most 300 s after `iat` (the reference signer uses 120 s). |
+| `jti` | MAY be present. Providers need not track replay.                                 |
 
 Providers MUST verify the signature via `jwksUri`, allow at most 30 s clock
 skew, and reject unknown or disabled personal agents. The User is the pair `(personal agent, sub)`;

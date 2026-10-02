@@ -333,6 +333,11 @@ describe("A2A handler", () => {
     });
     await expectUnauthorized(expired);
 
+    const tooLong = await call(skylineId, "tasks", "GET", undefined, {
+      token: await signToken({ iat: now, exp: now + 301 }),
+    });
+    await expectUnauthorized(tooLong);
+
     const disabled = await call(skylineId, "tasks", "GET", undefined, {
       issuer: `${issuer}/disabled-pa`,
     });

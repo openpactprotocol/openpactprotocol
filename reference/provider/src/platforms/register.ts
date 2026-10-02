@@ -14,7 +14,10 @@ type RegisterPlatformOptions = {
   db: Db;
   getJwks?: (uri: string) => JWTVerifyGetKey;
   now?: () => Date;
+  allowLocalhost?: boolean;
 };
+
+const LOCAL_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
 
 type RegistrationResult =
   | { kind: "registered"; platform: RegisteredPlatform }
@@ -47,29 +50,52 @@ function platformResponse(platform: RegisteredPlatform, status: number): Respons
   );
 }
 
-function parseAllowedUrl(value: string, name: string): URL {
+function isPrivateHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  if (host === "localhost" || /\.(localhost|local|internal)$/.test(host)) return true;
+  if (host.startsWith("[")) {
+    const v6 = host.slice(1, -1);
+    return v6 === "::1" || v6 === "::" || /^(f[cd]|fe[89ab])/.test(v6) || v6.startsWith("::ffff:");
+  }
+  const v4 = host.match(/^(\d{1,3})\.(\d{1,3})\.\d{1,3}\.\d{1,3}$/);
+  if (!v4) return false;
+  const a = Number(v4[1]);
+  const b = Number(v4[2]);
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168)
+  );
+}
+
+function parseAllowedUrl(value: string, name: string, allowLocalhost: boolean): URL {
   let url: URL;
   try {
     url = new URL(value);
   } catch {
     throw new Error(`${name} must be an absolute URL`);
   }
-  if (
-    url.protocol !== "https:" &&
-    !(url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname))
-  ) {
+  const local = LOCAL_HOSTS.has(url.hostname);
+  if (local ? !allowLocalhost : isPrivateHost(url.hostname)) {
+    throw new Error(`${name} must not point at a local or private address`);
+  }
+  if (url.protocol !== "https:" && !(url.protocol === "http:" && local)) {
     throw new Error(`${name} must use https, or http on localhost or 127.0.0.1`);
   }
   return url;
 }
 
-function validateRegistrationUrls(issuer: string, jwksUri: string): void {
+function validateRegistrationUrls(issuer: string, jwksUri: string, allowLocalhost: boolean): void {
   if (issuer.includes("?") || issuer.includes("#")) {
     throw new Error("Issuer must not include a query or fragment");
   }
   const normalizedIssuer = issuer.replace(/\/+$/, "");
-  const issuerUrl = parseAllowedUrl(normalizedIssuer, "Issuer");
-  const jwksUrl = parseAllowedUrl(jwksUri, "JWKS URI");
+  const issuerUrl = parseAllowedUrl(normalizedIssuer, "Issuer", allowLocalhost);
+  const jwksUrl = parseAllowedUrl(jwksUri, "JWKS URI", allowLocalhost);
   if (issuerUrl.origin !== jwksUrl.origin) {
     throw new Error("JWKS URI must have the same origin as the issuer");
   }
@@ -78,6 +104,7 @@ function validateRegistrationUrls(issuer: string, jwksUri: string): void {
 export function createRegisterPlatformHandler(
   options: RegisterPlatformOptions,
 ): (request: Request) => Promise<Response> {
+  const allowLocalhost = options.allowLocalhost ?? process.env.NODE_ENV !== "production";
   const findRegistration = async (
     name: string,
     issuer: string,
@@ -151,7 +178,7 @@ export function createRegisterPlatformHandler(
     }
 
     try {
-      validateRegistrationUrls(issuer, parsedBody.data.jwksUri);
+      validateRegistrationUrls(issuer, parsedBody.data.jwksUri, allowLocalhost);
     } catch (error) {
       return errorResponse(
         error instanceof Error ? error.message : "Invalid registration URLs",
