@@ -324,11 +324,11 @@ client_id=https://pa.example.com&scope=orders:read%20orders:cancel
 - The personal agent shows the User `verification_uri_complete`. It MUST NOT proxy, frame,
   or observe the login.
 - The link opens the Brand's login. The Brand authenticates the User and
-  redirects back to the Provider with an identity assertion (whatever it
-  already uses for its other channels; out of scope here). The Provider then
-  shows consent as the logged-in User: which personal agent, which Brand, each scope as a
-  checkbox the User MAY uncheck. Login comes first so the grant is bound to a
-  verified account.
+  returns the User to the Provider with a single-use assertion bound to the
+  `user_code`, sent by `POST` — not a credential from another channel. The
+  Provider then shows consent as the logged-in User: the personal agent's
+  issuer origin, the Brand, and each scope as a checkbox the User MAY uncheck.
+  Login comes first so the grant is bound to a verified account.
 - Consent MAY be skipped when an unexpired grant for `(User, personal agent)` already
   covers the request.
 
