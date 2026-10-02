@@ -1,5 +1,5 @@
 export type Arrow = {
-  step: number;
+  step?: number;
   label: string;
   y: number;
   from: number;
@@ -16,42 +16,42 @@ const HEIGHT = 348;
 const arrows: Arrow[] = [
   {
     step: 1,
-    label: "Register (once)",
+    label: "Onboard (once)",
     y: 126,
     from: PLATFORM.x + PLATFORM.width,
     to: PROVIDER.x,
     tone: "setup",
   },
-  { step: 2, label: "Ask", y: 178, from: USER.x + USER.width, to: PLATFORM.x },
+  { label: "Ask", y: 178, from: USER.x + USER.width, to: PLATFORM.x },
   {
-    step: 3,
+    step: 2,
     label: "Get Agent Card",
     y: 178,
     from: PLATFORM.x + PLATFORM.width,
     to: PROVIDER.x,
   },
   {
-    step: 4,
+    step: 3,
     label: "Message + token",
     y: 236,
     from: PLATFORM.x + PLATFORM.width,
     to: PROVIDER.x,
   },
   {
-    step: 5,
+    step: 4,
     label: "Fetch keys, verify",
     y: 294,
     from: PROVIDER.x,
     to: PLATFORM.x + PLATFORM.width,
   },
   {
-    step: 6,
-    label: "Reply + conversation id",
+    step: 5,
+    label: "Reply + contextId",
     y: 362,
     from: PROVIDER.x,
     to: PLATFORM.x + PLATFORM.width,
   },
-  { step: 7, label: "Answer", y: 362, from: PLATFORM.x, to: USER.x + USER.width },
+  { label: "Answer", y: 362, from: PLATFORM.x, to: USER.x + USER.width },
 ];
 
 export type Part = {
@@ -69,7 +69,7 @@ const platformParts: Part[] = [
 ];
 
 const providerParts: Part[] = [
-  { label: "Registered agents", detail: "issuer · keys URL · audience", y: 106 },
+  { label: "Onboarded agents", detail: "issuer · keys URL · audience", y: 106 },
   { label: "Agent Card", detail: "/a2a/{brandId}", y: 158 },
   { label: "Token check", detail: "signature · issuer · audience", y: 216 },
   { label: "Brand's agent", detail: "one conversation per User", y: 318, accent: true },
@@ -155,15 +155,19 @@ export function FlowArrow({ arrow }: { arrow: Arrow }) {
       <text className="po-arrow-label" x={middle} y={arrow.y - 15} textAnchor="middle">
         {arrow.label}
       </text>
-      <circle
-        className={arrow.tone ? `po-step ${stepClass[arrow.tone]}` : "po-step"}
-        cx={middle}
-        cy={arrow.y}
-        r={9}
-      />
-      <text className="po-step-number" x={middle} y={arrow.y + 3.5} textAnchor="middle">
-        {arrow.step}
-      </text>
+      {arrow.step === undefined ? null : (
+        <>
+          <circle
+            className={arrow.tone ? `po-step ${stepClass[arrow.tone]}` : "po-step"}
+            cx={middle}
+            cy={arrow.y}
+            r={9}
+          />
+          <text className="po-step-number" x={middle} y={arrow.y + 3.5} textAnchor="middle">
+            {arrow.step}
+          </text>
+        </>
+      )}
     </g>
   );
 }
@@ -398,7 +402,7 @@ export function ProtocolOverviewDiagram() {
       <rect className="po-canvas" x={-10} y={0} width={780} height={482} />
       <title id="protocol-overview-title">PACT at a glance</title>
       <desc id="protocol-overview-desc">
-        The User asks their personal agent for help. The personal agent, registered once with the
+        The User asks their personal agent for help. The personal agent, onboarded once with the
         Provider, reads the Brand&apos;s Agent Card and sends a message signed with its own key. The
         Provider verifies the JWT against the personal agent&apos;s public keys, the Brand&apos;s
         agent replies with a contextId, and the personal agent relays the answer. Optionally, the
@@ -487,7 +491,7 @@ export function ProtocolOverviewDiagram() {
       </text>
 
       {arrows.map((arrow) => (
-        <FlowArrow key={arrow.step} arrow={arrow} />
+        <FlowArrow key={arrow.label} arrow={arrow} />
       ))}
     </svg>
   );

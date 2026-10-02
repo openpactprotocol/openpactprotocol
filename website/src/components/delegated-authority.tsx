@@ -43,7 +43,7 @@ const arrows: Arrow[] = [
   },
   {
     step: 5,
-    label: "Signed scope token",
+    label: "Signed delegation token",
     y: 252,
     from: PROVIDER.x,
     to: PLATFORM.x + PLATFORM.width,
@@ -67,7 +67,7 @@ const arrows: Arrow[] = [
 
 const platformParts: Part[] = [
   { label: "Assistant", detail: "shows the link only", y: 172 },
-  { label: "Scope token", detail: "signed · can't be edited", y: 232, consent: true },
+  { label: "Delegation token", detail: "signed · can't be edited", y: 232, consent: true },
   { label: "Receipts", detail: "verify · keep", y: 404 },
 ];
 
@@ -126,9 +126,9 @@ export function DelegatedAuthorityDiagram() {
       <desc id="delegated-authority-desc">
         The personal agent requests scopes and shows the User a login link. The User logs in with
         the Brand and approves scopes directly with the Provider; the personal agent never sees the
-        login. The Provider signs a scope token that the personal agent carries but cannot edit. On
-        each message the Provider checks the token, and the Brand&apos;s agent can only use the
-        approved scopes. Every reply carries a signed receipt.
+        login. The Provider signs a delegation token that the personal agent carries but cannot
+        edit. On each message the Provider checks the token, and the Brand&apos;s agent can only use
+        the approved scopes. Every reply carries a signed receipt.
       </desc>
       <ArrowMarkers />
 
@@ -272,7 +272,7 @@ export function DelegatedAuthorityDiagram() {
       </text>
 
       {arrows.map((arrow) => (
-        <FlowArrow key={arrow.step} arrow={arrow} />
+        <FlowArrow key={arrow.label} arrow={arrow} />
       ))}
     </svg>
   );
