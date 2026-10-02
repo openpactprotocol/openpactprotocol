@@ -4,8 +4,8 @@ description: Run the reference Provider, demo personal agent and conformance tes
 ---
 
 Everything outside `docs/` implements the [specification](spec.md)'s
-**Identity** profile; it does not include delegated authority (§5). Seed data and
-demo agents are examples, not protocol. The code calls Brands **customers**
+**Identity** profile, without delegated authority (§5). Example implementations
+and seed data are provided as reference. The code calls Brands **customers**
 (`CUSTOMER_ID`, the `customers` table).
 
 | Path                              | What it is                                                            | Port |
@@ -36,8 +36,8 @@ A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openpactprotocol/provider 
 pnpm --filter @openpactprotocol/personal-agent-client dev                                                 # demo personal agent, :3001
 ```
 
-Once the database is up (any PostgreSQL works; point `DATABASE_URL` at it).
-Variables prefixed `PA_` (and the `-pa` ids) refer to the personal agent:
+Once the database is up, migrate and seed it. Any PostgreSQL works; point
+`DATABASE_URL` at it. `PA_` variables and `-pa` ids refer to the personal agent:
 
 ```sh
 export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres DATABASE_POOL_MAX=1 PA_ISSUER=http://localhost:3002

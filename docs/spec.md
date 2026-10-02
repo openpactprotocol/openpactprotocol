@@ -198,9 +198,9 @@ Content-Type: application/json
   and `contextId` set (or a task, §5.5).
 - Without `contextId`, the message starts a new conversation and the Provider
   mints an opaque `contextId`.
-- With `contextId`, the message continues that conversation. The context MUST belong to this Brand and this
-  `(personal agent, sub)`; otherwise `INVALID_PARAMS`, without saying whether it exists for
-  someone else.
+- With `contextId`, the message continues that conversation. The context MUST
+  belong to this Brand and this `(personal agent, sub)`; otherwise
+  `INVALID_PARAMS`, without saying whether it exists for someone else.
 - `contextId` is state, not a credential. Ordinary turns create no A2A Task.
 - A Provider MAY close a conversation (the Brand's agent ended it, or it
   expired). A message to a closed `contextId` gets `UNSUPPORTED_OPERATION`;
@@ -218,12 +218,11 @@ without re-running the agent. If there is no stored reply yet, return
 > Identity (§2–4) works without it; Providers that don't offer it omit §5.1
 > from their cards.
 
-Lets the agent act on the User's Brand account. Standard OAuth 2.0 device
-code ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)): the Brand defines
-its own scopes for its own use cases; the User logs in with the Brand — never
-with the personal agent — and approves some of them; the Provider issues a delegation
-token; every turn under it returns a signed receipt. The personal agent needs a generic
-device-code client.
+Lets the Brand's agent act on the User's Brand account, using standard OAuth
+2.0 device code ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)). Each
+Brand defines its own scopes. The User logs in with the Brand, never with the
+personal agent, and approves some of them. The personal agent needs only a
+generic device-code client.
 
 In OAuth 2.0 terms:
 
@@ -495,11 +494,11 @@ the status alone.
 `pageSize`, an unknown or foreign `contextId`, a repeated `messageId` with no
 stored reply, and a `sub` mismatch (§5.5).
 
-Not A2A errors: `401` (§3.4, §5.5), `404`/`405` for unmatched routes or
-unknown Brands (§2.2), `429` with `Retry-After` when a Provider rate-limits a
-personal agent or a `(personal agent, sub)` (personal agents SHOULD wait that long before retrying), and OAuth
-endpoint errors
+Not A2A errors: `401` (§3.4, §5.5); `404`/`405` for unmatched routes or
+unknown Brands (§2.2); `429` with `Retry-After` when a Provider rate-limits a
+personal agent or a `(personal agent, sub)`; and OAuth endpoint errors
 ([RFC 6749 §5.2](https://www.rfc-editor.org/rfc/rfc6749#section-5.2), RFC 8628).
+On `429`, personal agents SHOULD wait `Retry-After` before retrying.
 
 ## 7. Conformance
 
