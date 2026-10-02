@@ -63,9 +63,10 @@ to that Provider.
 ## 5. Send messages
 
 `POST {interfaceUrl}/message:send` with `Authorization: Bearer <token>` and
-`A2A-Version: 1.0` ([spec §4](spec.md#4-messages)). The reply carries a
-`contextId`; send it with every later message for the same User and Brand.
-Use a fresh `messageId` per message — resending one is a safe retry.
+`A2A-Version: 1.0` ([spec §4](spec.md#4-messages)). The reply is a `Message`,
+or a `Task` for longer-running work, and carries a `contextId`; send it with
+every later message for the same User and Brand. Use a fresh `messageId` per
+message — resending one is a safe retry.
 
 ```sh
 curl -X POST "$INTERFACE_URL/message:send" \
@@ -87,8 +88,8 @@ const next = await client.sendMessage("Order 4471", { contextId: first.contextId
 The agent may ask the User to prove who they are (order number, email); relay
 the question and answer as a chat widget would.
 
-**Done when** the reply has `role: "ROLE_AGENT"` and a `contextId`, and a
-second message with that `contextId` continues the conversation.
+**Done when** the reply (a `ROLE_AGENT` message or a task) has a `contextId`
+and a second message with that `contextId` continues the conversation.
 
 ## 6. Handle errors
 

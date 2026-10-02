@@ -215,7 +215,14 @@ export async function runTurn(
         previousThread ? { contextId: previousThread.contextId } : {},
       );
       if (!response.contextId) throw new Error("Agent response is missing contextId");
-      const reply = response.parts.map((part) => ("text" in part ? part.text : "")).join("\n");
+      const parts =
+        "parts" in response
+          ? response.parts
+          : [
+              ...(response.status.message?.parts ?? []),
+              ...(response.artifacts ?? []).flatMap((artifact) => artifact.parts),
+            ];
+      const reply = parts.map((part) => ("text" in part ? part.text : "")).join("\n");
       const businessMessageAt = nextTimestamp();
       const replyAt = nextTimestamp();
       const existingIndex = conversation.threads.findIndex(

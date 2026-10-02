@@ -16,18 +16,19 @@ and error envelope apply unchanged. MUST, SHOULD, and MAY are as in RFC 2119.
 | **Personal agent** | An agent platform acting for the User. Has a signing key and publishes its public keys as a JWKS. Abbreviated `PA`/`pa` in identifiers (`paJwt`, `<pa-jwt>`). |
 | **User**           | The person using the personal agent.                                                                                                                          |
 
-| Section                    | Required?                              | Adds                                                                                  |
-| -------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
-| §2 Transport               | yes                                    | Where a Brand's Agent Card is; which A2A operations exist.                            |
-| §3 Personal-agent identity | yes                                    | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.     |
-| §4 Messages                | yes                                    | One `contextId` per (personal agent, User, Brand); retries are idempotent.            |
-| §5 Delegated authority     | no — a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account. |
+| Section                    | Required?                              | Adds                                                                                      |
+| -------------------------- | -------------------------------------- | ----------------------------------------------------------------------------------------- |
+| §2 Transport               | yes                                    | Where a Brand's Agent Card is; the required HTTP+JSON interface; optional A2A operations. |
+| §3 Personal-agent identity | yes                                    | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.         |
+| §4 Messages                | yes                                    | One `contextId` per (personal agent, User, Brand); retries are idempotent.                |
+| §5 Delegated authority     | no — a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account.     |
 
 ## 2. Transport
 
-A2A 1.0 HTTP+JSON. Requests SHOULD send `A2A-Version: 1.0` and
-`Content-Type: application/json`. A2A responses MUST use
-`Content-Type: application/a2a+json`.
+A2A 1.0. Every Brand offers the HTTP+JSON binding, which this spec describes.
+Other A2A bindings MAY be offered alongside it and follow the same rules.
+Requests SHOULD send `A2A-Version: 1.0` and `Content-Type: application/json`.
+A2A responses MUST use `Content-Type: application/a2a+json`.
 
 ### 2.1 Agent Card
 
@@ -45,14 +46,17 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
   is hosted. This spec does not define a registry.
 - No authentication. An unknown `brandId` gets `404` with no A2A body.
 - MUST list a `supportedInterfaces` entry with `protocolBinding: "HTTP+JSON"`
-  and `protocolVersion: "1.0"`. Its `url` is the **interface URL**. Personal agents pick
-  the interface by binding and version, not by position.
+  and `protocolVersion: "1.0"`. Its `url` is the **interface URL**. Entries for
+  other bindings MAY follow. Personal agents pick the interface by binding and
+  version, not by position.
 - MUST declare the personal-agent JWT (§3) as an `httpAuthSecurityScheme` with
   `scheme: "Bearer"`, `bearerFormat: "JWT"`, listed alone in one
   `securityRequirements` entry.
 - MAY declare delegated authority (§5.1).
-- `capabilities.streaming`, `pushNotifications`, and `extendedAgentCard` MUST
-  be `false`. `name`, `description`, `skills` are informational.
+- `capabilities` follow A2A. A Provider that sets `streaming`,
+  `pushNotifications` or `extendedAgentCard` to `true` MUST implement that
+  feature as A2A defines it, with §3 authentication and the §4.2 ownership rule
+  on every call. `name`, `description`, `skills` are informational.
 
 ```json
 {
@@ -86,19 +90,20 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 
 ### 2.2 Operations
 
-Relative to the interface URL. Only `message:send` does work; the others
-return A2A errors so generic A2A clients fail cleanly.
+Relative to the interface URL. Every operation requires the personal-agent
+JWT (§3). Operations behind a capability the card doesn't advertise return
+the error listed, so generic A2A clients fail cleanly.
 
-| Method          | Path                                            | Result                                                           |
-| --------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
-| `POST`          | `message:send`                                  | `200` `{ "message": Message }` (§4) or `{ "task": Task }` (§5.5) |
-| `GET`           | `tasks`                                         | `200` empty `ListTasksResponse` (`pageSize` 1–100, default 50)   |
-| `GET`           | `tasks/{id}`                                    | `TASK_NOT_FOUND`                                                 |
-| `POST`          | `tasks/{id}:cancel`                             | `TASK_NOT_FOUND`                                                 |
-| `POST`          | `tasks/{id}:subscribe`, `message:stream`        | `UNSUPPORTED_OPERATION`                                          |
-| `GET`           | `extendedAgentCard`                             | `UNSUPPORTED_OPERATION`                                          |
-| `GET`, `POST`   | `tasks/{id}/pushNotificationConfigs`            | `PUSH_NOTIFICATION_NOT_SUPPORTED`                                |
-| `GET`, `DELETE` | `tasks/{id}/pushNotificationConfigs/{configId}` | `PUSH_NOTIFICATION_NOT_SUPPORTED`                                |
+| Method          | Path                                            | Result                                                                                                                    |
+| --------------- | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `POST`          | `message:send`                                  | `200` `{ "message": Message }` or `{ "task": Task }` (§4)                                                                 |
+| `GET`           | `tasks`                                         | `200` `ListTasksResponse` of the caller's tasks (§4.2), empty if the Provider creates none (`pageSize` 1–100, default 50) |
+| `GET`           | `tasks/{id}`                                    | The task, or `TASK_NOT_FOUND` if it isn't the caller's                                                                    |
+| `POST`          | `tasks/{id}:cancel`                             | As A2A, or `TASK_NOT_FOUND` if it isn't the caller's                                                                      |
+| `POST`          | `tasks/{id}:subscribe`, `message:stream`        | As A2A with `capabilities.streaming`; otherwise `UNSUPPORTED_OPERATION`                                                   |
+| `GET`           | `extendedAgentCard`                             | As A2A with `capabilities.extendedAgentCard`; otherwise `UNSUPPORTED_OPERATION`                                           |
+| `GET`, `POST`   | `tasks/{id}/pushNotificationConfigs`            | As A2A with `capabilities.pushNotifications`; otherwise `PUSH_NOTIFICATION_NOT_SUPPORTED`                                 |
+| `GET`, `DELETE` | `tasks/{id}/pushNotificationConfigs/{configId}` | As A2A with `capabilities.pushNotifications`; otherwise `PUSH_NOTIFICATION_NOT_SUPPORTED`                                 |
 
 Any other route gets `404` or `405` with no A2A body. Routing happens before
 authentication; an unknown Brand is `404` even with a valid token.
@@ -186,22 +191,32 @@ Content-Type: application/json
 
 ### 4.1 Request
 
-- An A2A `SendMessageRequest`. `configuration` and `metadata` MAY be ignored.
-- `role` MUST be `ROLE_USER`. `parts` MUST have at least one non-blank `text`
-  part. Other part kinds get `CONTENT_TYPE_NOT_SUPPORTED`.
-- `taskId` MUST be absent; otherwise `TASK_NOT_FOUND`.
+- An A2A `SendMessageRequest`. `metadata`, and `configuration` fields for
+  capabilities the Provider doesn't advertise, MAY be ignored.
+- `role` MUST be `ROLE_USER`. `parts` MUST be non-empty and `text` parts MUST
+  NOT be blank. Providers MUST accept `text` parts; other part kinds follow the
+  card's input modes. A part the Provider doesn't accept gets
+  `CONTENT_TYPE_NOT_SUPPORTED`.
+- `taskId` MAY name a task the caller owns (§4.2), as A2A defines. An unknown
+  or foreign `taskId` gets `TASK_NOT_FOUND`.
 - `messageId` MUST be unique within the context.
 
 ### 4.2 Context
 
-- The reply is synchronous: `{ "message": Message }` with `role: ROLE_AGENT`
-  and `contextId` set (or a task, §5.5).
+- The reply is `{ "message": Message }` with `role: ROLE_AGENT`, or
+  `{ "task": Task }` for work the Provider runs as an A2A task. Both carry
+  `contextId`. Personal agents MUST accept either. A Task that is still running
+  is followed as A2A defines (`tasks/{id}`, or streaming if the card advertises
+  it).
 - Without `contextId`, the message starts a new conversation and the Provider
   mints an opaque `contextId`.
 - With `contextId`, the message continues that conversation. The context MUST
   belong to this Brand and this `(personal agent, sub)`; otherwise
   `INVALID_PARAMS`, without saying whether it exists for someone else.
-- `contextId` is state, not a credential. Ordinary turns create no A2A Task.
+- A Provider MUST expose a task, including its streams and push-notification
+  configs, only to the Brand and `(personal agent, sub)` that created it.
+  Anything else gets `TASK_NOT_FOUND`, without saying whether the task exists.
+- `contextId` is state, not a credential.
 - A Provider MAY close a conversation (the Brand's agent ended it, or it
   expired). A message to a closed `contextId` gets `UNSUPPORTED_OPERATION`;
   the personal agent starts a new conversation by omitting `contextId`.
@@ -409,6 +424,7 @@ and a new link; the conversation stays open:
     "status": {
       "state": "TASK_STATE_AUTH_REQUIRED",
       "message": {
+        "messageId": "r-003",
         "role": "ROLE_AGENT",
         "parts": [{ "text": "I need permission to issue refunds." }]
       }
@@ -429,7 +445,8 @@ return `TASK_NOT_FOUND` for it.
 ### 5.6 Receipts
 
 Every `message:send` served under a delegation token MUST include in the
-reply's `metadata` a receipt signed with the same keys as the token:
+`metadata` of the reply Message or Task a receipt signed with the same keys as
+the token:
 
 ```json
 {
@@ -481,14 +498,14 @@ the status alone.
 }
 ```
 
-| Reason                            | HTTP | `status`              | When                                                |
-| --------------------------------- | ---: | --------------------- | --------------------------------------------------- |
-| `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Invalid request (see below)                         |
-| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Non-text part                                       |
-| `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Streaming, subscribe, extended card, closed context |
-| `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push-notification routes                            |
-| `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Task lookup or cancel; `taskId` on `message:send`   |
-| `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                    |
+| Reason                            | HTTP | `status`              | When                                                               |
+| --------------------------------- | ---: | --------------------- | ------------------------------------------------------------------ |
+| `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Invalid request (see below)                                        |
+| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Part the Provider doesn't accept                                   |
+| `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Unadvertised streaming, subscribe or extended card; closed context |
+| `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push notifications not advertised                                  |
+| `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Unknown or foreign task, including `taskId` on `message:send`      |
+| `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                                   |
 
 `INVALID_PARAMS` covers: bad JSON or schema, wrong role, blank text, bad
 `pageSize`, an unknown or foreign `contextId`, a repeated `messageId` with no

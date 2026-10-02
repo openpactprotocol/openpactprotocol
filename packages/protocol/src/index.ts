@@ -84,11 +84,38 @@ export const SendMessageRequestSchema = z.object({
   metadata: z.record(z.string(), z.unknown()).optional(),
 });
 
-export const SendMessageResponseSchema = z.object({ message: MessageSchema }).strict();
+export const TaskStatusSchema = z.object({
+  state: z.string().startsWith("TASK_STATE_"),
+  message: MessageSchema.optional(),
+  timestamp: z.string().optional(),
+});
+
+export const ArtifactSchema = z.object({
+  artifactId: z.string().min(1),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  parts: z.array(PartSchema).min(1),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+  extensions: z.array(z.string()).optional(),
+});
+
+export const TaskSchema = z.object({
+  id: z.string().min(1),
+  contextId: z.string().min(1),
+  status: TaskStatusSchema,
+  artifacts: z.array(ArtifactSchema).optional(),
+  history: z.array(MessageSchema).optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+export const SendMessageResponseSchema = z.union([
+  z.object({ message: MessageSchema }).strict(),
+  z.object({ task: TaskSchema }).strict(),
+]);
 
 export const ListTasksResponseSchema = z
   .object({
-    tasks: z.array(z.never()),
+    tasks: z.array(TaskSchema),
     nextPageToken: z.string(),
     pageSize: z.number().int().min(1).max(100),
     totalSize: z.number().int().nonnegative(),
@@ -189,6 +216,9 @@ export const PlatformJwtClaimsSchema = z.object({
 export type Role = z.infer<typeof RoleSchema>;
 export type Part = z.infer<typeof PartSchema>;
 export type Message = z.infer<typeof MessageSchema>;
+export type TaskStatus = z.infer<typeof TaskStatusSchema>;
+export type Artifact = z.infer<typeof ArtifactSchema>;
+export type Task = z.infer<typeof TaskSchema>;
 export type SendMessageConfiguration = z.infer<typeof SendMessageConfigurationSchema>;
 export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>;
 export type SendMessageResponse = z.infer<typeof SendMessageResponseSchema>;

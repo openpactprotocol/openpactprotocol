@@ -4,8 +4,10 @@ description: Run the reference Provider, demo personal agent and conformance tes
 ---
 
 Everything outside `docs/` implements the [specification](spec.md)'s
-**Identity** profile, without delegated authority (§5). Example implementations
-and seed data are provided as reference. The code calls Brands **customers**
+**Identity** profile, without delegated authority (§5). The reference Provider
+accepts text parts only, replies with a Message, and doesn't advertise
+streaming, push notifications or an extended card. Example implementations and
+seed data are provided as reference. The code calls Brands **customers**
 (`CUSTOMER_ID`, the `customers` table).
 
 | Path                              | What it is                                                            | Port |
