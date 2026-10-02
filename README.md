@@ -11,6 +11,8 @@ identity (**Trust**) and, optionally, only the permissions the User granted
 | **Brand**          | A business the User wants help from. Its support agent runs on a Provider. |
 | **Provider**       | Builds and hosts support agents for many Brands.                           |
 
+![PACT at a glance](docs/images/protocol-overview.svg)
+
 ## Start here
 
 | You are                   | Read                                                         |
