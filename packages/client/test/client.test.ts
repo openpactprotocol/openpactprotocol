@@ -32,7 +32,7 @@ const skylineCard = {
   ],
 };
 
-describe("@pact/client", () => {
+describe("@openpactprotocol/client", () => {
   it("signs ES256 PA JWTs with the PACT claims", async () => {
     const { privateKey, publicKey } = await generateKeyPair("ES256", { extractable: true });
     const privateJwk = { ...(await exportJWK(privateKey)), kid: "key-1" };

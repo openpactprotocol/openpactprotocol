@@ -6,7 +6,7 @@ import {
   SendMessageRequestSchema,
   SendMessageResponseSchema,
   type Message,
-} from "@pact/protocol";
+} from "@openpactprotocol/protocol";
 import { and, asc, eq } from "drizzle-orm";
 import type { JWTVerifyGetKey } from "jose";
 import { runAgentTurn } from "../agent/index.js";

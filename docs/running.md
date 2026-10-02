@@ -13,8 +13,8 @@ demo agents are examples, not protocol. The code calls Brands **customers**
 | `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite)                  | 3000 |
 | `reference/personal-agent/client` | Demo **personal-agent UI** — one chat fanning out to Brands over PACT | 3001 |
 | `reference/personal-agent/server` | Demo personal agent's **JWKS server**                                 | 3002 |
-| `packages/client`                 | `@pact/client` — signer, `fetchAgentCard`, `A2AClient`                |      |
-| `packages/protocol`               | `@pact/protocol` — Zod schemas                                        |      |
+| `packages/client`                 | `@openpactprotocol/client` — signer, `fetchAgentCard`, `A2AClient`    |      |
+| `packages/protocol`               | `@openpactprotocol/protocol` — Zod schemas                            |      |
 | `e2e/`                            | Conformance suite                                                     |      |
 | `website`                         | This site; content is `docs/`                                         | 3003 |
 
@@ -30,10 +30,10 @@ pnpm gen-keys        # public key → JWKS server, private key → personal-agen
 Four processes, each in its own terminal:
 
 ```sh
-pnpm --filter @pact/personal-agent-server dev                                                 # JWKS, :3002
-PGLITE_DATA_DIR="$HOME/.local/share/pact-provider-db" pnpm --filter @pact/provider db:pglite  # database
-A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @pact/provider dev                       # Provider, :3000
-pnpm --filter @pact/personal-agent-client dev                                                 # demo personal agent, :3001
+pnpm --filter @openpactprotocol/personal-agent-server dev                                                 # JWKS, :3002
+PGLITE_DATA_DIR="$HOME/.local/share/pact-provider-db" pnpm --filter @openpactprotocol/provider db:pglite  # database
+A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openpactprotocol/provider dev                       # Provider, :3000
+pnpm --filter @openpactprotocol/personal-agent-client dev                                                 # demo personal agent, :3001
 ```
 
 Once the database is up (any PostgreSQL works; point `DATABASE_URL` at it).
@@ -41,7 +41,7 @@ Variables prefixed `PA_` (and the `-pa` ids) refer to the personal agent:
 
 ```sh
 export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres DATABASE_POOL_MAX=1 PA_ISSUER=http://localhost:3002
-pnpm --filter @pact/provider db:migrate && pnpm --filter @pact/provider db:seed
+pnpm --filter @openpactprotocol/provider db:migrate && pnpm --filter @openpactprotocol/provider db:seed
 ```
 
 The seed creates three Brands and onboards the demo personal agent (`demo-pa`):

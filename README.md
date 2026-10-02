@@ -26,8 +26,8 @@ identity (**Trust**) and, optionally, only the permissions the User granted
 
 ```text
 docs/                      the pages above (single source for the site)
-packages/protocol          @pact/protocol — Zod schemas: Agent Card, messages, errors, JWT claims
-packages/client            @pact/client   — personal-agent client: signer, fetchAgentCard, A2AClient (one file)
+packages/protocol          @openpactprotocol/protocol — Zod schemas: Agent Card, messages, errors, JWT claims
+packages/client            @openpactprotocol/client   — personal-agent client: signer, fetchAgentCard, A2AClient (one file)
 reference/provider         reference Provider (Next.js + PostgreSQL)
 reference/personal-agent/  demo personal agent: JWKS server + chat UI
 e2e/                       conformance tests — run against any Provider with E2E_PROVIDER=any

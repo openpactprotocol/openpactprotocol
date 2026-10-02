@@ -1,4 +1,4 @@
-# @pact/protocol
+# @openpactprotocol/protocol
 
 Zod schemas and types for the wire format in the
 [specification](../../docs/spec.md): Agent Card, `Message` /

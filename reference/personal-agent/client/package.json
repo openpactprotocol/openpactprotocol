@@ -1,5 +1,5 @@
 {
-  "name": "@pact/personal-agent-client",
+  "name": "@openpactprotocol/personal-agent-client",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,8 +11,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pact/client": "workspace:*",
-    "@pact/protocol": "workspace:*",
+    "@openpactprotocol/client": "workspace:*",
+    "@openpactprotocol/protocol": "workspace:*",
     "lucide-react": "1.47.0",
     "next": "15.5.26",
     "react": "19.1.1",

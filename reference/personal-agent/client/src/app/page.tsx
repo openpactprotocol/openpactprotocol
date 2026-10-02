@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { A2AHttpError } from "@pact/client";
+import { A2AHttpError } from "@openpactprotocol/client";
 import { agentCardUrl, discoverAgent } from "../lib/pact.js";
-import type { AgentCard } from "@pact/protocol";
+import type { AgentCard } from "@openpactprotocol/protocol";
 import {
   Bot,
   CircleAlert,

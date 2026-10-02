@@ -1,5 +1,5 @@
 {
-  "name": "@pact/e2e",
+  "name": "@openpactprotocol/e2e",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,8 +8,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@pact/client": "workspace:*",
-    "@pact/protocol": "workspace:*",
+    "@openpactprotocol/client": "workspace:*",
+    "@openpactprotocol/protocol": "workspace:*",
     "jose": "6.1.0",
     "vitest": "3.2.4"
   }

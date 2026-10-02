@@ -34,10 +34,10 @@ importers:
 
   e2e:
     dependencies:
-      "@pact/client":
+      "@openpactprotocol/client":
         specifier: workspace:*
         version: link:../packages/client
-      "@pact/protocol":
+      "@openpactprotocol/protocol":
         specifier: workspace:*
         version: link:../packages/protocol
       jose:
@@ -49,7 +49,7 @@ importers:
 
   packages/client:
     dependencies:
-      "@pact/protocol":
+      "@openpactprotocol/protocol":
         specifier: workspace:*
         version: link:../protocol
       jose:
@@ -64,10 +64,10 @@ importers:
 
   reference/personal-agent/client:
     dependencies:
-      "@pact/client":
+      "@openpactprotocol/client":
         specifier: workspace:*
         version: link:../../../packages/client
-      "@pact/protocol":
+      "@openpactprotocol/protocol":
         specifier: workspace:*
         version: link:../../../packages/protocol
       lucide-react:
@@ -94,7 +94,7 @@ importers:
 
   reference/provider:
     dependencies:
-      "@pact/protocol":
+      "@openpactprotocol/protocol":
         specifier: workspace:*
         version: link:../../packages/protocol
       drizzle-orm:

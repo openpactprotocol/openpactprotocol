@@ -1,8 +1,8 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { createPlatformSigner } from "@pact/client";
-import { PlatformRegistrationResponseSchema } from "@pact/protocol";
+import { createPlatformSigner } from "@openpactprotocol/client";
+import { PlatformRegistrationResponseSchema } from "@openpactprotocol/protocol";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import {
