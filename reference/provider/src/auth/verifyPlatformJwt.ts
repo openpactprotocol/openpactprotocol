@@ -8,7 +8,7 @@ import {
 import { eq } from "drizzle-orm";
 import type { Db } from "../db/client.js";
 import { agentPlatforms } from "../db/schema.js";
-import { assertPlatformJwtIssuedAt } from "./platformJwtTiming.js";
+import { assertPlatformJwtTiming } from "./platformJwtTiming.js";
 
 export interface PlatformAuth {
   platform: { id: string; name: string; audience: string | null };
@@ -68,7 +68,7 @@ export async function verifyPlatformJwt(input: {
     ) {
       return reject("invalid required claims");
     }
-    assertPlatformJwtIssuedAt({ iat: payload.iat, now });
+    assertPlatformJwtTiming({ iat: payload.iat, exp: payload.exp, now });
     return {
       platform: { id: platform.id, name: platform.name, audience: platform.audience },
       paUserId: `${platform.name}:${payload.sub}`,

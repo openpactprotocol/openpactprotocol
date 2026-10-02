@@ -305,6 +305,45 @@ describe("platform registration", () => {
         })
       ).status,
     ).toBe(400);
+    for (const privateIssuer of [
+      "https://10.0.0.8",
+      "https://169.254.169.254",
+      "https://172.16.5.5",
+      "https://192.168.1.1",
+      "https://[fd00::1]",
+      "https://jwks.internal",
+    ]) {
+      expect(
+        (
+          await register(registrationBody("private-host", privateIssuer), {
+            tokenInput: { issuer: privateIssuer },
+          })
+        ).status,
+      ).toBe(400);
+    }
+  });
+
+  it("rejects localhost issuers unless allowLocalhost is set", async () => {
+    const strictHandler = createRegisterPlatformHandler({
+      db: testDb,
+      getJwks: () => localJwks,
+      allowLocalhost: false,
+    });
+    const localIssuer = "http://localhost:3002";
+    const response = await strictHandler(
+      new Request(`${origin}/api/platforms`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${await token({ issuer: localIssuer })}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(registrationBody("strict-local", localIssuer)),
+      }),
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({
+      error: "Issuer must not point at a local or private address",
+    });
   });
 
   it("can skip only the demo platform during seeding", async () => {
