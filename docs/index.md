@@ -36,11 +36,12 @@ Provider hosts.
 
 1. **Onboard (once per Provider).** The personal agent gives the Provider its issuer URL
    and public keys (JWKS); the Provider gives the personal agent an `audience` string.
-2. **Find the agent.** The personal agent finds the Brand's Agent Card in one of two
-   ways, and the card says where to send messages:
-   - **Well-known URL** on the Brand's own domain, e.g.
-     `https://brand.example.com/.well-known/agent-card.json`.
-   - **Public registry**: a shared directory of Agent Cards, searched by Brand.
+2. **Find the agent.** The personal agent finds the Brand's Agent Card, which says
+   where to send messages:
+   - **Well-known URL** (the standard): the Brand's own domain serves the card or
+     redirects to it, e.g. `https://brand.example.com/.well-known/agent-card.json`.
+   - **Elsewhere**: a link from the Brand, or a public registry of Agent Cards,
+     can point to the card wherever it is hosted.
 3. **Send.** The personal agent sends the User's message with a short-lived JWT it signed
    itself. The JWT carries a stable, anonymous id for the User.
 4. **Verify.** The Provider checks the signature against the personal agent's JWKS.
