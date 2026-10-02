@@ -28,7 +28,7 @@ import {
   type DelegationConfig,
 } from "./config.js";
 import { getSigningKey } from "./keys.js";
-import { consentPage, errorPage } from "./pages.js";
+import { consentPage, displayName, errorPage } from "./pages.js";
 import {
   randomToken,
   sha256,
@@ -408,7 +408,7 @@ export function createOAuthHandler(options: OAuthOptions) {
     const granted = requested.filter((scope) => chosen.has(scope));
     const at = now();
     const done = new URL(`${config.brandUrl}/connected`);
-    done.searchParams.set("client", pending.platform.name);
+    done.searchParams.set("client", displayName(pending.platform.name));
 
     if (form.get("decision") !== "allow" || granted.length === 0) {
       await options.db

@@ -69,29 +69,38 @@ function escapeHtml(value: string): string {
 
 const STYLES = `
 *{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:#eef0f3;font:15px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;color:#111827;display:flex;justify-content:center;align-items:flex-start;padding:32px 16px}
-.sheet{width:100%;max-width:400px;background:#fff;border-radius:20px;box-shadow:0 10px 40px rgba(17,24,39,.12);overflow:hidden}
-.hero{background:#16345c;color:#fff;padding:22px 24px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:17px}
-.logo{width:32px;height:32px;border-radius:8px;background:#fff;color:#16345c;display:grid;place-items:center;font-weight:800}
-.hero h1{margin:18px 0 4px;font-size:22px}
-.hero p{margin:0;opacity:.8;font-size:13px}
-.body{padding:22px 24px}
-label{display:block;font-size:12px;font-weight:600;color:#6b7280;margin:12px 0 4px}
+body{margin:0;min-height:100vh;background:#eef0f3;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;color:#111827;display:flex;justify-content:center;align-items:flex-start;padding:40px 16px}
+.sheet{width:100%;max-width:420px;background:#fff;border-radius:20px;box-shadow:0 1px 2px rgba(17,24,39,.06),0 12px 40px rgba(17,24,39,.10);padding:28px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px}
+.logo{width:32px;height:32px;border-radius:9px;background:#16345c;color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
+h1{font-size:20px;line-height:1.3;margin:26px 0 6px;text-align:center;font-weight:650}
+.sub{color:#6b7280;font-size:13px;margin:0;text-align:center}
+.sub b{color:#374151;font-weight:600}
+label{display:block;font-size:13px;font-weight:600;color:#374151;margin:16px 0 6px}
 input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font:inherit}
-button{width:100%;border:0;border-radius:12px;padding:14px;margin-top:18px;background:#16345c;color:#fff;font:600 15px inherit;font-family:inherit;cursor:pointer}
-.hint{color:#9ca3af;font-size:12px;margin-top:12px;text-align:center}
-.error{background:#fef2f2;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:6px}
-.done{text-align:center;padding:36px 24px 28px}
-.check{width:64px;height:64px;border-radius:50%;background:#dcfce7;color:#16a34a;display:grid;place-items:center;margin:0 auto 14px;font-size:34px}
-.done h1{margin:0 0 6px;font-size:24px}
-.muted{color:#6b7280;font-size:14px;margin:0}
-.notice{display:flex;gap:10px;align-items:flex-start;margin:20px 24px 24px;padding:12px;border-radius:14px;background:#f3f4f6;font-size:13px;text-align:left}
-.notice .logo{background:#16345c;color:#fff;width:28px;height:28px;font-size:13px;flex:none}
-.notice strong{display:block}
-ul{margin:12px 0 0;padding:0;list-style:none}
-li{padding:8px 0;border-top:1px solid #f3f4f6;font-size:14px}
+input:focus{outline:2px solid #16345c;outline-offset:-1px;border-color:#16345c}
+button{width:100%;border:0;border-radius:12px;padding:13px;margin-top:22px;background:#16345c;color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer}
+.hint{margin:16px 0 0;padding:10px 12px;border-radius:10px;background:#f3f4f6;color:#6b7280;font-size:12px;text-align:center}
+.hint code{color:#374151}
+.error{background:#fef2f2;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:18px}
+.status{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;margin:26px auto 0}
+.status svg{width:28px;height:28px}
+.status.ok{background:#dcfce7;color:#16a34a}
+.status.no{background:#f3f4f6;color:#6b7280}
+.status+h1{margin-top:14px}
+.label{font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin:24px 0 8px}
+.granted{margin:0;padding:0;list-style:none;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden}
+.granted li{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid #f0f1f3;font-size:14px;font-weight:500}
+.granted li:first-child{border-top:0}
+.granted svg{width:18px;height:18px;color:#16a34a;flex:none}
+.foot{text-align:center;color:#9ca3af;font-size:12px;margin:18px 0 0}
 `;
+
+const BRAND_HEADER = `<div class="brand"><span class="logo">S</span>Skyline Airways</div>`;
+const SVG = (path: string) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
+const CHECK = SVG('<path d="M20 6 9 17l-5-5"/>');
+const CROSS = SVG('<path d="M18 6 6 18M6 6l12 12"/>');
 
 function send(
   response: ServerResponse,
@@ -144,9 +153,9 @@ function loginPage(
 ): void {
   html(
     response,
-    "Sign in to Skyline",
-    `<div class="hero"><div class="brand"><span class="logo">S</span>Skyline Airways</div><h1>Sign in to Skyline</h1><p>to connect your personal agent</p></div>
-<form class="body" method="post" action="/login">
+    "Sign in to Skyline Airways",
+    `${BRAND_HEADER}<h1>Sign in to Skyline Airways</h1><p class="sub">to connect your personal agent</p>
+<form method="post" action="/login">
   ${input.error ? `<div class="error">${escapeHtml(input.error)}</div>` : ""}
   <input type="hidden" name="return_to" value="${escapeHtml(input.returnTo)}">
   <label for="email">Email</label>
@@ -159,8 +168,8 @@ function loginPage(
       : `<label for="user_code">Code from your agent</label><input id="user_code" name="user_code" placeholder="ABCD-EFGH" required>`
   }
   <button type="submit">Sign in</button>
-  <p class="hint">Demo account: alex.rivera@example.com / skyline</p>
-</form>`,
+</form>
+<p class="hint">Demo account: <code>alex.rivera@example.com</code> / <code>skyline</code></p>`,
   );
 }
 
@@ -169,7 +178,12 @@ async function handleLogin(request: IncomingMessage, response: ServerResponse): 
   const returnTo = form.get("return_to") ?? "";
   const target = consentTarget(returnTo);
   if (!target)
-    return html(response, "Skyline", `<div class="body">Unknown sign-in request.</div>`, 400);
+    return html(
+      response,
+      "Skyline",
+      `${BRAND_HEADER}<h1>Unknown sign-in request</h1><p class="sub">Start again from your agent.</p>`,
+      400,
+    );
   const userCode = (form.get("user_code") ?? target.userCode ?? "").trim().toUpperCase();
   const user = findUser(form.get("email") ?? "", form.get("password") ?? "");
   if (!user || !userCode) {
@@ -192,17 +206,17 @@ async function handleLogin(request: IncomingMessage, response: ServerResponse): 
   html(
     response,
     "Signing in…",
-    `<form class="body" method="post" action="${escapeHtml(target.url)}"><input type="hidden" name="assertion" value="${escapeHtml(assertion)}"><p class="muted">Signed in as ${escapeHtml(user.email)}. Continuing…</p><noscript><button type="submit">Continue</button></noscript></form><script>document.forms[0].submit()</script>`,
+    `${BRAND_HEADER}<form method="post" action="${escapeHtml(target.url)}"><input type="hidden" name="assertion" value="${escapeHtml(assertion)}"><p class="sub" style="margin-top:26px">Signed in as <b>${escapeHtml(user.email)}</b>. Continuing…</p><noscript><button type="submit">Continue</button></noscript></form><script>document.forms[0].submit()</script>`,
   );
 }
 
 function connectedPage(response: ServerResponse, url: URL): void {
-  const client = url.searchParams.get("client") ?? "your personal agent";
+  const client = url.searchParams.get("client") ?? "Your personal agent";
   if (url.searchParams.get("status") !== "approved") {
     return html(
       response,
       "Not connected",
-      `<div class="done"><h1>Not connected</h1><p class="muted">${escapeHtml(client)} can't access your Skyline account. You can close this tab.</p></div>`,
+      `${BRAND_HEADER}<div class="status no">${CROSS}</div><h1>Not connected</h1><p class="sub"><b>${escapeHtml(client)}</b> can't access your Skyline account. You can close this tab.</p>`,
     );
   }
   const scopes = (url.searchParams.get("scope") ?? "").split(" ").filter(Boolean);
@@ -210,9 +224,10 @@ function connectedPage(response: ServerResponse, url: URL): void {
   html(
     response,
     "Connected",
-    `<div class="done"><div class="check">&#10003;</div><h1>Connected</h1><p class="muted">${escapeHtml(client)} can now help with your Skyline account. You can close this tab and go back to your agent.</p>
-<ul>${labels.map((label) => `<li>${escapeHtml(label)}</li>`).join("")}</ul></div>
-<div class="notice"><span class="logo">S</span><div><strong>Skyline Airways · now</strong>You shared access with ${escapeHtml(client)}: ${escapeHtml(labels.join(" · "))}. Manage it anytime in Settings.</div></div>`,
+    `${BRAND_HEADER}<div class="status ok">${CHECK}</div><h1>You're connected</h1><p class="sub"><b>${escapeHtml(client)}</b> can now help with your Skyline account.</p>
+<div class="label">Access you shared</div>
+<ul class="granted">${labels.map((label) => `<li>${CHECK}${escapeHtml(label)}</li>`).join("")}</ul>
+<p class="foot">You can close this tab and go back to your agent. Manage or revoke access anytime in Skyline settings.</p>`,
   );
 }
 
@@ -281,7 +296,12 @@ const server = createServer(async (request, response) => {
       const returnTo = url.searchParams.get("return_to");
       const target = consentTarget(returnTo);
       if (!target || !returnTo) {
-        return html(response, "Skyline", `<div class="body">Unknown sign-in request.</div>`, 400);
+        return html(
+          response,
+          "Skyline",
+          `${BRAND_HEADER}<h1>Unknown sign-in request</h1><p class="sub">Start again from your agent.</p>`,
+          400,
+        );
       }
       return loginPage(response, { returnTo, userCode: target.userCode });
     }
@@ -296,7 +316,7 @@ const server = createServer(async (request, response) => {
       return html(
         response,
         "Skyline Airways",
-        `<div class="hero"><div class="brand"><span class="logo">S</span>Skyline Airways</div><h1>Example Brand</h1><p>Login, accounts and the account API for the PACT Delegated demo.</p></div><div class="body"><p class="muted">Agent Card: <a href="/.well-known/agent-card.json">/.well-known/agent-card.json</a></p></div>`,
+        `${BRAND_HEADER}<h1>Example Brand</h1><p class="sub">Login, accounts and the account API for the PACT Delegated demo.</p><p class="foot">Agent Card: <a href="/.well-known/agent-card.json">/.well-known/agent-card.json</a></p>`,
       );
     }
     send(response, 404, "Not found");
