@@ -27,10 +27,9 @@ Unauthenticated; unknown `brandId` → `404`. The card
 ([spec §2.1](spec.md#21-agent-card)) lists a `supportedInterfaces` entry with
 `protocolBinding: "HTTP+JSON"`, `protocolVersion: "1.0"` and the `url` the
 other routes hang off; declares `httpAuthSecurityScheme`
-`{ scheme: "Bearer", bearerFormat: "JWT" }`; and sets `capabilities.streaming`,
-`pushNotifications`, `extendedAgentCard` to `false`. Personal agents reach it
-from the Brand's own `/.well-known/agent-card.json` (which serves this card or
-redirects here), or from a link or registry entry.
+`{ scheme: "Bearer", bearerFormat: "JWT" }`. Personal agents reach it from the
+Brand's own `/.well-known/agent-card.json` (which serves this card or redirects
+here), or from a link or registry entry.
 
 **Done when** a Brand's card is served and an unknown id returns `404`.
 
@@ -79,12 +78,12 @@ and that `contextId` from another `sub` or Brand gets `INVALID_PARAMS`.
 
 ## 5. Other routes, errors, limits
 
-Generic A2A clients will call the other operations; return the A2A error
-listed in [spec §2.2](spec.md#22-operations) (`TASK_NOT_FOUND`,
-`UNSUPPORTED_OPERATION`, `PUSH_NOTIFICATION_NOT_SUPPORTED`; `GET tasks` → an
-empty list). A2A errors use the envelope in [spec §6](spec.md#6-errors) with
-the reason in `error.details[0].reason`. Plain HTTP for `401`, `404`/`405`,
-and `429` + `Retry-After` when you rate-limit.
+Generic A2A clients will call other operations; return the result listed in
+[spec §2.2](spec.md#22-operations) (`TASK_NOT_FOUND`; `GET tasks` → an empty
+list), and A2A's errors for operations you don't support. A2A errors use the
+envelope in [spec §6](spec.md#6-errors) with the reason in
+`error.details[0].reason`. Plain HTTP for `401`, `404`/`405`, and `429` +
+`Retry-After` when you rate-limit.
 
 **Done when** each operation returns its listed error after a valid token.
 
