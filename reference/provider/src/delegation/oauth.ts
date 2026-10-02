@@ -359,19 +359,19 @@ export function createOAuthHandler(options: OAuthOptions) {
         jti: payload.jti!,
       };
     } catch {
-      return errorPage(customer.name, "The sign-in could not be verified. Try again.", 401);
+      return await errorPage(customer.name, "The sign-in could not be verified. Try again.", 401);
     }
     const [fresh] = await options.db
       .insert(usedBrandAssertions)
       .values({ jti: claims.jti })
       .onConflictDoNothing()
       .returning();
-    if (!fresh) return errorPage(customer.name, "This sign-in link was already used.");
+    if (!fresh) return await errorPage(customer.name, "This sign-in link was already used.");
     const pending = await pendingAuthorization(customer.id, claims.userCode);
     if (!pending)
-      return errorPage(customer.name, "This request expired. Start again from your agent.");
+      return await errorPage(customer.name, "This request expired. Start again from your agent.");
     const requested = new Set(parseScope(pending.row.requestedScope));
-    return consentPage({
+    return await consentPage({
       brandName: customer.name,
       color: config.color,
       providerName: "PACT reference provider",
@@ -398,11 +398,14 @@ export function createOAuthHandler(options: OAuthOptions) {
         now: now(),
       });
     } catch {
-      return errorPage(customer.name, "This consent page expired. Start again from your agent.");
+      return await errorPage(
+        customer.name,
+        "This consent page expired. Start again from your agent.",
+      );
     }
     const pending = await pendingAuthorization(customer.id, session.userCode);
     if (!pending)
-      return errorPage(customer.name, "This request expired. Start again from your agent.");
+      return await errorPage(customer.name, "This request expired. Start again from your agent.");
     const requested = parseScope(pending.row.requestedScope);
     const chosen = new Set(form.getAll("scope"));
     const granted = requested.filter((scope) => chosen.has(scope));

@@ -67,6 +67,19 @@ importers:
       jose:
         specifier: 6.1.0
         version: 6.1.0
+      react:
+        specifier: 19.1.1
+        version: 19.1.1
+      react-dom:
+        specifier: 19.1.1
+        version: 19.1.1(react@19.1.1)
+    devDependencies:
+      "@types/react":
+        specifier: 19.1.16
+        version: 19.1.16
+      "@types/react-dom":
+        specifier: 19.1.9
+        version: 19.1.9(@types/react@19.1.16)
 
   reference/personal-agent/client:
     dependencies:

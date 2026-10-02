@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, resolve } from "node:path";
+import { createElement, Fragment, type ReactNode } from "react";
 import {
   calculateJwkThumbprint,
   createRemoteJWKSet,
@@ -14,6 +15,13 @@ import {
   type JWK,
 } from "jose";
 import { findUser, pastTrips, rebook, SCOPE_LABELS, upcomingTrips } from "./data.js";
+import { ConnectedPage } from "./views/ConnectedPage.js";
+import { ContinuePage } from "./views/ContinuePage.js";
+import { Layout } from "./views/Layout.js";
+import { LoginPage } from "./views/LoginPage.js";
+import { MessagePage } from "./views/MessagePage.js";
+import { NotConnectedPage } from "./views/NotConnectedPage.js";
+import { renderPage } from "./views/render.js";
 
 // Example Brand (Skyline Airways). It owns login, accounts and the account
 // API. The Provider owns OAuth: after login the Brand POSTs a signed, single-use
@@ -78,17 +86,6 @@ const staticAssets = new Map<string, { body: Buffer; contentType: string }>(
   ),
 );
 
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-const BRAND_HEADER = `<div class="brand"><span class="logo">S</span>Skyline Airways</div>`;
-
 function send(
   response: ServerResponse,
   status: number,
@@ -98,24 +95,23 @@ function send(
   response.writeHead(status, headers).end(body);
 }
 
-function html(
-  response: ServerResponse,
-  title: string,
-  body: string,
-  status = 200,
-  includeContinueScript = false,
-): void {
-  send(
-    response,
-    status,
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="/static/styles.css"></head><body><main class="sheet">${body}</main>${includeContinueScript ? '<script src="/static/continue.js" defer></script>' : ""}</body></html>`,
-    {
-      "Content-Type": "text/html; charset=utf-8",
-      "Cache-Control": "no-store",
-      "X-Frame-Options": "DENY",
-      "Content-Security-Policy":
-        "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'",
-    },
+function html(response: ServerResponse, body: string, status = 200): void {
+  send(response, status, body, {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store",
+    "X-Frame-Options": "DENY",
+    "Content-Security-Policy":
+      "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'",
+  });
+}
+
+function brandPage(title: string, body: ReactNode, continueScript = false): string {
+  return renderPage(
+    createElement(Layout, {
+      title,
+      children: body,
+      ...(continueScript ? { continueScript } : {}),
+    }),
   );
 }
 
@@ -147,23 +143,15 @@ function loginPage(
 ): void {
   html(
     response,
-    "Sign in to Skyline Airways",
-    `${BRAND_HEADER}<h1>Sign in to Skyline Airways</h1><p class="sub">to connect your personal agent</p>
-<form method="post" action="/login">
-  ${input.error ? `<div class="error">${escapeHtml(input.error)}</div>` : ""}
-  <input type="hidden" name="return_to" value="${escapeHtml(input.returnTo)}">
-  <label for="email">Email</label>
-  <input id="email" name="email" type="email" autocomplete="username" value="${escapeHtml(input.email ?? "alex.rivera@example.com")}" required>
-  <label for="password">Password</label>
-  <input id="password" name="password" type="password" autocomplete="current-password" required>
-  ${
-    input.userCode
-      ? `<input type="hidden" name="user_code" value="${escapeHtml(input.userCode)}">`
-      : `<label for="user_code">Code from your agent</label><input id="user_code" name="user_code" placeholder="ABCD-EFGH" required>`
-  }
-  <button type="submit">Sign in</button>
-</form>
-<p class="hint">Demo account: <code>alex.rivera@example.com</code> / <code>skyline</code></p>`,
+    brandPage(
+      "Sign in to Skyline Airways",
+      createElement(LoginPage, {
+        returnTo: input.returnTo,
+        userCode: input.userCode,
+        ...(input.email === undefined ? {} : { email: input.email }),
+        ...(input.error === undefined ? {} : { error: input.error }),
+      }),
+    ),
   );
 }
 
@@ -174,8 +162,13 @@ async function handleLogin(request: IncomingMessage, response: ServerResponse): 
   if (!target)
     return html(
       response,
-      "Skyline",
-      `${BRAND_HEADER}<h1>Unknown sign-in request</h1><p class="sub">Start again from your agent.</p>`,
+      brandPage(
+        "Skyline",
+        createElement(MessagePage, {
+          title: "Unknown sign-in request",
+          sub: "Start again from your agent.",
+        }),
+      ),
       400,
     );
   const userCode = (form.get("user_code") ?? target.userCode ?? "").trim().toUpperCase();
@@ -199,32 +192,22 @@ async function handleLogin(request: IncomingMessage, response: ServerResponse): 
     .sign(key.privateKey);
   html(
     response,
-    "Signing in…",
-    `${BRAND_HEADER}<form method="post" action="${escapeHtml(target.url)}"><input type="hidden" name="assertion" value="${escapeHtml(assertion)}"><p class="sub spaced">Signed in as <b>${escapeHtml(user.email)}</b>. Continuing…</p><noscript><button type="submit">Continue</button></noscript></form>`,
-    200,
-    true,
+    brandPage(
+      "Signing in…",
+      createElement(ContinuePage, { action: target.url, assertion, email: user.email }),
+      true,
+    ),
   );
 }
 
 function connectedPage(response: ServerResponse, url: URL): void {
   const client = url.searchParams.get("client") ?? "Your personal agent";
   if (url.searchParams.get("status") !== "approved") {
-    return html(
-      response,
-      "Not connected",
-      `${BRAND_HEADER}<div class="status no"><span class="glyph glyph-cross" aria-hidden="true"></span></div><h1>Not connected</h1><p class="sub"><b>${escapeHtml(client)}</b> can't access your Skyline account. You can close this tab.</p>`,
-    );
+    return html(response, brandPage("Not connected", createElement(NotConnectedPage, { client })));
   }
   const scopes = (url.searchParams.get("scope") ?? "").split(" ").filter(Boolean);
   const labels = scopes.map((scope) => SCOPE_LABELS[scope] ?? scope);
-  html(
-    response,
-    "Connected",
-    `${BRAND_HEADER}<div class="status ok"><span class="glyph glyph-check" aria-hidden="true"></span></div><h1>You're connected</h1><p class="sub"><b>${escapeHtml(client)}</b> can now help with your Skyline account.</p>
-<div class="label">Access you shared</div>
-<ul class="granted">${labels.map((label) => `<li><span class="glyph glyph-check" aria-hidden="true"></span>${escapeHtml(label)}</li>`).join("")}</ul>
-<p class="foot">You can close this tab and go back to your agent. Manage or revoke access anytime in Skyline settings.</p>`,
-  );
+  html(response, brandPage("Connected", createElement(ConnectedPage, { client, labels })));
 }
 
 // Account API. Accepts only Provider-signed delegation tokens for this Brand.
@@ -307,8 +290,13 @@ const server = createServer(async (request, response) => {
       if (!target || !returnTo) {
         return html(
           response,
-          "Skyline",
-          `${BRAND_HEADER}<h1>Unknown sign-in request</h1><p class="sub">Start again from your agent.</p>`,
+          brandPage(
+            "Skyline",
+            createElement(MessagePage, {
+              title: "Unknown sign-in request",
+              sub: "Start again from your agent.",
+            }),
+          ),
           400,
         );
       }
@@ -324,8 +312,23 @@ const server = createServer(async (request, response) => {
     if (request.method === "GET" && url.pathname === "/") {
       return html(
         response,
-        "Skyline Airways",
-        `${BRAND_HEADER}<h1>Example Brand</h1><p class="sub">Login, accounts and the account API for the PACT Delegated demo.</p><p class="foot">Agent Card: <a href="/.well-known/agent-card.json">/.well-known/agent-card.json</a></p>`,
+        brandPage(
+          "Skyline Airways",
+          createElement(MessagePage, {
+            title: "Example Brand",
+            sub: "Login, accounts and the account API for the PACT Delegated demo.",
+            foot: createElement(
+              Fragment,
+              null,
+              "Agent Card: ",
+              createElement(
+                "a",
+                { href: "/.well-known/agent-card.json" },
+                "/.well-known/agent-card.json",
+              ),
+            ),
+          }),
+        ),
       );
     }
     send(response, 404, "Not found");
