@@ -214,9 +214,9 @@ without re-running the agent. If there is no stored reply yet, return
 
 ## 5. Delegated authority
 
-> **Draft.** No Provider implements this yet and the wire details may change
-> before announcement; do not build to it. Identity-only (§2–4) is complete on
-> its own. Providers without it omit §5.1 from their cards.
+> **Optional.** This is the **PACT Delegated** profile ([§7](#7-conformance)).
+> Identity (§2–4) works without it; Providers that don't offer it omit §5.1
+> from their cards.
 
 Lets the agent act on the User's Brand account. Standard OAuth 2.0 device
 code ([RFC 8628](https://www.rfc-editor.org/rfc/rfc8628)): the Brand defines

@@ -60,7 +60,7 @@ export function SiteShell({
           ))}
           <div className="sidebar-note">
             <span className="sidebar-note-icon">1.0</span>
-            <p>Identity is implemented. Delegated authority is specified, not yet built.</p>
+            <p>Two profiles: Identity, and Delegated (Identity plus §5).</p>
           </div>
         </aside>
 

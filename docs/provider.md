@@ -105,4 +105,4 @@ pnpm e2e
 
 Delegated authority ([spec §5](spec.md#5-delegated-authority)) — scopes and
 login per Brand, device-code OAuth, delegation tokens, step-up, receipts — is
-optional and advertised on the card. No public implementation yet.
+optional and advertised on the card.
