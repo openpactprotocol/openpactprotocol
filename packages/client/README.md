@@ -1,6 +1,6 @@
 # @pact/client
 
-PA-side client: `createPlatformSigner`, `fetchAgentCard`, `interfaceUrl`,
+Personal-agent-side client: `createPlatformSigner`, `fetchAgentCard`, `interfaceUrl`,
 `A2AClient`, typed errors.
 
 ```ts
@@ -13,4 +13,4 @@ const client = new A2AClient({
 const reply = await client.sendMessage("Where is my order?");
 ```
 
-How to use it: [Build a PA integration](../../docs/personal-agent.md).
+How to use it: [Build a personal agent integration](../../docs/personal-agent.md).

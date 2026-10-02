@@ -7,14 +7,14 @@ For engineers adding PACT to a platform that hosts support agents for Brands
 (a **Provider**). The rules are in the [specification](spec.md);
 `reference/provider` implements all of this and `e2e/` checks it.
 
-## 1. Onboard PAs
+## 1. Onboard personal agents
 
-Keep a record per PA: `issuer` (the exact `iss` string), `jwksUri`, `enabled`.
-Pick one **audience** string and give it to every PA. Allowlisting PAs or
+Keep a record per personal agent: `issuer` (the exact `iss` string), `jwksUri`, `enabled`.
+Pick one **audience** string and give it to every personal agent. Allowlisting personal agents or
 accepting any `iss` that serves a JWKS is your policy
 ([spec §3.1](spec.md#31-onboarding)).
 
-**Done when** you can look up a PA by `iss` and get its JWKS URL and enabled
+**Done when** you can look up a personal agent by `iss` and get its JWKS URL and enabled
 state.
 
 ## 2. Serve one Agent Card per Brand
@@ -28,18 +28,20 @@ Unauthenticated; unknown `brandId` → `404`. The card
 `protocolBinding: "HTTP+JSON"`, `protocolVersion: "1.0"` and the `url` the
 other routes hang off; declares `httpAuthSecurityScheme`
 `{ scheme: "Bearer", bearerFormat: "JWT" }`; and sets `capabilities.streaming`,
-`pushNotifications`, `extendedAgentCard` to `false`. Brands give PAs this URL.
+`pushNotifications`, `extendedAgentCard` to `false`. Personal agents find it through
+the Brand's own `/.well-known/agent-card.json`, which serves this card or
+redirects to it, or through a link or public registry entry pointing here.
 
 **Done when** a Brand's card is served and an unknown id returns `404`.
 
-## 3. Verify the PA JWT on every other route
+## 3. Verify the personal-agent JWT on every other route
 
 Match the route first (unknown path → `404`/`405`), then
-([spec §3.2](spec.md#32-pa-jwt)):
+([spec §3.2](spec.md#32-personal-agent-jwt)):
 
 1. `alg` is `ES256` or `RS256` — reject anything else.
-2. `iss` is a known, enabled PA.
-3. Signature verifies against that PA's JWKS (cache; refetch on unknown `kid`).
+2. `iss` is a known, enabled personal agent.
+3. Signature verifies against that personal agent's JWKS (cache; refetch on unknown `kid`).
 4. `aud` is your audience; `exp` is in the future; `iat` ≤ 30 s in the future.
 5. `sub` is present. The caller is `(iss, sub)`.
 
@@ -51,7 +53,7 @@ WWW-Authenticate: Bearer realm="a2a"
 ```
 
 **Done when** missing token, bad signature, wrong `aud`, expired, `HS256`,
-and a disabled PA all get that `401`, and a good token passes.
+and a disabled personal agent all get that `401`, and a good token passes.
 
 ## 4. Answer `message:send`
 
@@ -68,7 +70,7 @@ and a disabled PA all get that `401`, and a good token passes.
 | Conversation closed                           | `UNSUPPORTED_OPERATION`                           |
 
 Reply synchronously with a `ROLE_AGENT` message carrying the `contextId`,
-`Content-Type: application/a2a+json`. The token says which PA is calling for
+`Content-Type: application/a2a+json`. The token says which personal agent is calling for
 `sub`, not who the User is — the agent verifies the User as it would in a chat
 widget.
 
@@ -88,14 +90,14 @@ and `429` + `Retry-After` when you rate-limit.
 
 ## 6. Run the conformance suite
 
-Needs two Brand IDs and a PA you trust (`pnpm gen-keys` makes one; see
-[conformance tests](running.md#conformance-tests)). The code calls Brands
-`customers`, hence `CUSTOMER_ID`.
+Needs two Brand IDs and a personal agent you trust (`pnpm gen-keys` makes one; see
+[conformance tests](running.md#conformance-tests)). The `PA_*` (personal agent)
+variables describe it. The code calls Brands `customers`, hence `CUSTOMER_ID`.
 
 ```sh
 E2E_PROVIDER=any PROVIDER_URL=https://provider.example.com \
 CUSTOMER_ID=<brandId> OTHER_CUSTOMER_ID=<another brandId> \
-PA_ISSUER=<test PA iss> PA_AUDIENCE=<your audience> PA_PRIVATE_JWK='<its private JWK>' \
+PA_ISSUER=<test personal agent's iss> PA_AUDIENCE=<your audience> PA_PRIVATE_JWK='<its private JWK>' \
 pnpm e2e
 ```
 

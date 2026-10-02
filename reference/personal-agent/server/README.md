@@ -1,6 +1,6 @@
-# Demo PA JWKS server
+# Demo personal agent JWKS server
 
-Static site publishing the demo PA's public keys at `/.well-known/jwks.json`.
-The Provider fetches them to verify the PA's JWTs. Public keys only;
+Static site publishing the demo personal agent's public keys at `/.well-known/jwks.json`.
+The Provider fetches them to verify the personal agent's JWTs. Public keys only;
 `pnpm gen-keys` at the repository root writes them. See
 [Run the reference stack](../../../docs/running.md#run-it-locally).
