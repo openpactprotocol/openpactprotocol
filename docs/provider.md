@@ -7,12 +7,12 @@ For engineers adding PACT to a platform that hosts support agents for Brands
 (a **Provider**). The rules are in the [specification](spec.md);
 `reference/provider` implements all of this and `e2e/` checks it.
 
-## 1. Onboard personal agents
+## 1. Register personal agents
 
 Keep a record per personal agent: `issuer` (the exact `iss` string), `jwksUri`, `enabled`.
 Pick one **audience** string and give it to every personal agent. Allowlisting personal agents or
 accepting any `iss` that serves a JWKS is your policy
-([spec §3.1](spec.md#31-onboarding)).
+([spec §3.1](spec.md#31-registration)).
 
 **Done when** you can look up a personal agent by `iss` and get its JWKS URL and enabled
 state.

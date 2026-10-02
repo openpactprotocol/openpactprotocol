@@ -122,7 +122,7 @@ function RegisterPanel(input: {
       <summary>
         <KeyRound size={16} aria-hidden />
         <span>Register personal agent</span>
-        <span className="summary-hint">One-time platform onboarding</span>
+        <span className="summary-hint">One-time platform registration</span>
       </summary>
       <div className="register-body">
         <ol className="steps">
