@@ -16,7 +16,7 @@ const HEIGHT = 348;
 const arrows: Arrow[] = [
   {
     step: 1,
-    label: "Onboard (once)",
+    label: "Register (once)",
     y: 126,
     from: PLATFORM.x + PLATFORM.width,
     to: PROVIDER.x,
@@ -69,7 +69,7 @@ const platformParts: Part[] = [
 ];
 
 const providerParts: Part[] = [
-  { label: "Onboarded agents", detail: "issuer · keys URL · audience", y: 106 },
+  { label: "Registered agents", detail: "issuer · keys URL · audience", y: 106 },
   { label: "Agent Card", detail: "/a2a/{brandId}", y: 158 },
   { label: "Token check", detail: "signature · issuer · audience", y: 216 },
   { label: "Brand's agent", detail: "one conversation per User", y: 318, accent: true },
@@ -402,7 +402,7 @@ export function ProtocolOverviewDiagram() {
       <rect className="po-canvas" x={-10} y={0} width={780} height={482} />
       <title id="protocol-overview-title">PACT at a glance</title>
       <desc id="protocol-overview-desc">
-        The User asks their personal agent for help. The personal agent, onboarded once with the
+        The User asks their personal agent for help. The personal agent, registered once with the
         Provider, reads the Brand&apos;s Agent Card and sends a message signed with its own key. The
         Provider verifies the JWT against the personal agent&apos;s public keys, the Brand&apos;s
         agent replies with a contextId, and the personal agent relays the answer. Optionally, the

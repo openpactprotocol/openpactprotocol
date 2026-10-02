@@ -27,14 +27,14 @@ Everything A2A defines works unchanged.
 | **Brand**          | A business the User wants help from. Its support agent runs on a Provider. | Loom & Co.                     |
 | **Provider**       | Builds and hosts support agents for many Brands.                           | Loom's customer-support vendor |
 
-A personal agent onboards with each Provider once, then can talk to every Brand that
+A personal agent registers with each Provider once, then can talk to every Brand that
 Provider hosts.
 
 ## How it works
 
 ![PACT at a glance](images/protocol-overview.svg)
 
-1. **Onboard (once per Provider).** The personal agent gives the Provider its issuer URL
+1. **Register (once per Provider).** The personal agent gives the Provider its issuer URL
    and public keys (JWKS); the Provider gives the personal agent an `audience` string.
 2. **Find the agent.** The personal agent fetches the Brand's Agent Card, which says
    where to send messages. The Provider hosts it, e.g.

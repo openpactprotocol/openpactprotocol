@@ -15,7 +15,7 @@ in this repository) does steps 3–5.
 | `PA_ISSUER`    | You: your platform's URL (`PA_` stands for personal agent)                                           | The JWT's `iss`; your JWKS lives under it (step 1)           |
 | Signing key    | You: an ES256 key pair with a `kid` (step 1)                                                         | The public key goes in your JWKS; the private key signs JWTs |
 | User ID        | You: a stable, opaque id for each User                                                               | The JWT's `sub` (step 3)                                     |
-| Audience       | Each Provider, when you onboard (step 2)                                                             | The JWT's `aud` (step 3)                                     |
+| Audience       | Each Provider, when you register (step 2)                                                            | The JWT's `aud` (step 3)                                     |
 | Agent Card URL | Each Brand: usually `https://{brandDomain}/.well-known/agent-card.json`, or a link or registry entry | Finding the Brand's interface URL (step 4)                   |
 
 ## 1. Publish a signing key
@@ -48,7 +48,7 @@ secret and use it to sign tokens (step 3).
 
 **Done when** `curl $PA_ISSUER/.well-known/jwks.json` returns `{ "keys": [ … ] }`.
 
-## 2. Onboard with each Provider
+## 2. Register with each Provider
 
 Once per Provider, not per User or Brand. Send your issuer and JWKS URL; the
 Provider replies with its audience, a string you copy into `aud` (step 3). The

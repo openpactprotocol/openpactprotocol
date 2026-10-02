@@ -204,7 +204,7 @@ export type AgentCard = z.infer<typeof AgentCardSchema>;
 export type A2AErrorResponse = z.infer<typeof A2AErrorResponseSchema>;
 export type PlatformJwtClaims = z.infer<typeof PlatformJwtClaimsSchema>;
 
-// Platform registration is a provider onboarding API, separate from A2A messages.
+// Platform registration is a Provider-specific API, separate from A2A messages.
 export const PlatformRegistrationRequestSchema = z
   .object({
     name: z.string().regex(/^[a-z0-9][a-z0-9-]{1,62}$/),

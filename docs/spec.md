@@ -108,7 +108,7 @@ valid token.
 The bearer token is a JWT the personal agent signs with its own key. The Provider
 verifies it against the personal agent's JWKS. No shared secrets.
 
-### 3.1 Onboarding
+### 3.1 Registration
 
 | Kept by        | Value      | Rule                                                                                           |
 | -------------- | ---------- | ---------------------------------------------------------------------------------------------- |
@@ -117,7 +117,7 @@ verifies it against the personal agent's JWKS. No shared secrets.
 | Provider       | enabled    | Providers MAY disable a personal agent; its requests then get `401`.                           |
 | Personal agent | `audience` | Opaque string the Provider assigns. Goes in `aud` verbatim.                                    |
 
-How these are exchanged is out of scope. Onboarding happens once per personal agent and
+How these are exchanged is out of scope. Registration happens once per personal agent and
 Provider, not per User or Brand. `audience` is one value per Provider and
 MUST NOT be derived from a card URL.
 
@@ -229,7 +229,7 @@ In OAuth 2.0 terms:
 | OAuth 2.0             | PACT                                                                                   |
 | --------------------- | -------------------------------------------------------------------------------------- |
 | Client                | Personal agent. `client_id` is its issuer URL.                                         |
-| Client registration   | Onboarding (§3.1): `issuer`, `jwksUri`, assigned `audience`.                           |
+| Client registration   | Registration (§3.1): `issuer`, `jwksUri`, assigned `audience`.                         |
 | Client authentication | Personal-agent JWT as `Authorization: Bearer`, on every call including the token call. |
 | Resource owner        | User — `sub` in the personal-agent JWT; the Brand's own user id in a delegation token. |
 | Authorization server  | Provider, per Brand. The login step is the Brand's own login.                          |

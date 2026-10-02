@@ -44,7 +44,7 @@ export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres DATABAS
 pnpm --filter @openpactprotocol/provider db:migrate && pnpm --filter @openpactprotocol/provider db:seed
 ```
 
-The seed creates three Brands and onboards the demo personal agent (`demo-pa`):
+The seed creates three Brands and registers the demo personal agent (`demo-pa`):
 
 | Brand           | ID                           |
 | --------------- | ---------------------------- |
@@ -68,8 +68,8 @@ agents use OpenAI; without it they use scripted replies.
 
 ## Register a personal agent
 
-The reference Provider onboards personal agents at `POST {PROVIDER_URL}/api/platforms`
-(the spec leaves onboarding to each Provider):
+The reference Provider registers personal agents at `POST {PROVIDER_URL}/api/platforms`
+(the spec leaves registration to each Provider):
 
 ```sh
 curl -X POST "$PROVIDER_URL/api/platforms" \
