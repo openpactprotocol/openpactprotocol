@@ -95,8 +95,9 @@ operations behave as A2A defines.
 | `GET`  | `tasks/{id}`        | `TASK_NOT_FOUND`                                                 |
 | `POST` | `tasks/{id}:cancel` | `TASK_NOT_FOUND`                                                 |
 
-Any other route gets `404` or `405` with no A2A body. Routing happens before
-authentication; an unknown Brand is `404` even with a valid token.
+Any route that isn't an A2A operation gets `404` or `405` with no A2A body.
+Routing happens before authentication; an unknown Brand is `404` even with a
+valid token.
 
 ## 3. Personal agent identity
 
