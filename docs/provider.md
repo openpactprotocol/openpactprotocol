@@ -28,9 +28,9 @@ Unauthenticated; unknown `brandId` → `404`. The card
 `protocolBinding: "HTTP+JSON"`, `protocolVersion: "1.0"` and the `url` the
 other routes hang off; declares `httpAuthSecurityScheme`
 `{ scheme: "Bearer", bearerFormat: "JWT" }`; and sets `capabilities.streaming`,
-`pushNotifications`, `extendedAgentCard` to `false`. Personal agents find it through
-the Brand's own `/.well-known/agent-card.json`, which serves this card or
-redirects to it, or through a link or public registry entry pointing here.
+`pushNotifications`, `extendedAgentCard` to `false`. Personal agents reach it
+from the Brand's own `/.well-known/agent-card.json` (which serves this card or
+redirects here), or from a link or registry entry.
 
 **Done when** a Brand's card is served and an unknown id returns `404`.
 
@@ -90,9 +90,10 @@ and `429` + `Retry-After` when you rate-limit.
 
 ## 6. Run the conformance suite
 
-Needs two Brand IDs and a personal agent you trust (`pnpm gen-keys` makes one; see
-[conformance tests](running.md#conformance-tests)). The `PA_*` (personal agent)
-variables describe it. The code calls Brands `customers`, hence `CUSTOMER_ID`.
+You need two Brand IDs and a personal agent you trust; `pnpm gen-keys` makes
+one (see [conformance tests](running.md#conformance-tests)). `PA_*` variables
+describe that personal agent. `CUSTOMER_ID` is a Brand ID, since the code calls
+Brands `customers`.
 
 ```sh
 E2E_PROVIDER=any PROVIDER_URL=https://provider.example.com \
@@ -103,6 +104,6 @@ pnpm e2e
 
 **Done when** all 10 tests pass. That is PACT Identity conformance.
 
-Delegated authority ([spec §5](spec.md#5-delegated-authority)) — scopes and
-login per Brand, device-code OAuth, delegation tokens, step-up, receipts — is
-optional and advertised on the card.
+Delegated authority ([spec §5](spec.md#5-delegated-authority)) is optional
+and advertised on the card. It adds per-Brand scopes and login, device-code
+OAuth, delegation tokens, step-up and receipts.

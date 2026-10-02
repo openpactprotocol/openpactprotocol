@@ -36,8 +36,8 @@ A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openpactprotocol/provider 
 pnpm --filter @openpactprotocol/personal-agent-client dev                                                 # demo personal agent, :3001
 ```
 
-Once the database is up (any PostgreSQL works; point `DATABASE_URL` at it).
-Variables prefixed `PA_` (and the `-pa` ids) refer to the personal agent:
+Once the database is up, migrate and seed it. Any PostgreSQL works; point
+`DATABASE_URL` at it. `PA_` variables and `-pa` ids refer to the personal agent:
 
 ```sh
 export DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres DATABASE_POOL_MAX=1 PA_ISSUER=http://localhost:3002

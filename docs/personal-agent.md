@@ -3,14 +3,14 @@ title: Build a personal agent integration
 description: Make a personal-agent platform speak PACT.
 ---
 
-For engineers adding PACT to a personal agent. The rules
-are in the [specification](spec.md); this is the happy path. `@openpactprotocol/client`
-(`packages/client/src/index.ts`, one file — import it from this repository or
-copy it) does steps 3–5 in TypeScript; any language works.
+For engineers adding PACT to a personal agent. This is the happy path; the
+rules are in the [specification](spec.md). Any language works. In TypeScript,
+the reference client `@openpactprotocol/client` (`packages/client/src/index.ts`
+in this repository) does steps 3–5.
 
-Two values come from outside: each Brand's **Agent Card URL** (standard:
-the Brand's own `/.well-known/agent-card.json`; or a link or public registry
-entry pointing to it) and each Provider's **audience** string (step 2).
+You need two values from outside: each Brand's **Agent Card URL**, usually the
+Brand's own `/.well-known/agent-card.json` or a link or registry entry, and
+each Provider's **audience** string (step 2).
 
 Variables prefixed `PA_` (personal agent) configure your platform.
 
@@ -116,6 +116,7 @@ export PA_AUDIENCE="http://localhost:3000/a2a"
 
 **Done when** steps 4–5 return a reply from Loom & Co. with a `contextId`.
 
-Delegated authority — the User logs in with the Brand and approves scopes so
-the agent can act on their account — is optional, advertised on the card, and
-in [spec §5](spec.md#5-delegated-authority). Nothing above changes.
+Delegated authority is optional: the User logs in with the Brand and approves
+scopes, so the Brand's agent can act on their account. Brands advertise it on
+their card; [spec §5](spec.md#5-delegated-authority) defines it. Nothing above
+changes.

@@ -51,10 +51,10 @@ Provider hosts.
    with later messages to continue the conversation.
 
 **Optional: authorize.** If the Brand offers it, the User logs in with the
-Brand and approves scopes. The personal agent then sends a second token and the agent can
-act on the User's account. Without it, the agent knows _which personal agent_ is calling,
-not _who the User is_, and asks in the conversation (order number, email) as
-a chat widget would.
+Brand and approves scopes. The personal agent then sends a second token, and
+the Brand's agent can act on the User's account. Without it, the Brand's agent
+knows _which personal agent_ is calling, not _who the User is_, and asks in the
+conversation (order number, email) as a chat widget would.
 
 ## Start here
 
