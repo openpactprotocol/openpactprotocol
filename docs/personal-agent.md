@@ -75,7 +75,27 @@ const token = await signer.sign({ sub: "user-7f3a", aud: audience });
 ## 4. Fetch the Brand's Agent Card
 
 No token. The **interface URL** is the `url` of the `supportedInterfaces`
-entry with `protocolBinding: "HTTP+JSON"` and `protocolVersion: "1.0"`.
+entry with `protocolBinding: "HTTP+JSON"` and `protocolVersion: "1.0"`. A
+trimmed card (full example in [spec §2.1](spec.md#21-agent-card)):
+
+```json
+{
+  "name": "Example Co. Support",
+  "supportedInterfaces": [
+    {
+      "url": "https://provider.example.com/a2a/01J…",
+      "protocolBinding": "HTTP+JSON",
+      "protocolVersion": "1.0"
+    }
+  ],
+  "securitySchemes": {
+    "paJwt": { "httpAuthSecurityScheme": { "scheme": "Bearer", "bearerFormat": "JWT" } }
+  }
+}
+```
+
+`interfaceUrl` returns `https://provider.example.com/a2a/01J…` here. Step 5
+sends to `{interfaceUrl}/message:send`.
 
 ```ts
 import { fetchAgentCard, interfaceUrl } from "@openpactprotocol/client";
