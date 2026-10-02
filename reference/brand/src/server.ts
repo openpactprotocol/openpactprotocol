@@ -58,6 +58,26 @@ async function loadKey(): Promise<BrandKey> {
 
 const key = await loadKey();
 
+const staticAssets = new Map<string, { body: Buffer; contentType: string }>(
+  await Promise.all(
+    (
+      [
+        ["styles.css", new URL("../public/styles.css", import.meta.url), "text/css; charset=utf-8"],
+        [
+          "continue.js",
+          new URL("../public/continue.js", import.meta.url),
+          "text/javascript; charset=utf-8",
+        ],
+        ["icons/check.svg", new URL("../public/icons/check.svg", import.meta.url), "image/svg+xml"],
+        ["icons/cross.svg", new URL("../public/icons/cross.svg", import.meta.url), "image/svg+xml"],
+      ] as const
+    ).map(
+      async ([name, assetUrl, contentType]) =>
+        [name, { body: await readFile(assetUrl), contentType }] as const,
+    ),
+  ),
+);
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, "&amp;")
@@ -67,40 +87,7 @@ function escapeHtml(value: string): string {
     .replace(/'/g, "&#39;");
 }
 
-const STYLES = `
-*{box-sizing:border-box}
-body{margin:0;min-height:100vh;background:#eef0f3;font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,sans-serif;color:#111827;display:flex;justify-content:center;align-items:flex-start;padding:40px 16px}
-.sheet{width:100%;max-width:420px;background:#fff;border-radius:20px;box-shadow:0 1px 2px rgba(17,24,39,.06),0 12px 40px rgba(17,24,39,.10);padding:28px}
-.brand{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px}
-.logo{width:32px;height:32px;border-radius:9px;background:#16345c;color:#fff;display:grid;place-items:center;font-weight:700;flex:none}
-h1{font-size:20px;line-height:1.3;margin:26px 0 6px;text-align:center;font-weight:650}
-.sub{color:#6b7280;font-size:13px;margin:0;text-align:center}
-.sub b{color:#374151;font-weight:600}
-label{display:block;font-size:13px;font-weight:600;color:#374151;margin:16px 0 6px}
-input{width:100%;padding:12px;border:1px solid #d1d5db;border-radius:10px;font:inherit}
-input:focus{outline:2px solid #16345c;outline-offset:-1px;border-color:#16345c}
-button{width:100%;border:0;border-radius:12px;padding:13px;margin-top:22px;background:#16345c;color:#fff;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer}
-.hint{margin:16px 0 0;padding:10px 12px;border-radius:10px;background:#f3f4f6;color:#6b7280;font-size:12px;text-align:center}
-.hint code{color:#374151}
-.error{background:#fef2f2;color:#991b1b;border-radius:10px;padding:10px 12px;font-size:13px;margin-top:18px}
-.status{width:56px;height:56px;border-radius:50%;display:grid;place-items:center;margin:26px auto 0}
-.status svg{width:28px;height:28px}
-.status.ok{background:#dcfce7;color:#16a34a}
-.status.no{background:#f3f4f6;color:#6b7280}
-.status+h1{margin-top:14px}
-.label{font-size:12px;font-weight:600;color:#6b7280;text-transform:uppercase;letter-spacing:.04em;margin:24px 0 8px}
-.granted{margin:0;padding:0;list-style:none;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden}
-.granted li{display:flex;align-items:center;gap:10px;padding:12px 14px;border-top:1px solid #f0f1f3;font-size:14px;font-weight:500}
-.granted li:first-child{border-top:0}
-.granted svg{width:18px;height:18px;color:#16a34a;flex:none}
-.foot{text-align:center;color:#9ca3af;font-size:12px;margin:18px 0 0}
-`;
-
 const BRAND_HEADER = `<div class="brand"><span class="logo">S</span>Skyline Airways</div>`;
-const SVG = (path: string) =>
-  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${path}</svg>`;
-const CHECK = SVG('<path d="M20 6 9 17l-5-5"/>');
-const CROSS = SVG('<path d="M18 6 6 18M6 6l12 12"/>');
 
 function send(
   response: ServerResponse,
@@ -111,16 +98,23 @@ function send(
   response.writeHead(status, headers).end(body);
 }
 
-function html(response: ServerResponse, title: string, body: string, status = 200): void {
+function html(
+  response: ServerResponse,
+  title: string,
+  body: string,
+  status = 200,
+  includeContinueScript = false,
+): void {
   send(
     response,
     status,
-    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><style>${STYLES}</style></head><body><main class="sheet">${body}</main></body></html>`,
+    `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${escapeHtml(title)}</title><link rel="stylesheet" href="/static/styles.css"></head><body><main class="sheet">${body}</main>${includeContinueScript ? '<script src="/static/continue.js" defer></script>' : ""}</body></html>`,
     {
       "Content-Type": "text/html; charset=utf-8",
       "Cache-Control": "no-store",
       "X-Frame-Options": "DENY",
-      "Content-Security-Policy": "frame-ancestors 'none'",
+      "Content-Security-Policy":
+        "default-src 'none'; style-src 'self'; script-src 'self'; img-src 'self'; base-uri 'none'; frame-ancestors 'none'",
     },
   );
 }
@@ -206,7 +200,9 @@ async function handleLogin(request: IncomingMessage, response: ServerResponse): 
   html(
     response,
     "Signing in…",
-    `${BRAND_HEADER}<form method="post" action="${escapeHtml(target.url)}"><input type="hidden" name="assertion" value="${escapeHtml(assertion)}"><p class="sub" style="margin-top:26px">Signed in as <b>${escapeHtml(user.email)}</b>. Continuing…</p><noscript><button type="submit">Continue</button></noscript></form><script>document.forms[0].submit()</script>`,
+    `${BRAND_HEADER}<form method="post" action="${escapeHtml(target.url)}"><input type="hidden" name="assertion" value="${escapeHtml(assertion)}"><p class="sub spaced">Signed in as <b>${escapeHtml(user.email)}</b>. Continuing…</p><noscript><button type="submit">Continue</button></noscript></form>`,
+    200,
+    true,
   );
 }
 
@@ -216,7 +212,7 @@ function connectedPage(response: ServerResponse, url: URL): void {
     return html(
       response,
       "Not connected",
-      `${BRAND_HEADER}<div class="status no">${CROSS}</div><h1>Not connected</h1><p class="sub"><b>${escapeHtml(client)}</b> can't access your Skyline account. You can close this tab.</p>`,
+      `${BRAND_HEADER}<div class="status no"><span class="glyph glyph-cross" aria-hidden="true"></span></div><h1>Not connected</h1><p class="sub"><b>${escapeHtml(client)}</b> can't access your Skyline account. You can close this tab.</p>`,
     );
   }
   const scopes = (url.searchParams.get("scope") ?? "").split(" ").filter(Boolean);
@@ -224,9 +220,9 @@ function connectedPage(response: ServerResponse, url: URL): void {
   html(
     response,
     "Connected",
-    `${BRAND_HEADER}<div class="status ok">${CHECK}</div><h1>You're connected</h1><p class="sub"><b>${escapeHtml(client)}</b> can now help with your Skyline account.</p>
+    `${BRAND_HEADER}<div class="status ok"><span class="glyph glyph-check" aria-hidden="true"></span></div><h1>You're connected</h1><p class="sub"><b>${escapeHtml(client)}</b> can now help with your Skyline account.</p>
 <div class="label">Access you shared</div>
-<ul class="granted">${labels.map((label) => `<li>${CHECK}${escapeHtml(label)}</li>`).join("")}</ul>
+<ul class="granted">${labels.map((label) => `<li><span class="glyph glyph-check" aria-hidden="true"></span>${escapeHtml(label)}</li>`).join("")}</ul>
 <p class="foot">You can close this tab and go back to your agent. Manage or revoke access anytime in Skyline settings.</p>`,
   );
 }
@@ -281,6 +277,19 @@ async function handleApi(
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", BRAND_URL);
   try {
+    if (
+      (request.method === "GET" || request.method === "HEAD") &&
+      url.pathname.startsWith("/static/")
+    ) {
+      const asset = staticAssets.get(url.pathname.slice("/static/".length));
+      if (!asset) return send(response, 404, "Not found");
+      response.writeHead(200, {
+        "Content-Type": asset.contentType,
+        "Cache-Control": "public, max-age=300",
+        "X-Content-Type-Options": "nosniff",
+      });
+      return response.end(asset.body);
+    }
     if (request.method === "GET" && url.pathname === "/.well-known/jwks.json") {
       return send(response, 200, JSON.stringify({ keys: [key.publicJwk] }), {
         "Content-Type": "application/json",
