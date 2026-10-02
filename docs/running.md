@@ -4,7 +4,7 @@ description: Run the reference Provider, demo personal agent and conformance tes
 ---
 
 Everything outside `docs/` implements the [specification](spec.md)'s
-**Identity** profile; delegated authority (§5) isn't built yet. Seed data and
+**Identity** profile; it does not include delegated authority (§5). Seed data and
 demo agents are examples, not protocol. The code calls Brands **customers**
 (`CUSTOMER_ID`, the `customers` table).
 
