@@ -8,11 +8,15 @@ rules are in the [specification](spec.md). Any language works. In TypeScript,
 the reference client `@openpactprotocol/client` (`packages/client/src/index.ts`
 in this repository) does steps 3–5.
 
-You need two values from outside: each Brand's **Agent Card URL**, usually the
-Brand's own `/.well-known/agent-card.json` or a link or registry entry, and
-each Provider's **audience** string (step 2).
+## Values you need
 
-Variables prefixed `PA_` (personal agent) configure your platform.
+| Value          | Who provides it                                                                                      | Used for                                                     |
+| -------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `PA_ISSUER`    | You: your platform's URL (`PA_` stands for personal agent)                                           | The JWT's `iss`; your JWKS lives under it (step 1)           |
+| Signing key    | You: an ES256 key pair with a `kid` (step 1)                                                         | The public key goes in your JWKS; the private key signs JWTs |
+| User ID        | You: a stable, opaque id for each User                                                               | The JWT's `sub` (step 3)                                     |
+| Audience       | Each Provider, when you onboard (step 2)                                                             | The JWT's `aud` (step 3)                                     |
+| Agent Card URL | Each Brand: usually `https://{brandDomain}/.well-known/agent-card.json`, or a link or registry entry | Finding the Brand's interface URL (step 4)                   |
 
 ## 1. Publish a signing key
 
@@ -46,27 +50,27 @@ secret and use it to sign tokens (step 3).
 
 ## 2. Onboard with each Provider
 
-Once per Provider, not per User or Brand. Send your issuer and JWKS URL;
-receive `PA_AUDIENCE`. The reference Provider has a
+Once per Provider, not per User or Brand. Send your issuer and JWKS URL; the
+Provider replies with its audience, a string you copy into `aud` (step 3). The
+reference Provider has a
 [self-service endpoint](running.md#register-a-personal-agent).
 
-**Done when** you have `PA_AUDIENCE`.
+**Done when** you have the Provider's audience.
 
 ## 3. Sign a personal-agent JWT
 
 One per request, valid ≤ 300 s ([spec §3.2](spec.md#32-personal-agent-jwt)): header
 `kid`; `iss` = `PA_ISSUER`; `sub` = your stable, opaque id for the User;
-`aud` = `PA_AUDIENCE`; `iat`, `exp`.
+`aud` = the Provider's audience; `iat`, `exp`.
 
 ```ts
 import { createPlatformSigner } from "@openpactprotocol/client";
 
 const signer = createPlatformSigner({ issuer: PA_ISSUER, privateJwk });
-const token = await signer.sign({ sub: "user-7f3a", aud: PA_AUDIENCE });
+const token = await signer.sign({ sub: "user-7f3a", aud: audience });
 ```
 
-**Done when** `jwtVerify(token, yourJwks, { issuer: PA_ISSUER, audience: PA_AUDIENCE })`
-succeeds.
+**Done when** `jwtVerify(token, yourJwks, { issuer: PA_ISSUER, audience })` succeeds.
 
 ## 4. Fetch the Brand's Agent Card
 
@@ -100,7 +104,7 @@ import { A2AClient } from "@openpactprotocol/client";
 
 const client = new A2AClient({
   url,
-  getToken: () => signer.sign({ sub: "user-7f3a", aud: PA_AUDIENCE }),
+  getToken: () => signer.sign({ sub: "user-7f3a", aud: audience }),
 });
 const first = await client.sendMessage("Where is my order?");
 const next = await client.sendMessage("Order 4471", { contextId: first.contextId });
@@ -133,7 +137,7 @@ demo key from `pnpm gen-keys`.
 ```sh
 export AGENT_CARD_URL="http://localhost:3000/a2a/01M3R53Q5WKZ7A0GY4PZ8Y39TB/.well-known/agent-card.json"
 export PA_ISSUER="http://localhost:3002"
-export PA_AUDIENCE="http://localhost:3000/a2a"
+export AUDIENCE="http://localhost:3000/a2a"
 ```
 
 **Done when** steps 4–5 return a reply from Loom & Co. with a `contextId`.
