@@ -170,9 +170,13 @@ export async function runDelegatedTurn(input: {
 
   if (intent === "upcoming" && trip.alternatives.length > 0) {
     const alternative = trip.alternatives[0]!;
+    const label =
+      minutesOfDay(alternative.departs) < minutesOfDay(trip.departs)
+        ? "Earlier option"
+        : "Other option";
     return {
       kind: "reply",
-      text: `${statusText(trip)} Earlier option: ${alternative.flight} leaves at ${alternative.departs} and lands at ${alternative.arrives}, ${alternative.seatsLeft} seats left, no change fee. Switch to ${alternative.flight}?`,
+      text: `${statusText(trip)} ${label}: ${alternative.flight} leaves at ${alternative.departs} and lands at ${alternative.arrives}, ${alternative.seatsLeft} seats left, no change fee. Switch to ${alternative.flight}?`,
       flow: { offeredFlight: alternative.flight },
       scopesUsed: [SCOPES.upcoming],
       actions: [{ tool: "list_upcoming_trips" }],
@@ -186,4 +190,11 @@ export async function runDelegatedTurn(input: {
     scopesUsed: [SCOPES.upcoming],
     actions: [{ tool: "list_upcoming_trips" }],
   };
+}
+
+function minutesOfDay(time: string): number {
+  const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec(time.trim());
+  if (!match) return Number.POSITIVE_INFINITY;
+  const hours = (Number(match[1]) % 12) + (match[3]!.toUpperCase() === "PM" ? 12 : 0);
+  return hours * 60 + Number(match[2]);
 }
