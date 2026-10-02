@@ -11,10 +11,13 @@ identity (**Trust**) and, optionally, only the permissions the User granted
 | **Brand**          | A business the User wants help from. Its support agent runs on a Provider. |
 | **Provider**       | Builds and hosts support agents for many Brands.                           |
 
+![PACT at a glance](docs/images/protocol-overview.svg)
+
 ## Start here
 
 | You are                   | Read                                                         |
 | ------------------------- | ------------------------------------------------------------ |
+| New to PACT               | [Introduction](docs/index.md) — what it is and how it works  |
 | Building a personal agent | [Build a personal agent integration](docs/personal-agent.md) |
 | Building a Provider       | [Build a Provider](docs/provider.md)                         |
 | Checking the rules        | [Specification](docs/spec.md) — the normative text           |
