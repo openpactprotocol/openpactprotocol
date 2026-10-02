@@ -10,6 +10,7 @@ type TurnRequest = {
   customerIds: string[];
   conversationId: string;
   text: string;
+  resume?: boolean;
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -61,6 +62,7 @@ export async function POST(request: Request): Promise<Response> {
             customerIds: body.customerIds,
           },
           text: body.text,
+          resume: body.resume === true,
           conversationId: body.conversationId,
           userId,
           issuer,

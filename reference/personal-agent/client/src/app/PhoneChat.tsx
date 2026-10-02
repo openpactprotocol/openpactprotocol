@@ -1,8 +1,59 @@
 "use client";
 
-import { ArrowUp, AudioLines, Plus } from "lucide-react";
+import { ArrowUp, AudioLines, Check, ExternalLink, Plus } from "lucide-react";
 import { useRef, type FormEvent, type ReactElement } from "react";
-import type { PhoneMessage } from "../lib/conversationStore.js";
+import type { PhoneMessage, SignInCard } from "../lib/conversationStore.js";
+
+function SignInCardView({ card }: { card: SignInCard }): ReactElement {
+  const host = (() => {
+    try {
+      return new URL(card.url).host;
+    } catch {
+      return card.url;
+    }
+  })();
+  const head = (
+    <span className="signin-head">
+      <span className="signin-logo" aria-hidden>
+        {card.businessName.charAt(0)}
+      </span>
+      <span>
+        <strong>Sign in with {card.businessName}</strong>
+        <small>{host} · Personal Agent</small>
+      </span>
+    </span>
+  );
+  if (card.status === "pending") {
+    // Opens in a new tab: the personal agent must not frame or observe the login.
+    return (
+      <a className="signin-card" href={card.url} target="_blank" rel="noopener noreferrer">
+        {head}
+        <span className="signin-foot">
+          Continue in {card.businessName}
+          <ExternalLink size={14} aria-hidden />
+        </span>
+      </a>
+    );
+  }
+  const granted = card.grantedScopes ?? [];
+  return (
+    <div className={`signin-card ${card.status}`}>
+      {head}
+      <span className="signin-foot">
+        {card.status === "connected" ? (
+          <>
+            <Check size={14} aria-hidden />
+            Connected · {granted.length} {granted.length === 1 ? "permission" : "permissions"}
+          </>
+        ) : card.status === "denied" ? (
+          "Not connected"
+        ) : (
+          "Sign-in link expired"
+        )}
+      </span>
+    </div>
+  );
+}
 
 export function PhoneChat(input: {
   messages: PhoneMessage[];
@@ -33,6 +84,9 @@ export function PhoneChat(input: {
               key={`${message.at}-${index}`}
             >
               <p className="bubble">{message.text}</p>
+              {message.role === "personal-agent" && message.signIn ? (
+                <SignInCardView card={message.signIn} />
+              ) : null}
             </div>
           ))}
           {input.typing ? (

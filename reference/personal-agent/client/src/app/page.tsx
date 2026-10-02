@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { A2AHttpError } from "@openpactprotocol/client";
+import { delegationScheme } from "@openpactprotocol/client/delegation";
 import { agentCardUrl, discoverAgent } from "../lib/pact.js";
 import type { AgentCard } from "@openpactprotocol/protocol";
 import {
@@ -261,6 +262,7 @@ export default async function HomePage({
   const messages: PhoneMessage[] = selectedConversation?.messages ?? [];
   const agentInterface = card?.supportedInterfaces[0];
   const auth = card ? authLabel(card) : undefined;
+  const delegation = card ? delegationScheme(card) : undefined;
 
   return (
     <div className="app">
@@ -393,6 +395,15 @@ export default async function HomePage({
                     <span className="chip muted">
                       <Lock size={12} aria-hidden />
                       {auth}
+                    </span>
+                  ) : null}
+                  {delegation ? (
+                    <span
+                      className="chip muted"
+                      title={delegation.scopes.map((scope) => scope.id).join(" ")}
+                    >
+                      <KeyRound size={12} aria-hidden />
+                      Delegation · {delegation.scopes.length} scopes
                     </span>
                   ) : null}
                 </div>

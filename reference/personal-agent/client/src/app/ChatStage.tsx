@@ -3,9 +3,9 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Sparkle, Video, Wifi } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { startTransition, useState, type ReactElement } from "react";
+import { startTransition, useEffect, useRef, useState, type ReactElement } from "react";
 import { brandColor } from "../lib/brand.js";
-import type { BusinessThread, PhoneMessage } from "../lib/conversationStore.js";
+import type { BusinessThread, PhoneMessage, SignInCard } from "../lib/conversationStore.js";
 import { homePath } from "../lib/session.js";
 import type { TurnEvent } from "../lib/turnEvents.js";
 import { PhoneChat } from "./PhoneChat.js";
@@ -34,7 +34,67 @@ export function ChatStage(input: {
   const router = useRouter();
   const [live, setLive] = useState<LiveOverlay | null>(null);
   const overlay = live?.base === input.messages ? live : undefined;
-  const messages = overlay?.messages ?? input.messages;
+  const [signInUpdates, setSignInUpdates] = useState<Record<string, Partial<SignInCard>>>({});
+  const messages = (overlay?.messages ?? input.messages).map((message) =>
+    message.role === "personal-agent" &&
+    message.signIn &&
+    signInUpdates[message.signIn.authorizationId]
+      ? {
+          ...message,
+          signIn: { ...message.signIn, ...signInUpdates[message.signIn.authorizationId] },
+        }
+      : message,
+  );
+  const busy = overlay?.busy ?? false;
+  const pendingSignIns = messages.flatMap((message) =>
+    message.role === "personal-agent" && message.signIn?.status === "pending"
+      ? [message.signIn.authorizationId]
+      : [],
+  );
+  const pendingKey = pendingSignIns.join(",");
+  const sendRef = useRef<typeof send>(null);
+  const polling = useRef(false);
+
+  // Device-code polling (spec §5.3). Once the User approves, re-send their message.
+  useEffect(() => {
+    if (!pendingKey || busy) return;
+    const ids = pendingKey.split(",");
+    const timer = setInterval(() => {
+      if (polling.current) return;
+      polling.current = true;
+      void (async () => {
+        try {
+          for (const authorizationId of ids) {
+            const response = await fetch("/api/delegation/poll", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ authorizationId }),
+            });
+            if (!response.ok) continue;
+            const result = (await response.json()) as
+              | { status: "pending" }
+              | { status: "connected"; text: string; grantedScopes: string[] }
+              | { status: "denied" | "expired" };
+            if (result.status === "pending") continue;
+            setSignInUpdates((current) => ({
+              ...current,
+              [authorizationId]:
+                result.status === "connected"
+                  ? { status: "connected", grantedScopes: result.grantedScopes }
+                  : { status: result.status },
+            }));
+            if (result.status === "connected") {
+              const text = result.text;
+              setTimeout(() => void sendRef.current?.(text, { resume: true }), 900);
+            }
+          }
+        } finally {
+          polling.current = false;
+        }
+      })();
+    }, 2000);
+    return () => clearInterval(timer);
+  }, [pendingKey, busy]);
   const threads = overlay?.threads ?? input.threads;
   const typingCustomerIds = new Set(overlay?.typingCustomerIds ?? []);
 
@@ -60,11 +120,13 @@ export function ChatStage(input: {
     startTransition(() => router.refresh());
   }
 
-  async function send(text: string): Promise<void> {
+  async function send(text: string, options: { resume?: boolean } = {}): Promise<void> {
     setLive({
       base: input.messages,
       text,
-      messages: [...input.messages, { role: "user", text, at: new Date().toISOString() }],
+      messages: options.resume
+        ? messages
+        : [...input.messages, { role: "user", text, at: new Date().toISOString() }],
       threads: input.threads,
       typing: true,
       busy: true,
@@ -166,6 +228,7 @@ export function ChatStage(input: {
           customerIds: input.customerIds,
           conversationId: input.conversationId,
           text,
+          ...(options.resume ? { resume: true } : {}),
         }),
       });
       if (!response.ok) {
@@ -209,6 +272,8 @@ export function ChatStage(input: {
       showError(cause instanceof Error ? cause.message : "Turn failed");
     }
   }
+
+  sendRef.current = send;
 
   return (
     <section className="stage" aria-label="Chat">
@@ -263,7 +328,7 @@ export function ChatStage(input: {
             typing={overlay?.typing ?? false}
             dayLabel={input.dayLabel}
             connected={input.connected}
-            busy={overlay?.busy ?? false}
+            busy={busy}
             onSend={(text) => void send(text)}
           />
           <span className="home-indicator" aria-hidden />

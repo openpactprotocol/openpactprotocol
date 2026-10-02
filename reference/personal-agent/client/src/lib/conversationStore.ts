@@ -2,14 +2,33 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 
+export type SignInCard = {
+  authorizationId: string;
+  customerId: string;
+  businessName: string;
+  url: string;
+  scopes: string[];
+  status: "pending" | "connected" | "denied" | "expired";
+  grantedScopes?: string[];
+};
+
 export type PhoneMessage =
   | { role: "user"; text: string; at: string }
-  | { role: "personal-agent"; text: string; at: string };
+  | { role: "personal-agent"; text: string; at: string; signIn?: SignInCard };
+
+export type ReceiptSummary = {
+  verified: boolean;
+  grantId: string;
+  scopesUsed: string[];
+  actions: string[];
+};
 
 export type ThreadMessage = {
   role: "ROLE_USER" | "ROLE_AGENT";
   text: string;
   at: string;
+  receipt?: ReceiptSummary;
+  authRequired?: string[];
 };
 
 export type BusinessThread = {

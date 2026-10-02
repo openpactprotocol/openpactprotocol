@@ -1036,3 +1036,86 @@ button:disabled {
   background: #e3f4e8;
   color: #1f6b3a;
 }
+.signin-card {
+  display: flex;
+  flex-direction: column;
+  width: 76%;
+  margin-top: 6px;
+  border: 1px solid #d9dce1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  color: #111;
+  text-decoration: none;
+}
+.signin-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  background: #16345c;
+  color: #fff;
+}
+.signin-head strong {
+  display: block;
+  font-size: 14px;
+}
+.signin-head small {
+  display: block;
+  font-size: 11.5px;
+  opacity: 0.75;
+}
+.signin-logo {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  background: #fff;
+  color: #16345c;
+  font-weight: 800;
+}
+.signin-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 10px 12px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--ios-blue);
+}
+.signin-card.connected .signin-foot {
+  justify-content: flex-start;
+  color: #1f8a46;
+}
+.signin-card.denied .signin-foot,
+.signin-card.expired .signin-foot {
+  color: var(--muted);
+}
+.tmessage {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.tmessage:has(.from-pa) {
+  align-items: flex-end;
+}
+.tmessage .tbubble {
+  max-width: 85%;
+}
+.tmeta {
+  align-self: flex-start;
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 6px;
+}
+.tmeta.receipt {
+  background: #e3f4e8;
+  color: #1f6b3a;
+}
+.tmeta.auth {
+  background: #fdf3c7;
+  color: #7a5b00;
+}
