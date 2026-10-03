@@ -7,12 +7,23 @@ import {
   SendMessageResponseSchema,
   type Message,
 } from "@openpactprotocol/protocol";
-import { and, asc, eq } from "drizzle-orm";
+import {
+  DELEGATION_HEADER,
+  DelegatedSendMessageResponseSchema,
+  PACT_METADATA,
+  parseScope,
+  type Task,
+} from "@openpactprotocol/protocol/delegation";
+import { and, asc, eq, gt, isNull } from "drizzle-orm";
 import type { JWTVerifyGetKey } from "jose";
-import { runAgentTurn } from "../agent/index.js";
-import { verifyPlatformJwt } from "../auth/verifyPlatformJwt.js";
+import { runAgentTurn, type FlowState } from "../agent/index.js";
+import { verifyPlatformJwt, type PlatformAuth } from "../auth/verifyPlatformJwt.js";
 import type { Db } from "../db/client.js";
-import { conversations, customers, messages } from "../db/schema.js";
+import { conversations, customers, delegationGrants, messages } from "../db/schema.js";
+import { runDelegatedTurn, type Delegation } from "../delegation/agent.js";
+import { delegationConfig, delegationUrls } from "../delegation/config.js";
+import { createDeviceAuthorization } from "../delegation/oauth.js";
+import { signReceipt, verifyDelegationToken } from "../delegation/tokens.js";
 import { buildAgentCard } from "./agentCard.js";
 import { getProviderBaseUrl } from "./providerBaseUrl.js";
 
@@ -152,13 +163,64 @@ function pageSize(url: URL): number {
   return size;
 }
 
-function makeAgentMessage(messageId: string, contextId: string, parts: unknown[]): Message {
+function makeAgentMessage(
+  messageId: string,
+  contextId: string,
+  parts: unknown[],
+  metadata?: Record<string, unknown> | null,
+): Message {
   return MessageSchema.parse({
     messageId,
     contextId,
     role: "ROLE_AGENT",
     parts,
+    ...(metadata ? { metadata } : {}),
   });
+}
+
+type VerifiedDelegation = Delegation & { grantId: string; clientId: string };
+
+// Spec §5.5 (2): signature, aud, exp, client_id = PA iss, grant not revoked.
+async function verifyDelegation(input: {
+  header: string;
+  auth: PlatformAuth;
+  customer: typeof customers.$inferSelect;
+  baseUrl: string;
+  db: Db;
+  now: Date;
+}): Promise<VerifiedDelegation | undefined> {
+  if (!delegationConfig(input.customer.name)) return undefined;
+  const token = input.header.match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (!token) return undefined;
+  const urls = delegationUrls(input.baseUrl, input.customer.id);
+  try {
+    const claims = await verifyDelegationToken(token, {
+      issuer: urls.issuer,
+      audience: urls.interfaceUrl,
+      now: input.now,
+    });
+    if (claims.client_id !== input.auth.issuer) return undefined;
+    const grant = await input.db.query.delegationGrants.findFirst({
+      where: and(
+        eq(delegationGrants.id, claims.grant_id),
+        eq(delegationGrants.customerId, input.customer.id),
+        eq(delegationGrants.clientId, claims.client_id),
+        eq(delegationGrants.brandUserId, claims.sub),
+        isNull(delegationGrants.revokedAt),
+        gt(delegationGrants.expiresAt, input.now),
+      ),
+    });
+    if (!grant) return undefined;
+    return {
+      token,
+      sub: claims.sub,
+      scopes: parseScope(claims.scope),
+      grantId: claims.grant_id,
+      clientId: claims.client_id,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 function isUuid(value: string): boolean {
@@ -223,6 +285,26 @@ export function createA2AHandler(options: HandlerOptions): A2AHandler {
     }
     if (!customer) return notFound();
 
+    const baseUrl = getProviderBaseUrl(request);
+    const delegationHeader = request.headers.get(DELEGATION_HEADER);
+    let delegation: VerifiedDelegation | undefined;
+    if (delegationHeader !== null) {
+      delegation = await verifyDelegation({
+        header: delegationHeader,
+        auth,
+        customer,
+        baseUrl,
+        db: options.db,
+        now: options.now?.() ?? new Date(),
+      });
+      if (!delegation) {
+        return new Response(null, {
+          status: 401,
+          headers: { "WWW-Authenticate": 'Bearer realm="a2a", error="invalid_token"' },
+        });
+      }
+    }
+
     if (route.kind === "unsupported") {
       return a2aError("UNSUPPORTED_OPERATION", "Unsupported operation");
     }
@@ -272,109 +354,184 @@ export function createA2AHandler(options: HandlerOptions): A2AHandler {
       const text = requestMessage.parts.map((part) => ("text" in part ? part.text : "")).join("\n");
       if (!text.trim()) throw invalidParams("Message text must not be blank");
 
-      const message = await options.db.transaction(async (tx) => {
-        const transactionDb = tx as unknown as Db;
-        let conversation: typeof conversations.$inferSelect;
-        if (requestMessage.contextId !== undefined) {
-          if (!isUuid(requestMessage.contextId)) throw invalidParams("Unknown contextId");
-          const [existing] = await transactionDb
-            .select()
-            .from(conversations)
-            .where(
-              and(
-                eq(conversations.id, requestMessage.contextId),
-                eq(conversations.customerId, customer.id),
-                eq(conversations.userId, auth.paUserId),
-              ),
-            )
-            .for("update");
-          if (!existing) throw invalidParams("Unknown contextId");
-          conversation = existing;
-        } else {
-          const [created] = await transactionDb
-            .insert(conversations)
-            .values({
-              id: randomUUID(),
-              customerId: customer.id,
-              userId: auth.paUserId,
-              metadata: { flow: {} },
-            })
-            .returning();
-          if (!created) throw new Error("Conversation insert returned no row");
-          conversation = created;
-        }
-
-        const history = await transactionDb
-          .select()
-          .from(messages)
-          .where(eq(messages.conversationId, conversation.id))
-          .orderBy(asc(messages.createdAt), asc(messages.id));
-        const duplicateIndex = history.findIndex(
-          (stored) => stored.messageId === requestMessage.messageId && stored.role === "ROLE_USER",
-        );
-        if (duplicateIndex >= 0) {
-          const reply = history[duplicateIndex + 1];
-          if (!reply || reply.role !== "ROLE_AGENT") {
-            throw invalidParams(
-              "messageId was already received in this context and has no reply yet",
-            );
+      const result = await options.db.transaction(
+        async (tx): Promise<{ message: Message } | { task: Task }> => {
+          const transactionDb = tx as unknown as Db;
+          let conversation: typeof conversations.$inferSelect;
+          if (requestMessage.contextId !== undefined) {
+            if (!isUuid(requestMessage.contextId)) throw invalidParams("Unknown contextId");
+            const [existing] = await transactionDb
+              .select()
+              .from(conversations)
+              .where(
+                and(
+                  eq(conversations.id, requestMessage.contextId),
+                  eq(conversations.customerId, customer.id),
+                  eq(conversations.userId, auth.paUserId),
+                ),
+              )
+              .for("update");
+            if (!existing) throw invalidParams("Unknown contextId");
+            if (delegation && existing.brandUserId && existing.brandUserId !== delegation.sub) {
+              throw invalidParams("contextId already runs as a different Brand user");
+            }
+            conversation = existing;
+          } else {
+            const [created] = await transactionDb
+              .insert(conversations)
+              .values({
+                id: randomUUID(),
+                customerId: customer.id,
+                userId: auth.paUserId,
+                brandUserId: delegation?.sub ?? null,
+                metadata: { flow: {} },
+              })
+              .returning();
+            if (!created) throw new Error("Conversation insert returned no row");
+            conversation = created;
           }
-          return makeAgentMessage(reply.messageId, conversation.id, reply.parts);
-        }
-        if (history.some((stored) => stored.messageId === requestMessage.messageId)) {
-          throw invalidParams("messageId is already in use in this context");
-        }
 
-        const lastMessage = history.at(-1);
-        const timestamp = new Date(
-          Math.max(
-            options.now?.().getTime() ?? Date.now(),
-            (lastMessage?.createdAt.getTime() ?? 0) + 1,
-          ),
-        );
-        await transactionDb.insert(messages).values({
-          conversationId: conversation.id,
-          messageId: requestMessage.messageId,
-          role: "ROLE_USER",
-          parts: requestMessage.parts,
-          createdAt: timestamp,
-        });
-
-        const turn = await runAgentTurn({
-          customerName: customer.name,
-          initialText: text,
-          previousFlow: conversation.metadata.flow ?? {},
-          history: history.flatMap<{ role: "customer" | "agent"; text: string }>((stored) => {
-            if (stored.role === "ROLE_USER") {
-              return [{ role: "customer" as const, text: textFromParts(stored.parts) }];
+          const history = await transactionDb
+            .select()
+            .from(messages)
+            .where(eq(messages.conversationId, conversation.id))
+            .orderBy(asc(messages.createdAt), asc(messages.id));
+          const duplicateIndex = history.findIndex(
+            (stored) =>
+              stored.messageId === requestMessage.messageId && stored.role === "ROLE_USER",
+          );
+          if (duplicateIndex >= 0) {
+            const reply = history[duplicateIndex + 1];
+            if (!reply || reply.role !== "ROLE_AGENT") {
+              throw invalidParams(
+                "messageId was already received in this context and has no reply yet",
+              );
             }
-            if (stored.role === "ROLE_AGENT") {
-              return [{ role: "agent" as const, text: textFromParts(stored.parts) }];
-            }
-            return [];
-          }),
-          ...(options.openai ? { openai: options.openai } : {}),
-        });
-        const agentMessageId = randomUUID();
-        const agentParts = [{ text: turn.text }];
-        await transactionDb.insert(messages).values({
-          conversationId: conversation.id,
-          messageId: agentMessageId,
-          role: "ROLE_AGENT",
-          parts: agentParts,
-          createdAt: new Date(timestamp.getTime() + 1),
-        });
-        await transactionDb
-          .update(conversations)
-          .set({
-            metadata: { flow: turn.flow },
-            updatedAt: new Date(timestamp.getTime() + 1),
-          })
-          .where(eq(conversations.id, conversation.id));
+            return {
+              message: makeAgentMessage(
+                reply.messageId,
+                conversation.id,
+                reply.parts,
+                reply.metadata,
+              ),
+            };
+          }
+          if (history.some((stored) => stored.messageId === requestMessage.messageId)) {
+            throw invalidParams("messageId is already in use in this context");
+          }
 
-        return makeAgentMessage(agentMessageId, conversation.id, agentParts);
-      });
-      return response(SendMessageResponseSchema.parse({ message }));
+          const config = delegationConfig(customer.name);
+          const previousFlow: FlowState = conversation.metadata.flow ?? {};
+          const delegated = config
+            ? await runDelegatedTurn({ config, text, flow: previousFlow, delegation })
+            : ({ kind: "identity" } as const);
+          if (config && delegated.kind === "stepUp") {
+            // Spec §5.5 step-up: the turn isn't failed or stored; the context stays open.
+            const link = await createDeviceAuthorization(transactionDb, {
+              config,
+              urls: delegationUrls(baseUrl, customer.id),
+              customerId: customer.id,
+              platformId: auth.platform.id,
+              clientId: auth.issuer,
+              scopes: delegated.missingScopes,
+              now: options.now?.() ?? new Date(),
+            });
+            return {
+              task: {
+                id: `t-${randomUUID()}`,
+                contextId: conversation.id,
+                status: {
+                  state: "TASK_STATE_AUTH_REQUIRED",
+                  message: makeAgentMessage(randomUUID(), conversation.id, [
+                    { text: delegated.text },
+                  ]),
+                },
+                metadata: {
+                  [PACT_METADATA.missingScopes]: delegated.missingScopes,
+                  [PACT_METADATA.verificationUriComplete]: link.verification_uri_complete,
+                },
+              },
+            };
+          }
+
+          const lastMessage = history.at(-1);
+          const timestamp = new Date(
+            Math.max(
+              options.now?.().getTime() ?? Date.now(),
+              (lastMessage?.createdAt.getTime() ?? 0) + 1,
+            ),
+          );
+          await transactionDb.insert(messages).values({
+            conversationId: conversation.id,
+            messageId: requestMessage.messageId,
+            role: "ROLE_USER",
+            parts: requestMessage.parts,
+            createdAt: timestamp,
+          });
+
+          const turn =
+            delegated.kind === "reply"
+              ? delegated
+              : await runAgentTurn({
+                  customerName: customer.name,
+                  initialText: text,
+                  previousFlow,
+                  history: history.flatMap<{ role: "customer" | "agent"; text: string }>(
+                    (stored) => {
+                      if (stored.role === "ROLE_USER") {
+                        return [{ role: "customer" as const, text: textFromParts(stored.parts) }];
+                      }
+                      if (stored.role === "ROLE_AGENT") {
+                        return [{ role: "agent" as const, text: textFromParts(stored.parts) }];
+                      }
+                      return [];
+                    },
+                  ),
+                  ...(options.openai ? { openai: options.openai } : {}),
+                });
+          const agentMessageId = randomUUID();
+          const agentParts = [{ text: turn.text }];
+          // Spec §5.6: every reply served under a delegation token carries a receipt.
+          const agentMetadata = delegation
+            ? {
+                [PACT_METADATA.receipt]: await signReceipt({
+                  grantId: delegation.grantId,
+                  user: delegation.sub,
+                  pa: delegation.clientId,
+                  brand: delegationUrls(baseUrl, customer.id).interfaceUrl,
+                  scopesUsed: delegated.kind === "reply" ? delegated.scopesUsed : [],
+                  actions: delegated.kind === "reply" ? delegated.actions : [],
+                  ts: new Date(timestamp.getTime() + 1).toISOString(),
+                }),
+              }
+            : null;
+          await transactionDb.insert(messages).values({
+            conversationId: conversation.id,
+            messageId: agentMessageId,
+            role: "ROLE_AGENT",
+            parts: agentParts,
+            metadata: agentMetadata,
+            createdAt: new Date(timestamp.getTime() + 1),
+          });
+          await transactionDb
+            .update(conversations)
+            .set({
+              ...(delegation ? { brandUserId: delegation.sub } : {}),
+              metadata: { flow: turn.flow },
+              updatedAt: new Date(timestamp.getTime() + 1),
+            })
+            .where(eq(conversations.id, conversation.id));
+
+          return {
+            message: makeAgentMessage(agentMessageId, conversation.id, agentParts, agentMetadata),
+          };
+        },
+      );
+      return response(
+        "task" in result
+          ? DelegatedSendMessageResponseSchema.parse(result)
+          : SendMessageResponseSchema.parse(result),
+      );
     } catch (error) {
       if (error instanceof HandlerError) return a2aError(error.reason, error.message);
       if (

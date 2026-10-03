@@ -12,6 +12,7 @@ import { assertPlatformJwtTiming } from "./platformJwtTiming.js";
 
 export interface PlatformAuth {
   platform: { id: string; name: string; audience: string | null };
+  issuer: string;
   paUserId: string;
   claims: { sub: string; exp: number; iat: number };
 }
@@ -71,6 +72,7 @@ export async function verifyPlatformJwt(input: {
     assertPlatformJwtTiming({ iat: payload.iat, exp: payload.exp, now });
     return {
       platform: { id: platform.id, name: platform.name, audience: platform.audience },
+      issuer: platform.issuer,
       paUserId: `${platform.name}:${payload.sub}`,
       claims: { sub: payload.sub, exp: payload.exp, iat: payload.iat },
     };

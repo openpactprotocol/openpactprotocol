@@ -106,3 +106,10 @@ pnpm e2e
 Delegated authority ([spec §5](spec.md#5-delegated-authority)) is optional
 and advertised on the card. It adds per-Brand scopes and login, device-code
 OAuth, delegation tokens, step-up and receipts.
+
+Consent is your page, reached from the Brand's login
+([spec §5.3](spec.md#53-getting-a-token)). Serve it from a Brand subdomain
+pointed at you, such as `auth.brand.example`, so the User sees the Brand's
+domain where they grant access. You can move the Brand's OAuth endpoints there
+too; its RFC 8414 issuer then uses that domain. Never let consent be framed:
+send `frame-ancestors 'none'`.

@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "vitest run --sequence.concurrent=false",
+    "test:delegated": "vitest run --sequence.concurrent=false delegated",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

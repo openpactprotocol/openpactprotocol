@@ -3,6 +3,7 @@ import { replyWithOpenAI } from "./llmAgent.js";
 export type FlowState = {
   awaitingDetail?: boolean;
   escalated?: boolean;
+  offeredFlight?: string;
 };
 
 export type AgentTurn = {

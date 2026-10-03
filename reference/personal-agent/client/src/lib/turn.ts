@@ -1,5 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { A2AClient, createPlatformSigner } from "@openpactprotocol/client";
+import {
+  DelegatedA2AClient,
+  DelegationTokenRejectedError,
+  delegationScheme,
+  type DelegatedSendResult,
+  type DelegationScheme,
+} from "@openpactprotocol/client/delegation";
+import { checkReceipt, currentDelegationToken, startAuthorization } from "./delegation.js";
+import { deleteDelegation } from "./delegationStore.js";
 import { discoverAgent } from "./pact.js";
 import { composeFallbackReply } from "./composer.js";
 import {
@@ -8,6 +17,9 @@ import {
   type BusinessThread,
   type PaConversation,
   type PhoneMessage,
+  type ReceiptSummary,
+  type SignInCard,
+  type ThreadMessage,
 } from "./conversationStore.js";
 import { runPersonalAgent } from "./paAgent.js";
 import { DEMO_USER_PROFILE } from "./userProfile.js";
@@ -23,8 +35,10 @@ type DiscoveredBusiness = {
   url: string;
   keywords: string[];
   skills: { name: string; description: string }[];
+  delegation?: DelegationScheme;
 };
 type BusinessOutcome =
+  | { customerId: string; businessName: string; signInRequired: true }
   | { customerId: string; businessName: string; reply: string; waitingOnUser: boolean }
   | { customerId: string; businessName: string; unreachable: string };
 
@@ -115,6 +129,7 @@ export async function runTurn(
     connection: Connection;
     text: string;
     conversationId: string;
+    resume?: boolean;
     userId: string;
     issuer: string;
     privateJwk: string;
@@ -151,7 +166,9 @@ export async function runTurn(
     connection.customerIds.map(async (customerId): Promise<DiscoveredBusiness | undefined> => {
       try {
         const discovery = await discoverAgent(connection.providerUrl, customerId);
+        const scheme = delegationScheme(discovery.card);
         return {
+          ...(scheme ? { delegation: scheme } : {}),
           customerId,
           name: discovery.card.name,
           description: discovery.card.description,
@@ -168,9 +185,14 @@ export async function runTurn(
     (business): business is DiscoveredBusiness => business !== undefined,
   );
   const nextTimestamp = createTimestampGenerator(conversation.updatedAt);
-  const transcript = transcriptMessages(conversation.messages);
-  const userAt = nextTimestamp();
-  conversation.messages.push({ role: "user", text, at: userAt });
+  // A resumed turn re-runs the User's last message after they connected an account.
+  const lastUserIndex = conversation.messages.map((message) => message.role).lastIndexOf("user");
+  const transcript = transcriptMessages(
+    input.resume
+      ? conversation.messages.filter((_, index) => index !== lastUserIndex)
+      : conversation.messages,
+  );
+  if (!input.resume) conversation.messages.push({ role: "user", text, at: nextTimestamp() });
 
   if (businesses.length === 0) {
     const message: PhoneMessage = {
@@ -192,6 +214,38 @@ export async function runTurn(
   const outcomes: BusinessOutcome[] = [];
 
   const signer = createPlatformSigner({ issuer: input.issuer, privateJwk: input.privateJwk });
+  const credentials = {
+    userId: input.userId,
+    issuer: input.issuer,
+    privateJwk: input.privateJwk,
+    audience: input.audience,
+  };
+  const getToken = () => signer.sign({ sub: input.userId, aud: input.audience });
+
+  async function sendDelegated(
+    business: DiscoveredBusiness & { delegation: DelegationScheme },
+    message: string,
+    contextId: string | undefined,
+  ): Promise<DelegatedSendResult> {
+    const send = (withToken: boolean) =>
+      new DelegatedA2AClient({
+        url: business.url,
+        getToken,
+        ...(withToken
+          ? {
+              getDelegationToken: () =>
+                currentDelegationToken(business.customerId, business.delegation, credentials),
+            }
+          : {}),
+      }).send(message, contextId ? { contextId } : {});
+    try {
+      return await send(true);
+    } catch (cause) {
+      if (!(cause instanceof DelegationTokenRejectedError)) throw cause;
+      await deleteDelegation(input.userId, business.customerId);
+      return send(false);
+    }
+  }
 
   async function sendToBusiness(customerId: string, message: string): Promise<string> {
     const business = businesses.find((candidate) => candidate.customerId === customerId);
@@ -203,19 +257,52 @@ export async function runTurn(
       text: message,
     });
     try {
-      const client = new A2AClient({
-        url: business.url,
-        getToken: () => signer.sign({ sub: input.userId, aud: input.audience }),
-      });
       const previousThread = conversation.threads.find(
         (thread) => thread.customerId === business.customerId,
       );
-      const response = await client.sendMessage(
-        message,
-        previousThread ? { contextId: previousThread.contextId } : {},
-      );
-      if (!response.contextId) throw new Error("Agent response is missing contextId");
-      const reply = response.parts.map((part) => ("text" in part ? part.text : "")).join("\n");
+      let contextId: string | undefined;
+      let reply: string;
+      let receipt: ReceiptSummary | undefined;
+      let missingScopes: string[] | undefined;
+      if (business.delegation) {
+        const result = await sendDelegated(
+          { ...business, delegation: business.delegation },
+          message,
+          previousThread?.contextId,
+        );
+        if (result.kind === "authRequired") {
+          contextId = result.task.contextId;
+          missingScopes = result.missingScopes;
+          reply = (result.task.status.message?.parts ?? [])
+            .map((part) => ("text" in part ? part.text : ""))
+            .join("\n");
+        } else {
+          contextId = result.message.contextId;
+          reply = result.message.parts.map((part) => ("text" in part ? part.text : "")).join("\n");
+          if (result.receipt) {
+            receipt = await checkReceipt(result.receipt, {
+              scheme: business.delegation,
+              pa: input.issuer,
+              brand: business.url,
+            });
+          }
+        }
+      } else {
+        const response = await new A2AClient({ url: business.url, getToken }).sendMessage(
+          message,
+          previousThread ? { contextId: previousThread.contextId } : {},
+        );
+        contextId = response.contextId;
+        reply = response.parts.map((part) => ("text" in part ? part.text : "")).join("\n");
+      }
+      if (!contextId) throw new Error("Agent response is missing contextId");
+      const agentMessage: ThreadMessage = {
+        role: "ROLE_AGENT",
+        text: reply,
+        at: "",
+        ...(receipt ? { receipt } : {}),
+        ...(missingScopes ? { authRequired: missingScopes } : {}),
+      };
       const businessMessageAt = nextTimestamp();
       const replyAt = nextTimestamp();
       const existingIndex = conversation.threads.findIndex(
@@ -225,17 +312,44 @@ export async function runTurn(
       const updatedThread: BusinessThread = {
         customerId: business.customerId,
         businessName: business.name,
-        contextId: response.contextId,
+        contextId,
         messages: [
           ...(currentThread?.messages ?? []),
           { role: "ROLE_USER", text: message, at: businessMessageAt },
-          { role: "ROLE_AGENT", text: reply, at: replyAt },
+          { ...agentMessage, at: replyAt },
         ],
-        awaitingReply: reply.trimEnd().endsWith("?"),
+        awaitingReply: !missingScopes && reply.trimEnd().endsWith("?"),
+        ...(business.delegation
+          ? {
+              scopeLabels: Object.fromEntries(
+                business.delegation.scopes.map((scope) => [scope.id, scope.description]),
+              ),
+            }
+          : {}),
       };
       if (existingIndex < 0) conversation.threads.push(updatedThread);
       else conversation.threads[existingIndex] = updatedThread;
       conversation.updatedAt = replyAt;
+      if (missingScopes && business.delegation) {
+        emit({ type: "business", thread: updatedThread });
+        const signIn = await startAuthorization({
+          credentials,
+          scheme: business.delegation,
+          customerId: business.customerId,
+          businessName: business.name,
+          providerUrl: connection.providerUrl,
+          conversationId: conversation.id,
+          text,
+          missingScopes,
+        });
+        outcomes.push({
+          customerId: business.customerId,
+          businessName: business.name,
+          signInRequired: true,
+        });
+        appendSignIn(signIn);
+        return `${business.name} needs the user to sign in and approve access first (missing permissions: ${missingScopes.join(", ")}). A "Sign in with ${business.name}" card is already shown to the user, so just tell them briefly to tap it.`;
+      }
       outcomes.push({
         customerId: business.customerId,
         businessName: business.name,
@@ -266,6 +380,18 @@ export async function runTurn(
       role: "personal-agent",
       text: messageText,
       at: nextTimestamp(),
+    };
+    conversation.messages.push(message);
+    conversation.updatedAt = message.at;
+    emit({ type: "reply", message });
+  }
+
+  function appendSignIn(signIn: SignInCard): void {
+    const message: PhoneMessage = {
+      role: "personal-agent",
+      text: `To help with that, ${signIn.businessName} needs you to sign in. You'll choose what I'm allowed to do.`,
+      at: nextTimestamp(),
+      signIn,
     };
     conversation.messages.push(message);
     conversation.updatedAt = message.at;
@@ -342,14 +468,16 @@ export async function runTurn(
     }
   }
 
-  const message: PhoneMessage = {
-    role: "personal-agent",
-    text: replyText,
-    at: nextTimestamp(),
-  };
-  conversation.messages.push(message);
-  conversation.updatedAt = message.at;
-  emit({ type: "reply", message });
+  if (replyText.trim()) {
+    const message: PhoneMessage = {
+      role: "personal-agent",
+      text: replyText,
+      at: nextTimestamp(),
+    };
+    conversation.messages.push(message);
+    conversation.updatedAt = message.at;
+    emit({ type: "reply", message });
+  }
   await saveConversation(conversation);
   emit({
     type: "done",
