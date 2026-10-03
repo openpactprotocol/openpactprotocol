@@ -30,10 +30,11 @@ import { renderPage } from "./views/render.js";
 const PORT = Number(process.env.PORT ?? 3004);
 const BRAND_URL = (process.env.BRAND_URL ?? `http://localhost:${PORT}`).replace(/\/+$/, "");
 const PROVIDER_URL = (process.env.PROVIDER_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+const CONSENT_ORIGIN = (process.env.CONSENT_ORIGIN ?? PROVIDER_URL).replace(/\/+$/, "");
 const CUSTOMER_ID = process.env.BRAND_CUSTOMER_ID ?? "01M3R53Q5SZQ6FQSMSDBSSREAA";
 const INTERFACE_URL = `${PROVIDER_URL}/a2a/${CUSTOMER_ID}`;
 const ISSUER = `${INTERFACE_URL}/oauth`;
-const CONSENT_URL = `${ISSUER}/consent`;
+const CONSENT_URL = `${CONSENT_ORIGIN}/a2a/${CUSTOMER_ID}/oauth/consent`;
 const providerJwks = createRemoteJWKSet(new URL(`${ISSUER}/jwks.json`), {
   timeoutDuration: 15_000,
 });
@@ -78,6 +79,7 @@ const staticAssets = new Map<string, { body: Buffer; contentType: string }>(
         ],
         ["icons/check.svg", new URL("../public/icons/check.svg", import.meta.url), "image/svg+xml"],
         ["icons/cross.svg", new URL("../public/icons/cross.svg", import.meta.url), "image/svg+xml"],
+        ["icons/lock.svg", new URL("../public/icons/lock.svg", import.meta.url), "image/svg+xml"],
       ] as const
     ).map(
       async ([name, assetUrl, contentType]) =>
@@ -110,6 +112,10 @@ function brandPage(title: string | null, body: ReactNode, continueScript = false
     createElement(Layout, {
       title: title === null ? "Skyline Airways (Brand)" : `Skyline Airways (Brand) · ${title}`,
       children: body,
+      demoOrigin: {
+        host: "skyline.example",
+        owner: "Served by Skyline Airways (Brand)",
+      },
       ...(continueScript ? { continueScript } : {}),
     }),
   );

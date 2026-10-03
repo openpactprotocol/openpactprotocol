@@ -74,7 +74,7 @@ export function verificationUris(
   code: string,
 ): { verification_uri: string; verification_uri_complete: string } {
   const login = (returnTo: string) =>
-    `${config.brandUrl}/login?${new URLSearchParams({ return_to: returnTo })}`;
+    `${config.brandPublicUrl}/login?${new URLSearchParams({ return_to: returnTo })}`;
   return {
     verification_uri: login(urls.consent),
     verification_uri_complete: login(`${urls.consent}?${new URLSearchParams({ user_code: code })}`),
@@ -359,21 +359,38 @@ export function createOAuthHandler(options: OAuthOptions) {
         jti: payload.jti!,
       };
     } catch {
-      return await errorPage(customer.name, "The sign-in could not be verified. Try again.", 401);
+      return await errorPage(
+        customer.name,
+        "The sign-in could not be verified. Try again.",
+        401,
+        config.publicHost,
+      );
     }
     const [fresh] = await options.db
       .insert(usedBrandAssertions)
       .values({ jti: claims.jti })
       .onConflictDoNothing()
       .returning();
-    if (!fresh) return await errorPage(customer.name, "This sign-in link was already used.");
+    if (!fresh)
+      return await errorPage(
+        customer.name,
+        "This sign-in link was already used.",
+        400,
+        config.publicHost,
+      );
     const pending = await pendingAuthorization(customer.id, claims.userCode);
     if (!pending)
-      return await errorPage(customer.name, "This request expired. Start again from your agent.");
+      return await errorPage(
+        customer.name,
+        "This request expired. Start again from your agent.",
+        400,
+        config.publicHost,
+      );
     const requested = new Set(parseScope(pending.row.requestedScope));
     return await consentPage({
       brandName: customer.name,
       color: config.color,
+      ...(config.publicHost === undefined ? {} : { publicHost: config.publicHost }),
       providerName: "PACT reference provider",
       platformName: pending.platform.name,
       platformOrigin: new URL(pending.row.clientId).host,
@@ -401,16 +418,23 @@ export function createOAuthHandler(options: OAuthOptions) {
       return await errorPage(
         customer.name,
         "This consent page expired. Start again from your agent.",
+        400,
+        config.publicHost,
       );
     }
     const pending = await pendingAuthorization(customer.id, session.userCode);
     if (!pending)
-      return await errorPage(customer.name, "This request expired. Start again from your agent.");
+      return await errorPage(
+        customer.name,
+        "This request expired. Start again from your agent.",
+        400,
+        config.publicHost,
+      );
     const requested = parseScope(pending.row.requestedScope);
     const chosen = new Set(form.getAll("scope"));
     const granted = requested.filter((scope) => chosen.has(scope));
     const at = now();
-    const done = new URL(`${config.brandUrl}/connected`);
+    const done = new URL(`${config.brandPublicUrl}/connected`);
     done.searchParams.set("client", displayName(pending.platform.name));
 
     if (form.get("decision") !== "allow" || granted.length === 0) {

@@ -88,13 +88,34 @@ pnpm --filter @openpactprotocol/brand dev                                       
 DELEGATION_ENABLED=1 A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openpactprotocol/provider dev
 ```
 
-| Variable               | Where    | Default                 |
-| ---------------------- | -------- | ----------------------- |
-| `DELEGATION_ENABLED`   | Provider | off                     |
-| `BRAND_URL`            | both     | `http://localhost:3004` |
-| `PROVIDER_URL`         | Brand    | `http://localhost:3000` |
-| `PROVIDER_PRIVATE_JWK` | Provider | generated into `.data/` |
-| `BRAND_PRIVATE_JWK`    | Brand    | generated into `.data/` |
+| Variable               | Where            | Default                 |
+| ---------------------- | ---------------- | ----------------------- |
+| `DELEGATION_ENABLED`   | Provider         | off                     |
+| `BRAND_URL`            | both             | `http://localhost:3004` |
+| `BRAND_PUBLIC_URL`     | Provider         | `BRAND_URL`             |
+| `CONSENT_ORIGIN`       | Provider + Brand | Provider URL            |
+| `PROVIDER_URL`         | Provider + Brand | `http://localhost:3000` |
+| `PROVIDER_PRIVATE_JWK` | Provider         | generated into `.data/` |
+| `BRAND_PRIVATE_JWK`    | Brand            | generated into `.data/` |
+
+### Demo hostnames
+
+For browser-facing demo URLs that look like a production deployment, start the
+Provider with:
+
+```sh
+PROVIDER_URL=http://localhost:3000 CONSENT_ORIGIN=http://auth.skyline.localhost:3000 BRAND_PUBLIC_URL=http://skyline.localhost:3004 \
+DELEGATION_ENABLED=1 A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openpactprotocol/provider dev
+```
+
+Start the Brand with:
+
+```sh
+CONSENT_ORIGIN=http://auth.skyline.localhost:3000 pnpm --filter @openpactprotocol/brand dev
+```
+
+Then open `http://agent.localhost:3001`. This mirrors production, where consent
+is served by the Provider on a Brand subdomain ([Provider guide](provider.md)).
 
 In the demo personal agent, ask "Can you check my upcoming Skyline flight?".
 Skyline replies `TASK_STATE_AUTH_REQUIRED`, and the agent shows a **Sign in with Skyline Airways** card that opens the Brand login in a new tab (demo account

@@ -519,6 +519,58 @@ button:disabled {
   border-radius: var(--radius);
   background-color: #f4f4f1;
 }
+.phone-demo {
+  position: relative;
+}
+.demo-origin {
+  position: absolute;
+  top: -32px;
+  left: 50%;
+  display: flex;
+  width: max-content;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100vw - 32px);
+  flex-wrap: wrap;
+  justify-content: center;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid #e3e6eb;
+  border-radius: 999px;
+  z-index: 1;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 8%);
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.2;
+  transform: translateX(-50%);
+}
+.demo-tag {
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+.demo-lock {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  color: #6b7280;
+}
+.demo-host {
+  color: #111827;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.demo-separator {
+  color: #9ca3af;
+}
+.demo-owner {
+  color: #6b7280;
+  font-size: 12px;
+}
 .phone {
   --ios-blue: #2f9bf0;
   width: 390px;
@@ -896,7 +948,7 @@ button:disabled {
     grid-template-columns: 1fr;
   }
   .stage {
-    padding: 24px 8px;
+    padding: 32px 8px 24px;
   }
   .brand {
     flex-wrap: wrap;

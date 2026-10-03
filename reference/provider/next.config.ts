@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["*.localhost"],
   transpilePackages: ["@openpactprotocol/protocol"],
   webpack(config) {
     config.resolve.extensionAlias = {

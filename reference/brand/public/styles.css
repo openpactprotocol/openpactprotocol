@@ -14,9 +14,61 @@ body {
     sans-serif;
   color: #111827;
   display: flex;
-  justify-content: center;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
   padding: 40px 16px;
+}
+
+.demo-origin {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 100%;
+  padding: 4px 10px 4px 4px;
+  border: 1px solid #e3e6eb;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.06);
+  color: #6b7280;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.demo-tag {
+  padding: 2px 5px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #6b7280;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1;
+}
+
+.demo-lock {
+  width: 12px;
+  height: 12px;
+  flex: none;
+  background: currentColor;
+  mask: url(/static/icons/lock.svg) center / contain no-repeat;
+  -webkit-mask: url(/static/icons/lock.svg) center / contain no-repeat;
+}
+
+.demo-host {
+  color: #111827;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.demo-separator {
+  color: #9ca3af;
+}
+
+.demo-owner {
+  color: #6b7280;
+  font-size: 12px;
 }
 
 .sheet {

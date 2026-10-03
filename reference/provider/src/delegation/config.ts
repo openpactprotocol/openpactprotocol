@@ -7,15 +7,21 @@ export type ScopeDefinition = {
 
 export type DelegationConfig = {
   brandUrl: string;
+  brandPublicUrl: string;
+  publicHost?: string;
   color: string;
   scopes: ScopeDefinition[];
 };
 
 // Per-Brand delegation setup. In a real Provider the Brand configures this;
 // here only Skyline offers delegation, and only when DELEGATION_ENABLED is set.
-const BRAND_SCOPES: Record<string, { color: string; scopes: ScopeDefinition[] }> = {
+const BRAND_SCOPES: Record<
+  string,
+  { color: string; publicHost?: string; scopes: ScopeDefinition[] }
+> = {
   "Skyline Airways": {
     color: "#16345c",
+    publicHost: "auth.skyline.example",
     scopes: [
       {
         id: "flights:upcoming:read",
@@ -45,14 +51,18 @@ export function delegationConfig(customerName: string): DelegationConfig | undef
   if (!delegationEnabled()) return undefined;
   const brand = BRAND_SCOPES[customerName];
   if (!brand) return undefined;
+  const brandUrl = (process.env.BRAND_URL ?? "http://localhost:3004").replace(/\/+$/, "");
   return {
     ...brand,
-    brandUrl: (process.env.BRAND_URL ?? "http://localhost:3004").replace(/\/+$/, ""),
+    brandUrl,
+    brandPublicUrl: (process.env.BRAND_PUBLIC_URL ?? brandUrl).replace(/\/+$/, ""),
   };
 }
 
 export function delegationUrls(baseUrl: string, customerId: string) {
-  const interfaceUrl = `${baseUrl.replace(/\/+$/, "")}/a2a/${customerId}`;
+  const base = baseUrl.replace(/\/+$/, "");
+  const consentOrigin = (process.env.CONSENT_ORIGIN ?? base).replace(/\/+$/, "");
+  const interfaceUrl = `${base}/a2a/${customerId}`;
   const issuer = `${interfaceUrl}/oauth`;
   return {
     interfaceUrl,
@@ -61,7 +71,7 @@ export function delegationUrls(baseUrl: string, customerId: string) {
     jwks: `${issuer}/jwks.json`,
     deviceAuthorization: `${issuer}/device_authorization`,
     token: `${issuer}/token`,
-    consent: `${issuer}/consent`,
-    consentDecision: `${issuer}/consent/decision`,
+    consent: `${consentOrigin}/a2a/${customerId}/oauth/consent`,
+    consentDecision: `${consentOrigin}/a2a/${customerId}/oauth/consent/decision`,
   };
 }

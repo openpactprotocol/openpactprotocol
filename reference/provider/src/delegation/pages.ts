@@ -16,7 +16,11 @@ async function page(
   title: string,
   body: ReactNode,
   status = 200,
-  options: { brandColor?: string; includeScript?: boolean } = {},
+  options: {
+    brandColor?: string;
+    includeScript?: boolean;
+    demoOrigin?: { host: string; owner: string };
+  } = {},
 ): Promise<Response> {
   return new Response(
     await renderPage(
@@ -25,6 +29,7 @@ async function page(
         children: body,
         ...(options.brandColor === undefined ? {} : { brandColor: options.brandColor }),
         ...(options.includeScript === undefined ? {} : { includeScript: options.includeScript }),
+        ...(options.demoOrigin === undefined ? {} : { demoOrigin: options.demoOrigin }),
       }),
     ),
     {
@@ -45,8 +50,13 @@ export async function errorPage(
   brandName: string,
   message: string,
   status = 400,
+  publicHost?: string,
 ): Promise<Response> {
-  return page(`${brandName} sign-in error`, createElement(ErrorPage, { message }), status);
+  return page(`${brandName} sign-in error`, createElement(ErrorPage, { message }), status, {
+    ...(publicHost
+      ? { demoOrigin: { host: publicHost, owner: `Served by PACT Provider for ${brandName}` } }
+      : {}),
+  });
 }
 
 export async function consentPage(input: {
@@ -59,6 +69,7 @@ export async function consentPage(input: {
   scopes: (ScopeDefinition & { requested: boolean })[];
   action: string;
   session: string;
+  publicHost?: string;
 }): Promise<Response> {
   const agent = displayName(input.platformName);
   return page(
@@ -74,6 +85,17 @@ export async function consentPage(input: {
       session: input.session,
     }),
     200,
-    { brandColor: input.color, includeScript: true },
+    {
+      brandColor: input.color,
+      includeScript: true,
+      ...(input.publicHost
+        ? {
+            demoOrigin: {
+              host: input.publicHost,
+              owner: `Served by PACT Provider for ${input.brandName}`,
+            },
+          }
+        : {}),
+    },
   );
 }

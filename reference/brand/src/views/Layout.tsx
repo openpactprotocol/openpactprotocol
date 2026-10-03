@@ -4,10 +4,12 @@ export function Layout({
   title,
   children,
   continueScript = false,
+  demoOrigin,
 }: {
   title: string;
   children: ReactNode;
   continueScript?: boolean;
+  demoOrigin?: { host: string; owner: string };
 }) {
   return (
     <html lang="en">
@@ -18,6 +20,21 @@ export function Layout({
         <link rel="stylesheet" href="/static/styles.css" />
       </head>
       <body>
+        {demoOrigin && (
+          <div
+            className="demo-origin"
+            role="note"
+            aria-label={`Demo: served at ${demoOrigin.host} by ${demoOrigin.owner}`}
+          >
+            <span className="demo-tag">DEMO</span>
+            <span className="demo-lock" aria-hidden="true" />
+            <span className="demo-host">{demoOrigin.host}</span>
+            <span className="demo-separator" aria-hidden="true">
+              ·
+            </span>
+            <span className="demo-owner">{demoOrigin.owner}</span>
+          </div>
+        )}
         <main className="sheet">{children}</main>
         {continueScript && <script src="/static/continue.js" defer />}
       </body>
