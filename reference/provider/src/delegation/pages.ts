@@ -21,7 +21,7 @@ async function page(
   return new Response(
     await renderPage(
       createElement(Layout, {
-        title,
+        title: `PACT Provider · ${title}`,
         children: body,
         ...(options.brandColor === undefined ? {} : { brandColor: options.brandColor }),
         ...(options.includeScript === undefined ? {} : { includeScript: options.includeScript }),
@@ -46,7 +46,7 @@ export async function errorPage(
   message: string,
   status = 400,
 ): Promise<Response> {
-  return page(`${brandName} sign-in`, createElement(ErrorPage, { message }), status);
+  return page(`${brandName} sign-in error`, createElement(ErrorPage, { message }), status);
 }
 
 export async function consentPage(input: {
@@ -62,7 +62,7 @@ export async function consentPage(input: {
 }): Promise<Response> {
   const agent = displayName(input.platformName);
   return page(
-    `${agent} wants to access your ${input.brandName} account`,
+    `Allow access to ${input.brandName}`,
     createElement(ConsentPage, {
       brandName: input.brandName,
       providerName: input.providerName,

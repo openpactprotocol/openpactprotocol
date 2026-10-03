@@ -105,10 +105,10 @@ function html(response: ServerResponse, body: string, status = 200): void {
   });
 }
 
-function brandPage(title: string, body: ReactNode, continueScript = false): string {
+function brandPage(title: string | null, body: ReactNode, continueScript = false): string {
   return renderPage(
     createElement(Layout, {
-      title,
+      title: title === null ? "Skyline Airways (Brand)" : `Skyline Airways (Brand) · ${title}`,
       children: body,
       ...(continueScript ? { continueScript } : {}),
     }),
@@ -144,7 +144,7 @@ function loginPage(
   html(
     response,
     brandPage(
-      "Sign in to Skyline Airways",
+      "Sign in",
       createElement(LoginPage, {
         returnTo: input.returnTo,
         userCode: input.userCode,
@@ -163,7 +163,7 @@ async function handleLogin(request: IncomingMessage, response: ServerResponse): 
     return html(
       response,
       brandPage(
-        "Skyline",
+        "Unknown sign-in request",
         createElement(MessagePage, {
           title: "Unknown sign-in request",
           sub: "Start again from your agent.",
@@ -291,7 +291,7 @@ const server = createServer(async (request, response) => {
         return html(
           response,
           brandPage(
-            "Skyline",
+            "Unknown sign-in request",
             createElement(MessagePage, {
               title: "Unknown sign-in request",
               sub: "Start again from your agent.",
@@ -313,7 +313,7 @@ const server = createServer(async (request, response) => {
       return html(
         response,
         brandPage(
-          "Skyline Airways",
+          null,
           createElement(MessagePage, {
             title: "Example Brand",
             sub: "Login, accounts and the account API for the PACT Delegated demo.",
