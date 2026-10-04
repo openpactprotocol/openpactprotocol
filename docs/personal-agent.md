@@ -8,6 +8,12 @@ rules are in the [specification](spec.md). Any language works. In TypeScript,
 the reference client `@openpactprotocol/client` (`packages/client/src/index.ts`
 in this repository) does steps 3–5.
 
+> This guide covers the **PACT Identity** profile only ([spec §7](spec.md#7-conformance)):
+> the personal agent proves who it is, and the Brand's agent verifies the User
+> in conversation. Acting on the User's account (**PACT Delegated**) is defined
+> in [spec §5](spec.md#5-delegated-authority) and demonstrated in
+> [running.md](running.md#delegated-authority-optional); a guide is coming.
+
 ## Values you need
 
 | Value          | Who provides it                                                                                      | Used for                                                     |

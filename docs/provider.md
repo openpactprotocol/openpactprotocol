@@ -7,6 +7,11 @@ For engineers adding PACT to a platform that hosts support agents for Brands
 (a **Provider**). The rules are in the [specification](spec.md);
 `reference/provider` implements all of this and `e2e/` checks it.
 
+> This guide covers the **PACT Identity** profile only ([spec §7](spec.md#7-conformance)).
+> Offering delegated authority (**PACT Delegated**) is defined in
+> [spec §5](spec.md#5-delegated-authority) and implemented in
+> `reference/provider/src/delegation`; a guide is coming.
+
 ## 1. Register personal agents
 
 Keep a record per personal agent: `issuer` (the exact `iss` string), `jwksUri`, `enabled`.
