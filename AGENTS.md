@@ -20,9 +20,8 @@ Terms: **Provider** hosts Brands' support agents; **Brand** is a business;
 - Setup: `pnpm install && pnpm gen-keys`. Local stack: `docs/running.md`.
 - Checks: `pnpm lint && pnpm typecheck && pnpm test && pnpm format:check`.
 - Changing normative text in `docs/spec.md`: in the same PR, update the
-  guides that restate it, add or adjust a case in `e2e/pact.test.ts`, and
-  add a line under "Unreleased" in `CHANGELOG.md`. Proposals start as a
-  `spec-change` issue.
+  guides that restate it and, where the conformance suite can exercise the
+  rule, add or adjust a case in `e2e/pact.test.ts`.
 - Docs live in `docs/` and are rendered by `website/`. Use relative `.md`
   links (`spec.md#4-messages`); every `docs/*.md` must be listed in
   `website/src/nav.ts`; `pnpm vitest run website` validates links and anchors.
