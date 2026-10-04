@@ -240,18 +240,20 @@ In OAuth 2.0 terms:
 
 ![Delegated authority](images/delegated-authority.svg)
 
-1. The personal agent requests scopes from the card ([§5.3](#53-getting-a-token)).
-2. The Provider returns a login link.
-3. The personal agent shows the link to the User.
-4. The User logs in with the Brand and approves scopes on the Provider's
-   consent page. The personal agent never sees the login.
-5. The Provider signs a delegation token listing the approved scopes
-   ([§5.4](#54-delegation-token)). The personal agent carries it but cannot
-   change it.
-6. The personal agent sends it with each message. The Provider checks it, and
-   the Brand's agent acts as the User only within those scopes
-   ([§5.5](#55-sending-with-it)).
-7. Every reply carries a signed receipt ([§5.6](#56-receipts)).
+1. **Request scopes.** The personal agent asks the Provider for the scopes it
+   needs, sending its §3 JWT as the client credential
+   ([§5.3](#53-getting-a-token)).
+2. **Login link.** The Provider returns a link to the Brand's own login. The
+   personal agent shows it to the User and never handles the login itself.
+3. **Sign in and approve.** The User logs in with the Brand and approves scopes
+   on the Provider's consent page. The personal agent never sees the login.
+4. **Delegation token.** The Provider signs a delegation token listing the
+   approved scopes ([§5.4](#54-delegation-token)). The personal agent carries
+   it but cannot change it.
+5. **Send and receipt.** The personal agent sends the token with each message.
+   The Provider checks it, and the Brand's agent acts as the User only within
+   those scopes ([§5.5](#55-sending-with-it)). Every reply carries a signed
+   receipt ([§5.6](#56-receipts)).
 
 ### 5.1 Card
 
