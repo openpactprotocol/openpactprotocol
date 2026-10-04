@@ -61,8 +61,7 @@ Provider gives it an `audience` string.
    the Brand's agent acts on the User's account within the granted scopes.
 
 Without steps 3–5, the Brand's agent knows _which personal agent_ is calling,
-not _who the User is_, and asks in the conversation (order number, email) as a
-chat widget would.
+not _who the User is_, and asks in the conversation (order number, email).
 
 ## Start here
 
