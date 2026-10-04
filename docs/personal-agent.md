@@ -8,6 +8,9 @@ rules are in the [specification](spec.md). Any language works. In TypeScript,
 the reference client `@openpactprotocol/client` (`packages/client/src/index.ts`
 in this repository) does steps 3–5.
 
+> Covers the **PACT Identity** profile only. Delegated authority is in
+> [spec §5](spec.md#5-delegated-authority).
+
 ## Values you need
 
 | Value          | Who provides it                                                                                      | Used for                                                     |

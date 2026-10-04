@@ -3,10 +3,11 @@ title: Specification
 description: The normative PACT rules for personal-agent identity and delegated authority on A2A 1.0.
 ---
 
-PACT adds two things to [A2A 1.0](https://a2a-protocol.org): a verifiable
-identity for the personal agent sending each request ([§3](#3-personal-agent-identity)), and, optionally,
-permissions the User grants it on their Brand account ([§5](#5-delegated-authority)). Transport, messages
-and errors follow A2A.
+PACT builds on [A2A 1.0](https://a2a-protocol.org), defining a verifiable
+identity for the personal agent sending each request
+([§3](#3-personal-agent-identity)) and, optionally, the permissions the User
+grants it on their Brand account ([§5](#5-delegated-authority)). Transport,
+messages and errors follow A2A.
 
 The key words MUST, MUST NOT, SHOULD and MAY are to be interpreted as described
 in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
