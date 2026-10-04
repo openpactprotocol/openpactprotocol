@@ -131,7 +131,7 @@ const next = await client.sendMessage("Order 4471", { contextId: first.contextId
 ```
 
 The agent may ask the User to prove who they are (order number, email); relay
-the question and answer as a chat widget would.
+the question and answer.
 
 **Done when** the reply has `role: "ROLE_AGENT"` and a `contextId`, and a
 second message with that `contextId` continues the conversation.
