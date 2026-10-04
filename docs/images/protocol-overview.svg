@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="780" height="482" viewBox="-10 0 780 482" role="img" aria-labelledby="protocol-overview-title protocol-overview-desc" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif"><style>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="488" viewBox="0 0 1024 488" role="img" aria-labelledby="protocol-overview-title protocol-overview-desc" font-family="-apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif"><style>
 .po-canvas {
   fill: #ffffff;
 }
@@ -170,4 +170,93 @@
   font-size: 10px;
   font-weight: 750;
 }
-</style><rect class="po-canvas" x="-10" y="0" width="780" height="482"></rect><title id="protocol-overview-title">PACT at a glance</title><desc id="protocol-overview-desc">The User asks their personal agent for help. The personal agent, registered once with the Provider, reads the Brand&#x27;s Agent Card and sends a message signed with its own key. The Provider verifies the JWT against the personal agent&#x27;s public keys, the Brand&#x27;s agent replies with a contextId, and the personal agent relays the answer. Optionally, the User logs in with the Brand and approves scopes so the agent can act on their account.</desc><defs><marker id="po-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="po-head"></path></marker><marker id="po-head-setup" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="po-head-setup"></path></marker><marker id="po-head-optional" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="po-head-optional"></path></marker></defs><rect class="po-zone" x="-8" y="4" width="506" height="474" rx="14"></rect><rect class="po-zone po-zone-business" x="498" y="4" width="270" height="474" rx="14"></rect><text class="po-zone-label" x="4" y="30">PERSONAL AGENT SIDE</text><text class="po-zone-label" x="516" y="30">PROVIDER SIDE</text><line class="po-boundary" x1="498" y1="40" x2="498" y2="472"></line><g><rect class="po-actor" x="0" y="56" width="116" height="348" rx="12"></rect><text class="po-actor-title" x="58" y="78" text-anchor="middle">User</text><text class="po-actor-subtitle" x="58" y="93" text-anchor="middle">anonymous id</text></g><g><rect class="po-actor" x="244" y="56" width="184" height="348" rx="12"></rect><text class="po-actor-title" x="336" y="78" text-anchor="middle">Personal agent</text><text class="po-actor-subtitle" x="336" y="93" text-anchor="middle">acts for the User</text></g><g><rect class="po-actor" x="568" y="56" width="192" height="348" rx="12"></rect><text class="po-actor-title" x="664" y="78" text-anchor="middle">Provider</text><text class="po-actor-subtitle" x="664" y="93" text-anchor="middle">hosts Brands&#x27; agents</text></g><g class="po-person" transform="translate(58 228)"><circle cx="0" cy="-26" r="13"></circle><path d="M -24 18 a 24 24 0 0 1 48 0 z"></path></g><g><rect class="po-part" x="256" y="158" width="160" height="40" rx="8"></rect><text class="po-part-label" x="336" y="176" text-anchor="middle">Assistant</text><text class="po-part-detail" x="336" y="190" text-anchor="middle">talks to the User</text></g><g><rect class="po-part" x="256" y="216" width="160" height="40" rx="8"></rect><text class="po-part-label" x="336" y="234" text-anchor="middle">Signing key</text><text class="po-part-detail" x="336" y="248" text-anchor="middle">private, server-only</text></g><g><rect class="po-part" x="256" y="274" width="160" height="40" rx="8"></rect><text class="po-part-label" x="336" y="292" text-anchor="middle">Public keys</text><text class="po-part-detail" x="336" y="306" text-anchor="middle">/.well-known/jwks.json</text></g><g><rect class="po-part" x="580" y="106" width="168" height="40" rx="8"></rect><text class="po-part-label" x="664" y="124" text-anchor="middle">Registered agents</text><text class="po-part-detail" x="664" y="138" text-anchor="middle">issuer · keys URL · audience</text></g><g><rect class="po-part" x="580" y="158" width="168" height="40" rx="8"></rect><text class="po-part-label" x="664" y="176" text-anchor="middle">Agent Card</text><text class="po-part-detail" x="664" y="190" text-anchor="middle">/a2a/{brandId}</text></g><g><rect class="po-part" x="580" y="216" width="168" height="40" rx="8"></rect><text class="po-part-label" x="664" y="234" text-anchor="middle">Token check</text><text class="po-part-detail" x="664" y="248" text-anchor="middle">signature · issuer · audience</text></g><g><rect class="po-part po-part-accent" x="580" y="318" width="168" height="60" rx="8"></rect><text class="po-part-label" x="664" y="346" text-anchor="middle">Brand&#x27;s agent</text><text class="po-part-detail" x="664" y="360" text-anchor="middle">one conversation per User</text></g><line class="po-internal" x1="664" y1="260" x2="664" y2="312" marker-end="url(#po-head)"></line><path class="po-arrow po-arrow-optional" d="M 58 408 V 448 H 664 V 410" fill="none" marker-end="url(#po-head-optional)"></path><text class="po-arrow-label" x="336" y="433" text-anchor="middle">Authorize (optional): User logs in with the Brand, approves scopes (spec §5)</text><circle class="po-step po-step-optional" cx="336" cy="448" r="9"></circle><text class="po-step-number" x="336" y="451.5" text-anchor="middle">A</text><g><line class="po-arrow po-arrow-setup" x1="432" y1="126" x2="564" y2="126" marker-end="url(#po-head-setup)"></line><text class="po-arrow-label" x="498" y="111" text-anchor="middle">Register (once)</text><circle class="po-step po-step-setup" cx="498" cy="126" r="9"></circle><text class="po-step-number" x="498" y="129.5" text-anchor="middle">1</text></g><g><line class="po-arrow" x1="120" y1="178" x2="240" y2="178" marker-end="url(#po-head)"></line><text class="po-arrow-label" x="180" y="163" text-anchor="middle">Ask</text></g><g><line class="po-arrow" x1="432" y1="178" x2="564" y2="178" marker-end="url(#po-head)"></line><text class="po-arrow-label" x="498" y="163" text-anchor="middle">Get Agent Card</text><circle class="po-step" cx="498" cy="178" r="9"></circle><text class="po-step-number" x="498" y="181.5" text-anchor="middle">2</text></g><g><line class="po-arrow" x1="432" y1="236" x2="564" y2="236" marker-end="url(#po-head)"></line><text class="po-arrow-label" x="498" y="221" text-anchor="middle">Message + token</text><circle class="po-step" cx="498" cy="236" r="9"></circle><text class="po-step-number" x="498" y="239.5" text-anchor="middle">3</text></g><g><line class="po-arrow" x1="564" y1="294" x2="432" y2="294" marker-end="url(#po-head)"></line><text class="po-arrow-label" x="498" y="279" text-anchor="middle">Fetch keys, verify</text><circle class="po-step" cx="498" cy="294" r="9"></circle><text class="po-step-number" x="498" y="297.5" text-anchor="middle">4</text></g><g><line class="po-arrow" x1="564" y1="362" x2="432" y2="362" marker-end="url(#po-head)"></line><text class="po-arrow-label" x="498" y="347" text-anchor="middle">Reply + contextId</text><circle class="po-step" cx="498" cy="362" r="9"></circle><text class="po-step-number" x="498" y="365.5" text-anchor="middle">5</text></g><g><line class="po-arrow" x1="240" y1="362" x2="120" y2="362" marker-end="url(#po-head)"></line><text class="po-arrow-label" x="180" y="347" text-anchor="middle">Answer</text></g></svg>
+
+.po-lane {
+  stroke: #e5e7eb;
+  stroke-width: 1.2;
+}
+
+.po-column {
+  stroke: #e5e7eb;
+  stroke-width: 1.2;
+  stroke-dasharray: 2 4;
+}
+
+.po-lane-title {
+  fill: #111827;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.po-lane-note {
+  fill: #6b7280;
+  font-size: 12px;
+}
+
+.po-index {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.po-index-trust {
+  fill: #4f46e5;
+}
+
+.po-index-consent {
+  fill: #b45309;
+}
+
+.po-column-title {
+  fill: #111827;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.po-pill {
+  fill: #ffffff;
+  stroke-width: 1.4;
+}
+
+.po-pill-trust {
+  stroke: #a5b4fc;
+}
+
+.po-pill-consent {
+  stroke: #fdba74;
+}
+
+.po-pill-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.po-pill-text-trust {
+  fill: #4f46e5;
+}
+
+.po-pill-text-consent {
+  fill: #b45309;
+}
+
+.po-flow {
+  stroke-width: 1.7;
+}
+
+.po-flow-trust {
+  stroke: #4f46e5;
+}
+
+.po-flow-consent {
+  stroke: #b45309;
+}
+
+.po-flow-dashed {
+  stroke-dasharray: 3 4;
+}
+
+.po-description {
+  fill: #6b7280;
+  font-size: 12.5px;
+}
+</style><rect class="po-canvas" x="0" y="0" width="1024" height="488" rx="16"></rect><title id="protocol-overview-title">PACT at a glance</title><desc id="protocol-overview-desc">Five steps across three lanes: the User, the personal agent acting for the User, and the Brand&#x27;s agent hosted by a Provider. The personal agent reads the Brand&#x27;s Agent Card (discovery) and signs each request with its own key (signed request). Optionally, the User signs in on the Brand&#x27;s own login page and approves scopes (consent without credentials); the agent receives a scoped, short-lived delegation token and sends it with its JWT so the Brand&#x27;s agent can act for the User within the granted scopes.</desc><defs><marker id="po-head" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="po-head"></path></marker><marker id="po-head-setup" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="po-head-setup"></path></marker><marker id="po-head-optional" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" class="po-head-optional"></path></marker></defs><line class="po-lane" x1="156" y1="148" x2="1006" y2="148"></line><line class="po-lane" x1="156" y1="252" x2="1006" y2="252"></line><line class="po-lane" x1="156" y1="356" x2="1006" y2="356"></line><line class="po-column" x1="326" y1="36" x2="326" y2="466"></line><line class="po-column" x1="496" y1="36" x2="496" y2="466"></line><line class="po-column" x1="666" y1="36" x2="666" y2="466"></line><line class="po-column" x1="836" y1="36" x2="836" y2="466"></line><g class="po-person" transform="translate(36 146)"><circle cx="0" cy="-9" r="7"></circle><path d="M -13 11 a 13 13 0 0 1 26 0 z"></path></g><text class="po-lane-title" x="58" y="153">User</text><text class="po-lane-title" x="18" y="257">Personal agent</text><text class="po-lane-note" x="18" y="276">acts for the User</text><text class="po-lane-title" x="18" y="361">Brand&#x27;s agent</text><text class="po-lane-note" x="18" y="380"><tspan x="18" dy="0">hosted by a Provider</tspan><tspan x="18" dy="16">defines the scopes</tspan></text><g><text class="po-index po-index-trust" x="168" y="46">01</text><text class="po-column-title" x="168" y="67"><tspan x="168" dy="0">Discovery</tspan></text><g><line class="po-flow po-flow-trust" x1="241" y1="262" x2="241" y2="346" marker-start="url(#po-head)" marker-end="url(#po-head)"></line><g><rect class="po-pill po-pill-trust" x="192" y="292" width="98" height="24" rx="12"></rect><text class="po-pill-text po-pill-text-trust" x="241" y="308" text-anchor="middle">agent card</text></g></g><text class="po-description" x="168" y="396"><tspan x="168" dy="0">The personal agent reads</tspan><tspan x="168" dy="16.5">the Brand&#x27;s Agent Card,</tspan><tspan x="168" dy="16.5">which publishes the</tspan><tspan x="168" dy="16.5">Brand&#x27;s own scopes</tspan><tspan x="168" dy="16.5">(e.g., orders:read,</tspan><tspan x="168" dy="16.5">orders:cancel).</tspan></text></g><g><text class="po-index po-index-trust" x="338" y="46">02</text><text class="po-column-title" x="338" y="67"><tspan x="338" dy="0">Signed request</tspan></text><g><line class="po-flow po-flow-trust" x1="411" y1="260" x2="411" y2="346" marker-end="url(#po-head)"></line><g><rect class="po-pill po-pill-trust" x="350" y="292" width="122" height="24" rx="12"></rect><text class="po-pill-text po-pill-text-trust" x="411" y="308" text-anchor="middle">message + JWT</text></g></g><text class="po-description" x="338" y="396"><tspan x="338" dy="0">The personal agent signs</tspan><tspan x="338" dy="16.5">requests with its own</tspan><tspan x="338" dy="16.5">key, so the Brand can</tspan><tspan x="338" dy="16.5">verify the agent it&#x27;s</tspan><tspan x="338" dy="16.5">talking to.</tspan></text></g><g><text class="po-index po-index-consent" x="508" y="46">03</text><text class="po-column-title" x="508" y="67"><tspan x="508" dy="0">Consent without</tspan><tspan x="508" dy="19">credentials</tspan></text><g><line class="po-flow po-flow-consent" x1="581" y1="262" x2="581" y2="346" marker-start="url(#po-head-optional)" marker-end="url(#po-head-optional)"></line><g><rect class="po-pill po-pill-consent" x="516" y="292" width="130" height="24" rx="12"></rect><text class="po-pill-text po-pill-text-consent" x="581" y="308" text-anchor="middle">approve scopes</text></g></g><text class="po-description" x="508" y="396"><tspan x="508" dy="0">The User signs in on the</tspan><tspan x="508" dy="16.5">Brand&#x27;s own login page,</tspan><tspan x="508" dy="16.5">never with the agent,</tspan><tspan x="508" dy="16.5">then approves each scope</tspan><tspan x="508" dy="16.5">individually.</tspan></text></g><g><text class="po-index po-index-consent" x="678" y="46">04</text><text class="po-column-title" x="678" y="67"><tspan x="678" dy="0">Scoped,</tspan><tspan x="678" dy="19">short-lived token</tspan></text><g><line class="po-flow po-flow-consent" x1="751" y1="262" x2="751" y2="348" marker-start="url(#po-head-optional)"></line><g><rect class="po-pill po-pill-consent" x="678" y="292" width="146" height="24" rx="12"></rect><text class="po-pill-text po-pill-text-consent" x="751" y="308" text-anchor="middle">delegation token</text></g></g><text class="po-description" x="678" y="396"><tspan x="678" dy="0">The agent receives a</tspan><tspan x="678" dy="16.5">token naming the User,</tspan><tspan x="678" dy="16.5">the agent, the Brand,</tspan><tspan x="678" dy="16.5">and the granted scopes.</tspan></text></g><g><text class="po-index po-index-consent" x="848" y="46">05</text><text class="po-column-title" x="848" y="67"><tspan x="848" dy="0">Act for the User</tspan></text><g><line class="po-flow po-flow-consent" x1="921" y1="262" x2="921" y2="346" marker-start="url(#po-head-optional)" marker-end="url(#po-head-optional)"></line><g><rect class="po-pill po-pill-consent" x="868" y="292" width="106" height="24" rx="12"></rect><text class="po-pill-text po-pill-text-consent" x="921" y="308" text-anchor="middle">JWT + token</text></g></g><text class="po-description" x="848" y="396"><tspan x="848" dy="0">The agent sends the</tspan><tspan x="848" dy="16.5">token with its JWT; the</tspan><tspan x="848" dy="16.5">Brand&#x27;s agent acts on</tspan><tspan x="848" dy="16.5">the User&#x27;s account</tspan><tspan x="848" dy="16.5">within the granted</tspan><tspan x="848" dy="16.5">scopes.</tspan></text></g><line class="po-flow po-flow-consent po-flow-dashed" x1="581" y1="262" x2="581" y2="216"></line><line class="po-flow po-flow-consent" x1="581" y1="184" x2="581" y2="160" marker-end="url(#po-head-optional)"></line><g><rect class="po-pill po-pill-consent" x="520" y="188" width="122" height="24" rx="12"></rect><text class="po-pill-text po-pill-text-consent" x="581" y="204" text-anchor="middle">Brand sign-in</text></g></svg>

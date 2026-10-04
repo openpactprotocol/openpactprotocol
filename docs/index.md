@@ -34,27 +34,35 @@ Provider hosts.
 
 ![PACT at a glance](images/protocol-overview.svg)
 
-1. **Register (once per Provider).** The personal agent gives the Provider its issuer URL
-   and public keys (JWKS); the Provider gives the personal agent an `audience` string.
-2. **Find the agent.** The personal agent fetches the Brand's Agent Card, which says
-   where to send messages. The Provider hosts it, e.g.
+Before the first conversation, the personal agent **registers** once per
+Provider: it gives the Provider its issuer URL and public keys (JWKS); the
+Provider gives it an `audience` string.
+
+1. **Discovery.** The personal agent fetches the Brand's Agent Card, which says
+   where to send messages and, if the Brand offers delegation, which scopes it
+   defines (e.g., `orders:read`, `orders:cancel`). The Provider hosts it, e.g.
    `https://provider.example.com/a2a/{brandId}/.well-known/agent-card.json`. The
    personal agent finds that URL through:
    - **Well-known URL** (the standard): the Brand's own domain serves the card or
      redirects to it, e.g. `https://brand.example.com/.well-known/agent-card.json`.
    - **Link or registry**: a link from the Brand, or a public registry of Agent
      Cards, points to the card's URL on the Provider.
-3. **Send.** The personal agent sends the User's message with a short-lived JWT it signed
-   itself. The JWT carries a stable, anonymous id for the User.
-4. **Verify.** The Provider checks the signature against the personal agent's JWKS.
-5. **Reply.** The Brand's agent answers with a `contextId`; the personal agent sends it
-   with later messages to continue the conversation.
+2. **Signed request.** The personal agent sends the User's message with a
+   short-lived JWT it signed itself; the JWT carries a stable, anonymous id for
+   the User. The Provider checks the signature against the personal agent's
+   JWKS, and the Brand's agent answers with a `contextId` that the personal
+   agent sends with later messages to continue the conversation.
+3. **Consent without credentials** _(optional, if the Brand offers it)_. The User
+   signs in on the Brand's own login page, never with the agent, then approves
+   each scope individually.
+4. **Scoped, short-lived token.** The personal agent receives a delegation token
+   naming the User, the agent, the Brand, and the granted scopes.
+5. **Act for the User.** The personal agent sends the token with its JWT, and
+   the Brand's agent acts on the User's account within the granted scopes.
 
-**Optional: authorize.** If the Brand offers it, the User logs in with the
-Brand and approves scopes. The personal agent then sends a second token, and
-the Brand's agent can act on the User's account. Without it, the Brand's agent
-knows _which personal agent_ is calling, not _who the User is_, and asks in the
-conversation (order number, email) as a chat widget would.
+Without steps 3–5, the Brand's agent knows _which personal agent_ is calling,
+not _who the User is_, and asks in the conversation (order number, email) as a
+chat widget would.
 
 ## Start here
 
