@@ -642,14 +642,6 @@ a:hover {
   content: "";
 }
 
-.po-legend-setup::before {
-  border-top: 2px dashed #8a92a0;
-}
-
-.po-legend-optional::before {
-  border-top: 2px dotted #b45309;
-}
-
 .po-legend-note {
   margin-left: auto;
 }

@@ -13,47 +13,6 @@ export const PROVIDER = { x: 568, width: 192 };
 const TOP = 56;
 const HEIGHT = 348;
 
-const arrows: Arrow[] = [
-  {
-    step: 1,
-    label: "Register (once)",
-    y: 126,
-    from: PLATFORM.x + PLATFORM.width,
-    to: PROVIDER.x,
-    tone: "setup",
-  },
-  { label: "Ask", y: 178, from: USER.x + USER.width, to: PLATFORM.x },
-  {
-    step: 2,
-    label: "Get Agent Card",
-    y: 178,
-    from: PLATFORM.x + PLATFORM.width,
-    to: PROVIDER.x,
-  },
-  {
-    step: 3,
-    label: "Message + token",
-    y: 236,
-    from: PLATFORM.x + PLATFORM.width,
-    to: PROVIDER.x,
-  },
-  {
-    step: 4,
-    label: "Fetch keys, verify",
-    y: 294,
-    from: PROVIDER.x,
-    to: PLATFORM.x + PLATFORM.width,
-  },
-  {
-    step: 5,
-    label: "Reply + contextId",
-    y: 362,
-    from: PROVIDER.x,
-    to: PLATFORM.x + PLATFORM.width,
-  },
-  { label: "Answer", y: 362, from: PLATFORM.x, to: USER.x + USER.width },
-];
-
 export type Part = {
   label: string;
   detail: string;
@@ -61,19 +20,6 @@ export type Part = {
   accent?: boolean;
   consent?: boolean;
 };
-
-const platformParts: Part[] = [
-  { label: "Assistant", detail: "talks to the User", y: 158 },
-  { label: "Signing key", detail: "private, server-only", y: 216 },
-  { label: "Public keys", detail: "/.well-known/jwks.json", y: 274 },
-];
-
-const providerParts: Part[] = [
-  { label: "Registered agents", detail: "issuer · keys URL · audience", y: 106 },
-  { label: "Agent Card", detail: "/a2a/{brandId}", y: 158 },
-  { label: "Token check", detail: "signature · issuer · audience", y: 216 },
-  { label: "Brand's agent", detail: "one conversation per User", y: 318, accent: true },
-];
 
 export function ActorBox({
   x,
@@ -384,115 +330,380 @@ export const protocolOverviewStyles = `
   font-size: 10px;
   font-weight: 750;
 }
+
+.po-lane {
+  stroke: #e5e7eb;
+  stroke-width: 1.2;
+}
+
+.po-column {
+  stroke: #e5e7eb;
+  stroke-width: 1.2;
+  stroke-dasharray: 2 4;
+}
+
+.po-lane-title {
+  fill: #111827;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.po-lane-note {
+  fill: #6b7280;
+  font-size: 12px;
+}
+
+.po-index {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.po-index-trust {
+  fill: #4f46e5;
+}
+
+.po-index-consent {
+  fill: #b45309;
+}
+
+.po-column-title {
+  fill: #111827;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.po-pill {
+  fill: #ffffff;
+  stroke-width: 1.4;
+}
+
+.po-pill-trust {
+  stroke: #a5b4fc;
+}
+
+.po-pill-consent {
+  stroke: #fdba74;
+}
+
+.po-pill-text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.po-pill-text-trust {
+  fill: #4f46e5;
+}
+
+.po-pill-text-consent {
+  fill: #b45309;
+}
+
+.po-flow {
+  stroke-width: 1.7;
+}
+
+.po-flow-trust {
+  stroke: #4f46e5;
+}
+
+.po-flow-consent {
+  stroke: #b45309;
+}
+
+.po-flow-dashed {
+  stroke-dasharray: 3 4;
+}
+
+.po-description {
+  fill: #6b7280;
+  font-size: 12.5px;
+}
 `;
 
+type Tone = "trust" | "consent";
+
+type Column = {
+  index: string;
+  title: string[];
+  tone: Tone;
+  pill: string;
+  pillWidth: number;
+  direction: "up" | "down" | "both";
+  description: string[];
+};
+
+const columns: Column[] = [
+  {
+    index: "01",
+    title: ["Discovery"],
+    tone: "trust",
+    pill: "agent card",
+    pillWidth: 98,
+    direction: "both",
+    description: [
+      "The personal agent reads",
+      "the Brand's Agent Card,",
+      "which publishes the",
+      "Brand's own scopes",
+      "(e.g., orders:read,",
+      "orders:cancel).",
+    ],
+  },
+  {
+    index: "02",
+    title: ["Signed request"],
+    tone: "trust",
+    pill: "message + JWT",
+    pillWidth: 122,
+    direction: "down",
+    description: [
+      "The personal agent signs",
+      "requests with its own",
+      "key, so the Brand can",
+      "verify the agent it's",
+      "talking to.",
+    ],
+  },
+  {
+    index: "03",
+    title: ["Consent without", "credentials"],
+    tone: "consent",
+    pill: "approve scopes",
+    pillWidth: 130,
+    direction: "both",
+    description: [
+      "The User signs in on the",
+      "Brand's own login page,",
+      "never with the agent,",
+      "then approves each scope",
+      "individually.",
+    ],
+  },
+  {
+    index: "04",
+    title: ["Scoped,", "short-lived token"],
+    tone: "consent",
+    pill: "delegation token",
+    pillWidth: 146,
+    direction: "up",
+    description: [
+      "The agent receives a",
+      "token naming the User,",
+      "the agent, the Brand,",
+      "and the granted scopes.",
+    ],
+  },
+  {
+    index: "05",
+    title: ["Act for the User"],
+    tone: "consent",
+    pill: "JWT + token",
+    pillWidth: 106,
+    direction: "both",
+    description: [
+      "The agent sends the",
+      "token with its JWT; the",
+      "Brand's agent acts on",
+      "the User's account",
+      "within the granted",
+      "scopes.",
+    ],
+  },
+];
+
+const WIDTH = 1024;
+const CANVAS = 488;
+const LANES_X = 156;
+const LANES_END = 1006;
+const COLUMN_WIDTH = (LANES_END - LANES_X) / columns.length;
+const USER_LANE = 148;
+const AGENT_LANE = 252;
+const BRAND_LANE = 356;
+const PILL_HEIGHT = 24;
+
+const headFor: Record<Tone, string> = { trust: "po-head", consent: "po-head-optional" };
+
+function Pill({
+  x,
+  y,
+  width,
+  label,
+  tone,
+}: {
+  x: number;
+  y: number;
+  width: number;
+  label: string;
+  tone: Tone;
+}) {
+  return (
+    <g>
+      <rect
+        className={`po-pill po-pill-${tone}`}
+        x={x - width / 2}
+        y={y - PILL_HEIGHT / 2}
+        width={width}
+        height={PILL_HEIGHT}
+        rx={PILL_HEIGHT / 2}
+      />
+      <text className={`po-pill-text po-pill-text-${tone}`} x={x} y={y + 4} textAnchor="middle">
+        {label}
+      </text>
+    </g>
+  );
+}
+
+function Lines({
+  className,
+  x,
+  y,
+  lines,
+  lineHeight,
+}: {
+  className: string;
+  x: number;
+  y: number;
+  lines: string[];
+  lineHeight: number;
+}) {
+  return (
+    <text className={className} x={x} y={y}>
+      {lines.map((line, i) => (
+        <tspan key={line} x={x} dy={i === 0 ? 0 : lineHeight}>
+          {line}
+        </tspan>
+      ))}
+    </text>
+  );
+}
+
+function Exchange({ column, x }: { column: Column; x: number }) {
+  const pillY = (AGENT_LANE + BRAND_LANE) / 2;
+  const top = AGENT_LANE + 10;
+  const bottom = BRAND_LANE - 10;
+  const head = `url(#${headFor[column.tone]})`;
+  const upward = column.direction !== "down";
+  const downward = column.direction !== "up";
+  return (
+    <g>
+      <line
+        className={`po-flow po-flow-${column.tone}`}
+        x1={x}
+        y1={upward ? top : top - 2}
+        x2={x}
+        y2={downward ? bottom : bottom + 2}
+        markerStart={upward ? head : undefined}
+        markerEnd={downward ? head : undefined}
+      />
+      <Pill x={x} y={pillY} width={column.pillWidth} label={column.pill} tone={column.tone} />
+    </g>
+  );
+}
+
 export function ProtocolOverviewDiagram() {
-  const boundary = (PLATFORM.x + PLATFORM.width + PROVIDER.x) / 2;
+  const signInX = LANES_X + COLUMN_WIDTH * 2.5;
+  const signInY = (USER_LANE + AGENT_LANE) / 2;
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
-      width={780}
-      height={482}
-      viewBox="-10 0 780 482"
+      width={WIDTH}
+      height={CANVAS}
+      viewBox={`0 0 ${WIDTH} ${CANVAS}`}
       role="img"
       aria-labelledby="protocol-overview-title protocol-overview-desc"
       fontFamily='-apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif'
     >
       <style>{protocolOverviewStyles}</style>
-      <rect className="po-canvas" x={-10} y={0} width={780} height={482} />
+      <rect className="po-canvas" x={0} y={0} width={WIDTH} height={CANVAS} rx={16} />
       <title id="protocol-overview-title">PACT at a glance</title>
       <desc id="protocol-overview-desc">
-        The User asks their personal agent for help. The personal agent, registered once with the
-        Provider, reads the Brand&apos;s Agent Card and sends a message signed with its own key. The
-        Provider verifies the JWT against the personal agent&apos;s public keys, the Brand&apos;s
-        agent replies with a contextId, and the personal agent relays the answer. Optionally, the
-        User logs in with the Brand and approves scopes so the agent can act on their account.
+        Five steps across three lanes: the User, the personal agent acting for the User, and the
+        Brand&apos;s agent hosted by a Provider. The personal agent reads the Brand&apos;s Agent
+        Card (discovery) and signs each request with its own key (signed request). Optionally, the
+        User signs in on the Brand&apos;s own login page and approves scopes (consent without
+        credentials); the agent receives a scoped, short-lived delegation token and sends it with
+        its JWT so the Brand&apos;s agent can act for the User within the granted scopes.
       </desc>
       <ArrowMarkers />
 
-      <rect className="po-zone" x={-8} y={4} width={boundary + 8} height={474} rx={14} />
-      <rect
-        className="po-zone po-zone-business"
-        x={boundary}
-        y={4}
-        width={768 - boundary}
-        height={474}
-        rx={14}
-      />
-      <text className="po-zone-label" x={4} y={30}>
-        PERSONAL AGENT SIDE
-      </text>
-      <text className="po-zone-label" x={boundary + 18} y={30}>
-        PROVIDER SIDE
-      </text>
-      <line className="po-boundary" x1={boundary} y1={40} x2={boundary} y2={472} />
+      {[USER_LANE, AGENT_LANE, BRAND_LANE].map((y) => (
+        <line key={y} className="po-lane" x1={LANES_X} y1={y} x2={LANES_END} y2={y} />
+      ))}
+      {columns.slice(1).map((column, i) => {
+        const x = LANES_X + COLUMN_WIDTH * (i + 1);
+        return (
+          <line key={column.index} className="po-column" x1={x} y1={36} x2={x} y2={CANVAS - 22} />
+        );
+      })}
 
-      <ActorBox x={USER.x} width={USER.width} title="User" subtitle="anonymous id" />
-      <ActorBox
-        x={PLATFORM.x}
-        width={PLATFORM.width}
-        title="Personal agent"
-        subtitle="acts for the User"
-      />
-      <ActorBox
-        x={PROVIDER.x}
-        width={PROVIDER.width}
-        title="Provider"
-        subtitle="hosts Brands' agents"
-      />
-
-      <g className="po-person" transform={`translate(${USER.x + USER.width / 2} 228)`}>
-        <circle cx={0} cy={-26} r={13} />
-        <path d="M -24 18 a 24 24 0 0 1 48 0 z" />
+      <g className="po-person" transform="translate(36 146)">
+        <circle cx={0} cy={-9} r={7} />
+        <path d="M -13 11 a 13 13 0 0 1 26 0 z" />
       </g>
-
-      {platformParts.map((part) => (
-        <PartBox key={part.label} x={PLATFORM.x} width={PLATFORM.width} part={part} />
-      ))}
-      {providerParts.map((part) => (
-        <PartBox key={part.label} x={PROVIDER.x} width={PROVIDER.width} part={part} />
-      ))}
-      <line
-        className="po-internal"
-        x1={PROVIDER.x + PROVIDER.width / 2}
-        y1={260}
-        x2={PROVIDER.x + PROVIDER.width / 2}
-        y2={312}
-        markerEnd="url(#po-head)"
+      <text className="po-lane-title" x={58} y={USER_LANE + 5}>
+        User
+      </text>
+      <text className="po-lane-title" x={18} y={AGENT_LANE + 5}>
+        Personal agent
+      </text>
+      <text className="po-lane-note" x={18} y={AGENT_LANE + 24}>
+        acts for the User
+      </text>
+      <text className="po-lane-title" x={18} y={BRAND_LANE + 5}>
+        Brand&apos;s agent
+      </text>
+      <Lines
+        className="po-lane-note"
+        x={18}
+        y={BRAND_LANE + 24}
+        lines={["hosted by a Provider", "defines the scopes"]}
+        lineHeight={16}
       />
 
-      <path
-        className="po-arrow po-arrow-optional"
-        d={`M ${USER.x + USER.width / 2} ${TOP + HEIGHT + 4} V 448 H ${PROVIDER.x + PROVIDER.width / 2} V ${TOP + HEIGHT + 6}`}
-        fill="none"
+      {columns.map((column, i) => {
+        const left = LANES_X + COLUMN_WIDTH * i + 12;
+        const center = LANES_X + COLUMN_WIDTH * (i + 0.5);
+        return (
+          <g key={column.index}>
+            <text className={`po-index po-index-${column.tone}`} x={left} y={46}>
+              {column.index}
+            </text>
+            <Lines
+              className="po-column-title"
+              x={left}
+              y={67}
+              lines={column.title}
+              lineHeight={19}
+            />
+            <Exchange column={column} x={center} />
+            <Lines
+              className="po-description"
+              x={left}
+              y={BRAND_LANE + 40}
+              lines={column.description}
+              lineHeight={16.5}
+            />
+          </g>
+        );
+      })}
+
+      <line
+        className="po-flow po-flow-consent po-flow-dashed"
+        x1={signInX}
+        y1={AGENT_LANE + 10}
+        x2={signInX}
+        y2={signInY + PILL_HEIGHT / 2 + 4}
+      />
+      <line
+        className="po-flow po-flow-consent"
+        x1={signInX}
+        y1={signInY - PILL_HEIGHT / 2 - 4}
+        x2={signInX}
+        y2={USER_LANE + 12}
         markerEnd="url(#po-head-optional)"
       />
-      <text
-        className="po-arrow-label"
-        x={PLATFORM.x + PLATFORM.width / 2}
-        y={433}
-        textAnchor="middle"
-      >
-        Authorize (optional): User logs in with the Brand, approves scopes (spec §5)
-      </text>
-      <circle
-        className="po-step po-step-optional"
-        cx={PLATFORM.x + PLATFORM.width / 2}
-        cy={448}
-        r={9}
-      />
-      <text
-        className="po-step-number"
-        x={PLATFORM.x + PLATFORM.width / 2}
-        y={451.5}
-        textAnchor="middle"
-      >
-        A
-      </text>
-
-      {arrows.map((arrow) => (
-        <FlowArrow key={arrow.label} arrow={arrow} />
-      ))}
+      <Pill x={signInX} y={signInY} width={122} label="Brand sign-in" tone="consent" />
     </svg>
   );
 }
@@ -504,9 +715,8 @@ export function ProtocolOverview() {
         <ProtocolOverviewDiagram />
       </div>
       <figcaption>
-        <span className="po-legend po-legend-runtime">Every conversation</span>
-        <span className="po-legend po-legend-setup">Once, at setup</span>
-        <span className="po-legend po-legend-optional">Optional: delegated authority</span>
+        <span className="po-legend po-legend-runtime">Trust: every conversation</span>
+        <span className="po-legend po-legend-consent">Consent: optional, delegated authority</span>
         <span className="po-legend-note">Numbers match the steps below.</span>
       </figcaption>
     </figure>
