@@ -21,7 +21,7 @@ in this repository) does steps 3–5.
 | Audience       | Each Provider, when you register (step 2)                                                            | The JWT's `aud` (step 3)                                     |
 | Agent Card URL | Each Brand: usually `https://{brandDomain}/.well-known/agent-card.json`, or a link or registry entry | Finding the Brand's interface URL (step 4)                   |
 
-## 1. Publish a signing key {#1-publish-a-signing-key}
+## 1 · Publish a signing key {#1-publish-a-signing-key}
 
 Generate an ES256 key with a `kid`. Serve the public JWK as a JWKS at
 `{PA_ISSUER}/.well-known/jwks.json`. `PA_ISSUER` is your platform's URL and
@@ -51,7 +51,7 @@ secret and use it to sign tokens (step 3).
 
 **Done when** `curl $PA_ISSUER/.well-known/jwks.json` returns `{ "keys": [ … ] }`.
 
-## 2. Register with each Provider {#2-register-with-each-provider}
+## 2 · Register with each Provider {#2-register-with-each-provider}
 
 Once per Provider, not per User or Brand. Send your issuer and JWKS URL; the
 Provider replies with its audience, a string you copy into `aud` (step 3). The
@@ -60,7 +60,7 @@ reference Provider has a
 
 **Done when** you have the Provider's audience.
 
-## 3. Sign a personal-agent JWT {#3-sign-a-personal-agent-jwt}
+## 3 · Sign a personal-agent JWT {#3-sign-a-personal-agent-jwt}
 
 One per request, valid ≤ 300 s ([spec §3.2](/spec#32-personal-agent-jwt)): header
 `kid`; `iss` = `PA_ISSUER`; `sub` = your stable, opaque id for the User;
@@ -75,7 +75,7 @@ const token = await signer.sign({ sub: "user-7f3a", aud: audience });
 
 **Done when** `jwtVerify(token, yourJwks, { issuer: PA_ISSUER, audience })` succeeds.
 
-## 4. Fetch the Brand's Agent Card {#4-fetch-the-brands-agent-card}
+## 4 · Fetch the Brand's Agent Card {#4-fetch-the-brands-agent-card}
 
 No token. The **interface URL** is the `url` of the `supportedInterfaces`
 entry with `protocolBinding: "HTTP+JSON"` and `protocolVersion: "1.0"`. A
@@ -109,7 +109,7 @@ const url = interfaceUrl(await fetchAgentCard(AGENT_CARD_URL));
 **Done when** you have the interface URL. `404` means the Brand is unknown
 to that Provider.
 
-## 5. Send messages {#5-send-messages}
+## 5 · Send messages {#5-send-messages}
 
 `POST {interfaceUrl}/message:send` with `Authorization: Bearer <token>` and
 `A2A-Version: 1.0` ([spec §4](/spec#4-messages)). The reply carries a
@@ -139,7 +139,7 @@ the question and answer.
 **Done when** the reply has `role: "ROLE_AGENT"` and a `contextId`, and a
 second message with that `contextId` continues the conversation.
 
-## 6. Handle errors {#6-handle-errors}
+## 6 · Handle errors {#6-handle-errors}
 
 | Response                                 | Meaning                                                    | Do                                    |
 | ---------------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
