@@ -18,7 +18,6 @@ and seed data are provided as reference. The code calls Brands **customers**
 | `packages/client`                 | `@openpactprotocol/client` — signer, `fetchAgentCard`, `A2AClient`    |      |
 | `packages/protocol`               | `@openpactprotocol/protocol` — Zod schemas                            |      |
 | `e2e/`                            | Conformance suite                                                     |      |
-| `tooling/docs`                    | Documentation checks and SVG diagram sources                          |      |
 
 ## Run it locally {#run-it-locally}
 

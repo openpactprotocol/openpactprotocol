@@ -24,7 +24,7 @@ Terms: **Provider** hosts Brands' support agents; **Brand** is a business;
   rule, add or adjust a case in `e2e/pact.test.ts`.
 - Docs live in `docs/` and are published by Mintlify using `docs/docs.json`.
   Use root-relative links without extensions and preserve explicit heading IDs.
-  Run documentation and SVG checks with `pnpm vitest run tooling/docs`.
+  Keep diagram SVGs in `docs/images/`.
 - The code calls Brands `customers` (`CUSTOMER_ID`, `customers` table). Docs
   say Brand.
 - Never commit `reference/personal-agent/server/public/.well-known/jwks.json`

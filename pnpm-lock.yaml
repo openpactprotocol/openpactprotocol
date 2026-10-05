@@ -157,21 +157,6 @@ importers:
         specifier: 0.31.4
         version: 0.31.4(supports-color@7.2.0)
 
-  tooling/docs:
-    devDependencies:
-      "@types/react":
-        specifier: 19.1.16
-        version: 19.1.16
-      "@types/react-dom":
-        specifier: 19.1.9
-        version: 19.1.9(@types/react@19.1.16)
-      react:
-        specifier: 19.1.1
-        version: 19.1.1
-      react-dom:
-        specifier: 19.1.1
-        version: 19.1.1(react@19.1.1)
-
 packages:
   "@drizzle-team/brocli@0.10.2":
     resolution:
