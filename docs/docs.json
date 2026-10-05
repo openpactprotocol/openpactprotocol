@@ -37,5 +37,10 @@
     "socials": {
       "github": "https://github.com/openpactprotocol/openpactprotocol"
     }
+  },
+  "logo": {
+    "light": "/images/logo-light.svg",
+    "dark": "/images/logo-dark.svg",
+    "href": "/"
   }
 }

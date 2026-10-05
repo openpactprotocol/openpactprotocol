@@ -12,7 +12,7 @@ messages and errors follow A2A.
 The key words MUST, MUST NOT, SHOULD and MAY are to be interpreted as described
 in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
-## 1. Terms {#1-terms}
+## 1 · Terms {#1-terms}
 
 | Term               | Meaning                                                                                                                                                       |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,7 +28,7 @@ in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 | §4 Messages                | yes                                    | One `contextId` per (personal agent, User, Brand); retries are idempotent.            |
 | §5 Delegated authority     | no — a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account. |
 
-## 2. Transport {#2-transport}
+## 2 · Transport {#2-transport}
 
 A2A 1.0 HTTP+JSON. Requests SHOULD send `A2A-Version: 1.0` and
 `Content-Type: application/json`. A2A responses MUST use
@@ -104,7 +104,7 @@ Any route that isn't an A2A operation gets `404` or `405` with no A2A body.
 Routing happens before authentication; an unknown Brand is `404` even with a
 valid token.
 
-## 3. Personal agent identity {#3-personal-agent-identity}
+## 3 · Personal agent identity {#3-personal-agent-identity}
 
 The bearer token is a JWT the personal agent signs with its own key. The Provider
 verifies it against the personal agent's JWKS. No shared secrets.
@@ -163,7 +163,7 @@ WWW-Authenticate: Bearer realm="a2a"
 For every authentication failure. No A2A body. Providers SHOULD authenticate
 before looking up the Brand or reading the body.
 
-## 4. Messages {#4-messages}
+## 4 · Messages {#4-messages}
 
 ```http
 POST {interfaceUrl}/message:send
@@ -213,7 +213,7 @@ A repeated `messageId` in the same `contextId` returns the stored reply
 without re-running the agent. If there is no stored reply yet, return
 `INVALID_PARAMS`.
 
-## 5. Delegated authority {#5-delegated-authority}
+## 5 · Delegated authority {#5-delegated-authority}
 
 > **Optional.** This is the **PACT Delegated** profile ([§7](#7-conformance)).
 > Identity (§2–4) works without it; Providers that don't offer it omit §5.1
@@ -461,7 +461,7 @@ reply's `metadata` a receipt signed with the same keys as the token:
 
 `jws` is the compact JWS of `claims`. Personal agents SHOULD verify and keep receipts.
 
-## 6. Errors {#6-errors}
+## 6 · Errors {#6-errors}
 
 A2A errors use the A2A / AIP-193 envelope. `code` repeats the HTTP status; the
 reason is `error.details[0].reason`. Clients MUST NOT infer the reason from
@@ -503,7 +503,7 @@ personal agent or a `(personal agent, sub)`; and OAuth endpoint errors
 ([RFC 6749 §5.2](https://www.rfc-editor.org/rfc/rfc6749#section-5.2), RFC 8628).
 On `429`, personal agents SHOULD wait `Retry-After` before retrying.
 
-## 7. Conformance {#7-conformance}
+## 7 · Conformance {#7-conformance}
 
 | Profile            | Sections         |
 | ------------------ | ---------------- |
