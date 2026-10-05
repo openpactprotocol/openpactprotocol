@@ -90,18 +90,3 @@ export function ProtocolOverviewDiagram() {
     />
   );
 }
-
-export function ProtocolOverview() {
-  return (
-    <figure className="protocol-overview">
-      <div className="protocol-overview-canvas">
-        <ProtocolOverviewDiagram />
-      </div>
-      <figcaption>
-        <span className="po-legend po-legend-runtime">Trust: every conversation</span>
-        <span className="po-legend po-legend-consent">Consent: optional, delegated authority</span>
-        <span className="po-legend-note">Numbers match the steps below.</span>
-      </figcaption>
-    </figure>
-  );
-}

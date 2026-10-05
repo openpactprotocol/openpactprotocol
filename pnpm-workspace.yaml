@@ -1,7 +1,7 @@
 packages:
   - reference/*
   - reference/personal-agent/*
-  - website
+  - tooling/*
   - packages/*
   - e2e
 

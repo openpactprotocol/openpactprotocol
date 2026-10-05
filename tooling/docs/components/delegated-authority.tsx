@@ -92,18 +92,3 @@ export function DelegatedAuthorityDiagram() {
     />
   );
 }
-
-export function DelegatedAuthority() {
-  return (
-    <figure className="protocol-overview">
-      <div className="protocol-overview-canvas">
-        <DelegatedAuthorityDiagram />
-      </div>
-      <figcaption>
-        <span className="po-legend po-legend-consent">Once per grant</span>
-        <span className="po-legend po-legend-runtime">Every delegated turn</span>
-        <span className="po-legend-note">Numbers match the steps below.</span>
-      </figcaption>
-    </figure>
-  );
-}

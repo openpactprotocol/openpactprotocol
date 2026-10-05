@@ -19,7 +19,6 @@ Add pages to `docs/docs.json`. Use root-relative links without file extensions
 and explicit heading IDs. The documentation tests validate navigation, metadata,
 heading IDs, image paths, and internal links.
 
-The old Next.js renderer in this directory is no longer the publishing target.
-Its React diagram sources still generate `docs/images/*.svg`, which Mintlify
-renders as images. To update those SVGs, edit the components in `src/components/`
-and run `pnpm vitest run website/src/diagrams.test.ts -u` from the repository root.
+The React diagram sources in `components/` generate `docs/images/*.svg`, which Mintlify
+renders as images. To update those SVGs, edit the components in `components/`
+and run `pnpm vitest run tooling/docs/diagrams.test.ts -u` from the repository root.
