@@ -34,7 +34,6 @@ packages/client            @openpactprotocol/client   — personal-agent client:
 reference/provider         reference Provider (Next.js + PostgreSQL)
 reference/personal-agent/  demo personal agent: JWKS server + chat UI
 e2e/                       conformance tests — run against any Provider with E2E_PROVIDER=any
-website/                   docs-site renderer
 ```
 
 ## Run it

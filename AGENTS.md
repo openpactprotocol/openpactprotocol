@@ -22,9 +22,9 @@ Terms: **Provider** hosts Brands' support agents; **Brand** is a business;
 - Changing normative text in `docs/spec.md`: in the same PR, update the
   guides that restate it and, where the conformance suite can exercise the
   rule, add or adjust a case in `e2e/pact.test.ts`.
-- Docs live in `docs/` and are rendered by `website/`. Use relative `.md`
-  links (`spec.md#4-messages`); every `docs/*.md` must be listed in
-  `website/src/nav.ts`; `pnpm vitest run website` validates links and anchors.
+- Docs live in `docs/` and are published by Mintlify using `docs/docs.json`.
+  Use root-relative links without extensions and preserve explicit heading IDs.
+  Keep diagram SVGs in `docs/images/`.
 - The code calls Brands `customers` (`CUSTOMER_ID`, `customers` table). Docs
   say Brand.
 - Never commit `reference/personal-agent/server/public/.well-known/jwks.json`

@@ -27,4 +27,3 @@ jobs:
       - run: pnpm format:check
       - run: pnpm --filter @openpactprotocol/provider build
       - run: pnpm --filter @openpactprotocol/personal-agent-client build
-      - run: pnpm --filter @openpactprotocol/docs build

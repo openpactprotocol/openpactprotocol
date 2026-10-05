@@ -12,7 +12,7 @@ messages and errors follow A2A.
 The key words MUST, MUST NOT, SHOULD and MAY are to be interpreted as described
 in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 
-## 1. Terms
+## 1. Terms {#1-terms}
 
 | Term               | Meaning                                                                                                                                                       |
 | ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -28,13 +28,13 @@ in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 | §4 Messages                | yes                                    | One `contextId` per (personal agent, User, Brand); retries are idempotent.            |
 | §5 Delegated authority     | no — a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account. |
 
-## 2. Transport
+## 2. Transport {#2-transport}
 
 A2A 1.0 HTTP+JSON. Requests SHOULD send `A2A-Version: 1.0` and
 `Content-Type: application/json`. A2A responses MUST use
 `Content-Type: application/a2a+json`.
 
-### 2.1 Agent Card
+### 2.1 Agent Card {#21-agent-card}
 
 One card per Brand, served by the Provider:
 
@@ -88,7 +88,7 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 }
 ```
 
-### 2.2 Operations
+### 2.2 Operations {#22-operations}
 
 Relative to the interface URL. Only `message:send` is required. Other A2A
 operations behave as A2A defines.
@@ -104,12 +104,12 @@ Any route that isn't an A2A operation gets `404` or `405` with no A2A body.
 Routing happens before authentication; an unknown Brand is `404` even with a
 valid token.
 
-## 3. Personal agent identity
+## 3. Personal agent identity {#3-personal-agent-identity}
 
 The bearer token is a JWT the personal agent signs with its own key. The Provider
 verifies it against the personal agent's JWKS. No shared secrets.
 
-### 3.1 Registration
+### 3.1 Registration {#31-registration}
 
 | Kept by        | Value      | Rule                                                                                           |
 | -------------- | ---------- | ---------------------------------------------------------------------------------------------- |
@@ -127,7 +127,7 @@ registry) or any personal agent whose `iss` serves a JWKS is the Provider's poli
 PACT's. An open Provider still verifies §3.2 in full; `jwksUri` MAY then be
 found through OIDC discovery at `{iss}/.well-known/openid-configuration`.
 
-### 3.2 Personal-agent JWT
+### 3.2 Personal-agent JWT {#32-personal-agent-jwt}
 
 Every request except the card carries `Authorization: Bearer <pa-jwt>`.
 
@@ -146,14 +146,14 @@ Providers MUST verify the signature via `jwksUri`, allow at most 30 s clock
 skew, and reject unknown or disabled personal agents. The User is the pair `(personal agent, sub)`;
 the personal agent MUST reuse the same `sub` for the same User.
 
-### 3.3 What the personal-agent JWT proves
+### 3.3 What the personal-agent JWT proves {#33-what-the-personal-agent-jwt-proves}
 
 That a known personal agent is calling for someone it calls `sub`. Not that `sub` owns a
 Brand account. Without §5, the agent verifies the User the way it does in a
 chat widget — it asks for an order number, email, etc. — and the personal agent relays the
 User's answers. Account credentials never pass through the personal agent.
 
-### 3.4 Failure
+### 3.4 Failure {#34-failure}
 
 ```http
 HTTP/1.1 401 Unauthorized
@@ -163,7 +163,7 @@ WWW-Authenticate: Bearer realm="a2a"
 For every authentication failure. No A2A body. Providers SHOULD authenticate
 before looking up the Brand or reading the body.
 
-## 4. Messages
+## 4. Messages {#4-messages}
 
 ```http
 POST {interfaceUrl}/message:send
@@ -185,7 +185,7 @@ Content-Type: application/json
 }
 ```
 
-### 4.1 Request
+### 4.1 Request {#41-request}
 
 - An A2A `SendMessageRequest`. `configuration` and `metadata` MAY be ignored.
 - `role` MUST be `ROLE_USER`. `parts` MUST have at least one non-blank `text`
@@ -193,7 +193,7 @@ Content-Type: application/json
 - `taskId` MUST be absent; otherwise `TASK_NOT_FOUND`.
 - `messageId` MUST be unique within the context.
 
-### 4.2 Context
+### 4.2 Context {#42-context}
 
 - The reply is synchronous: `{ "message": Message }` with `role: ROLE_AGENT`
   and `contextId` set (or a task, §5.5).
@@ -207,13 +207,13 @@ Content-Type: application/json
   expired). A message to a closed `contextId` gets `UNSUPPORTED_OPERATION`;
   the personal agent starts a new conversation by omitting `contextId`.
 
-### 4.3 Retries
+### 4.3 Retries {#43-retries}
 
 A repeated `messageId` in the same `contextId` returns the stored reply
 without re-running the agent. If there is no stored reply yet, return
 `INVALID_PARAMS`.
 
-## 5. Delegated authority
+## 5. Delegated authority {#5-delegated-authority}
 
 > **Optional.** This is the **PACT Delegated** profile ([§7](#7-conformance)).
 > Identity (§2–4) works without it; Providers that don't offer it omit §5.1
@@ -239,7 +239,7 @@ In OAuth 2.0 terms:
 | Access token          | Delegation token, sent in `X-A2A-User-Delegation` next to the personal-agent JWT.      |
 | Resource server       | The Brand's agent, behind the interface URL.                                           |
 
-![Delegated authority](images/delegated-authority.svg)
+![Delegated authority](/images/delegated-authority.svg)
 
 1. **Request scopes.** The personal agent asks the Provider for the scopes it
    needs, sending its §3 JWT as the client credential
@@ -256,7 +256,7 @@ In OAuth 2.0 terms:
    those scopes ([§5.5](#55-sending-with-it)). Every reply carries a signed
    receipt ([§5.6](#56-receipts)).
 
-### 5.1 Card
+### 5.1 Card {#51-card}
 
 A Brand that supports delegation adds an `oauth2SecurityScheme` with a
 `deviceCode` flow and a second `securityRequirements` entry naming both
@@ -294,7 +294,7 @@ schemes:
   metadata; its `jwks_uri` publishes the keys that sign delegation tokens and
   receipts.
 
-### 5.2 Scopes
+### 5.2 Scopes {#52-scopes}
 
 A scope is `{ id, description }`. Each Brand defines its own — `orders:read`,
 `booking:change`, whatever its agent does — and PACT reserves no ids. The
@@ -303,7 +303,7 @@ available under §3. Personal agents pick scopes by reading the descriptions and
 request only ids on the card. Providers show descriptions to the User
 verbatim on consent.
 
-### 5.3 Getting a token
+### 5.3 Getting a token {#53-getting-a-token}
 
 RFC 8628 with two rules: the OAuth client is the personal agent, authenticated with its
 §3 JWT (`client_id` = its issuer URL); the login step is the Brand's own login.
@@ -363,7 +363,7 @@ Until approval: `authorization_pending`, `slow_down`, `access_denied`, or
 `scope` is what the User approved, which may be less than requested. The personal agent
 MUST read it.
 
-### 5.4 Delegation token
+### 5.4 Delegation token {#54-delegation-token}
 
 `access_token` is a JWT signed by the Provider (`ES256`/`RS256`; keys at the
 `jwks_uri` from §5.1).
@@ -378,7 +378,7 @@ MUST read it.
 | `grant_id`   | Opaque id of the grant. Appears in receipts.                                                  |
 | `iat`, `exp` | Lifetime SHOULD be ≤ 1 h. Refresh within the grant's lifetime.                                |
 
-### 5.5 Sending with it
+### 5.5 Sending with it {#55-sending-with-it}
 
 Both tokens go on the request. The personal-agent JWT is checked first, unchanged.
 
@@ -429,7 +429,7 @@ session with the Provider is still live), gets a new token, and re-sends with
 the same `contextId`. The step-up task MAY be ephemeral; `tasks/{id}` MAY
 return `TASK_NOT_FOUND` for it.
 
-### 5.6 Receipts
+### 5.6 Receipts {#56-receipts}
 
 Every `message:send` served under a delegation token MUST include in the
 reply's `metadata` a receipt signed with the same keys as the token:
@@ -461,7 +461,7 @@ reply's `metadata` a receipt signed with the same keys as the token:
 
 `jws` is the compact JWS of `claims`. Personal agents SHOULD verify and keep receipts.
 
-## 6. Errors
+## 6. Errors {#6-errors}
 
 A2A errors use the A2A / AIP-193 envelope. `code` repeats the HTTP status; the
 reason is `error.details[0].reason`. Clients MUST NOT infer the reason from
@@ -503,7 +503,7 @@ personal agent or a `(personal agent, sub)`; and OAuth endpoint errors
 ([RFC 6749 §5.2](https://www.rfc-editor.org/rfc/rfc6749#section-5.2), RFC 8628).
 On `429`, personal agents SHOULD wait `Retry-After` before retrying.
 
-## 7. Conformance
+## 7. Conformance {#7-conformance}
 
 | Profile            | Sections         |
 | ------------------ | ---------------- |
@@ -512,8 +512,8 @@ On `429`, personal agents SHOULD wait `Retry-After` before retrying.
 
 This is PACT **1.0**. Breaking changes to either profile bump that number.
 
-### 7.1 Implementing
+### 7.1 Implementing {#71-implementing}
 
-Step-by-step guides with a check per step: [Build a Provider](provider.md)
+Step-by-step guides with a check per step: [Build a Provider](/provider)
 (ends with running `e2e/` against yourself with `E2E_PROVIDER=any`) and
-[Build a personal agent integration](personal-agent.md).
+[Build a personal agent integration](/personal-agent).
