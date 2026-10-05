@@ -44,3 +44,7 @@ pnpm install && pnpm gen-keys
 ```
 
 then follow [Run the reference stack](docs/running.md#run-it-locally).
+
+## License
+
+[Apache-2.0](LICENSE).
