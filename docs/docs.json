@@ -1,0 +1,41 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "PACT",
+  "description": "Personal Agent Consent & Trust: identity and delegated authority for personal agents on A2A.",
+  "colors": {
+    "primary": "#4f46e5",
+    "light": "#818cf8",
+    "dark": "#4338ca"
+  },
+  "favicon": "/images/favicon.svg",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Overview",
+        "pages": ["index", "personal-agent", "provider"]
+      },
+      {
+        "group": "Protocol",
+        "pages": ["spec"]
+      },
+      {
+        "group": "Reference",
+        "pages": ["running"]
+      }
+    ]
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/openpactprotocol/openpactprotocol"
+      }
+    ]
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/openpactprotocol/openpactprotocol"
+    }
+  }
+}

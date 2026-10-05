@@ -1,20 +1,25 @@
-# Docs site
+# Documentation hosting
 
-Statically generated Next.js + Markdoc renderer for the pages in the
-repository's `docs/` directory. Navigation is defined in `src/nav.ts`.
+Mintlify publishes the Markdown pages in `docs/`, configured by `docs/docs.json`.
 
-```sh
-pnpm --filter @openpactprotocol/docs dev     # http://localhost:3003
-pnpm --filter @openpactprotocol/docs build
-```
+## Connect Mintlify
 
-To add a page: create `docs/<name>.md` with `title` and `description`
-frontmatter, add it to `src/nav.ts`, and run `pnpm test` (content tests check
-frontmatter, navigation coverage, Markdoc validity, and internal links).
-Supported extras beyond Markdown: `{% callout type="note|warning" %}…{% /callout %}`.
+1. Connect the `openpactprotocol/openpactprotocol` repository in Mintlify.
+2. Select the production branch and set the documentation subdirectory to `/docs`.
+3. Check the preview: the introduction, both integration guides, specification,
+   reference-stack guide, diagrams, and specification heading links.
+4. Add `pact.decagon.ai` in Mintlify and apply the DNS records it supplies.
 
-The diagrams in `docs/images/*.svg` are generated from the React components in
-`src/components/` (`protocol-overview.tsx`, `delegated-authority.tsx`). The
-site renders the components; GitHub shows the SVGs. To change a diagram, edit
-its component and run `pnpm vitest run website -u` to rewrite the SVG. Keep its
-step numbers in line with the numbered list under it in the doc.
+With the Mintlify CLI installed, run `mint validate` and `mint broken-links`
+from `docs/`; use `mint dev` to preview locally.
+
+## Editing
+
+Add pages to `docs/docs.json`. Use root-relative links without file extensions
+and explicit heading IDs. The documentation tests validate navigation, metadata,
+heading IDs, image paths, and internal links.
+
+The old Next.js renderer in this directory is no longer the publishing target.
+Its React diagram sources still generate `docs/images/*.svg`, which Mintlify
+renders as images. To update those SVGs, edit the components in `src/components/`
+and run `pnpm vitest run website/src/diagrams.test.ts -u` from the repository root.
