@@ -1,6 +1,6 @@
 ---
-title: Introduction
-description: PACT lets a personal agent contact a Brand's support agent with a verifiable identity and only the permissions the User granted.
+title: What is PACT?
+description: The Personal Agent Consent & Trust Protocol (PACT) lets a personal agent contact a Brand's support agent with a verifiable identity and only the permissions the User granted.
 ---
 
 Personal agents increasingly contact Brands on someone's behalf. Today they do
@@ -8,7 +8,7 @@ it by driving a chat widget like an anonymous browser: the Brand can't tell
 which agent is calling, and the agent can't act on the person's account
 without their password.
 
-**Personal Agent Consent & Trust (PACT)** fixes both:
+**PACT** fixes both:
 
 - **Trust** — the agent signs every request, so the Brand knows which agent is
   calling.
