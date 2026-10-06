@@ -1,7 +1,11 @@
 # Personal Agent Consent & Trust (PACT)
 
+Personal agents are starting to interact with business agents on their users'
+behalf. Businesses need a consistent way to verify which agent is calling and
+what the customer has authorized it to do.
+
 PACT lets a personal agent contact a business's agent with a verifiable
-identity (**Trust**) and, optionally, only the permissions the User granted
+identity (**Trust**) and only the permissions the User granted
 (**Consent**). PACT is a new protocol built on [A2A 1.0](https://a2a-protocol.org).
 
 | Term               | Meaning                                                                    |

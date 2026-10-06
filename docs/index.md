@@ -10,9 +10,9 @@ without their password.
 
 **PACT** fixes both:
 
-- **Trust** — the agent signs every request, so the Brand knows which agent is
+- **Trust**: the agent signs every request, so the Brand knows which agent is
   calling.
-- **Consent** — optionally, the User logs in with the Brand and approves
+- **Consent**: the User logs in with the Brand and approves
   specific actions. The agent never sees their password.
 
 PACT is a new protocol built on [A2A 1.0](https://a2a-protocol.org).
