@@ -14,15 +14,15 @@ fixed demo credentials and in-memory account data. Before deploying publicly,
 replace demo authentication, add rate limits, and restrict outbound JWKS requests
 to public IP addresses after DNS resolution.
 
-| Path                              | What it is                                                            | Port |
-| --------------------------------- | --------------------------------------------------------------------- | ---: |
-| `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite)                  | 3000 |
-| `reference/personal-agent/client` | Demo **personal-agent UI** — one chat fanning out to Brands over PACT | 3001 |
-| `reference/personal-agent/server` | Demo personal agent's **JWKS server**                                 | 3002 |
-| `reference/brand`                 | Example **Brand** app (Skyline login, accounts, API) for §5           | 3004 |
-| `packages/client`                 | `@openpactprotocol/client` — signer, `fetchAgentCard`, `A2AClient`    |      |
-| `packages/protocol`               | `@openpactprotocol/protocol` — Zod schemas                            |      |
-| `e2e/`                            | Conformance suite                                                     |      |
+| Path                              | What it is                                                           | Port |
+| --------------------------------- | -------------------------------------------------------------------- | ---: |
+| `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite)                 | 3000 |
+| `reference/personal-agent/client` | Demo **personal-agent UI**: one chat fanning out to Brands over PACT | 3001 |
+| `reference/personal-agent/server` | Demo personal agent's **JWKS server**                                | 3002 |
+| `reference/brand`                 | Example **Brand** app (Skyline login, accounts, API) for §5          | 3004 |
+| `packages/client`                 | `@openpactprotocol/client`: signer, `fetchAgentCard`, `A2AClient`    |      |
+| `packages/protocol`               | `@openpactprotocol/protocol`: Zod schemas                            |      |
+| `e2e/`                            | Conformance suite                                                    |      |
 
 <a name="run-it-locally"></a>
 
@@ -40,9 +40,14 @@ Four processes, each in its own terminal:
 ```sh
 pnpm --filter @openpactprotocol/personal-agent-server dev                                                 # JWKS, :3002
 PGLITE_DATA_DIR="$HOME/.local/share/pact-provider-db" pnpm --filter @openpactprotocol/provider db:pglite  # database
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres DATABASE_POOL_MAX=1 \
 A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openpactprotocol/provider dev                       # Provider, :3000
 pnpm --filter @openpactprotocol/personal-agent-client dev                                                 # demo personal agent, :3001
 ```
+
+`DATABASE_POOL_MAX=1` matters: PGlite is a single-session database, so with
+the default pool of 5 the Provider's connections interleave and it fails with
+`prepared statement "" requires N parameters`.
 
 Once the database is up, migrate and seed it. Any PostgreSQL works; point
 `DATABASE_URL` at it. `PA_` variables and `-pa` ids refer to the personal agent:
@@ -93,6 +98,7 @@ Start the Brand app and restart the Provider with delegation on:
 
 ```sh
 pnpm --filter @openpactprotocol/brand dev                                                   # Skyline Brand, :3004
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres DATABASE_POOL_MAX=1 \
 DELEGATION_ENABLED=1 A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openpactprotocol/provider dev
 ```
 
@@ -114,6 +120,7 @@ For browser-facing demo URLs that look like a production deployment, start the
 Provider with:
 
 ```sh
+DATABASE_URL=postgres://postgres:postgres@127.0.0.1:5432/postgres DATABASE_POOL_MAX=1 \
 PROVIDER_URL=http://localhost:3000 CONSENT_ORIGIN=http://auth.skyline.localhost:3000 BRAND_PUBLIC_URL=http://skyline.localhost:3004 \
 DELEGATION_ENABLED=1 A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openpactprotocol/provider dev
 ```

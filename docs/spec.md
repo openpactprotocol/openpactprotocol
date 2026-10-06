@@ -23,12 +23,12 @@ in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 | **Personal agent** | An agent platform acting for the User. Has a signing key and publishes its public keys as a JWKS. Abbreviated `PA`/`pa` in identifiers (`paJwt`, `<pa-jwt>`). |
 | **User**           | The person using the personal agent.                                                                                                                          |
 
-| Section                    | Required?                              | Adds                                                                                  |
-| -------------------------- | -------------------------------------- | ------------------------------------------------------------------------------------- |
-| §2 Transport               | yes                                    | Where a Brand's Agent Card is; which A2A operations exist.                            |
-| §3 Personal-agent identity | yes                                    | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.     |
-| §4 Messages                | yes                                    | One `contextId` per (personal agent, User, Brand); retries are idempotent.            |
-| §5 Delegated authority     | no — a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account. |
+| Section                    | Required?                             | Adds                                                                                  |
+| -------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
+| §2 Transport               | yes                                   | Where a Brand's Agent Card is; which A2A operations exist.                            |
+| §3 Personal-agent identity | yes                                   | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.     |
+| §4 Messages                | yes                                   | One `contextId` per (personal agent, User, Brand); retries are idempotent.            |
+| §5 Delegated authority     | no; a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account. |
 
 <a name="2-transport"></a>
 
@@ -166,7 +166,7 @@ the personal agent MUST reuse the same `sub` for the same User.
 
 That a known personal agent is calling for someone it calls `sub`. Not that `sub` owns a
 Brand account. Without §5, the agent verifies the User the way it does in a
-chat widget — it asks for an order number, email, etc. — and the personal agent relays the
+chat widget (it asks for an order number, email, etc.) and the personal agent relays the
 User's answers. Account credentials never pass through the personal agent.
 
 <a name="34-failure"></a>
@@ -200,7 +200,7 @@ Content-Type: application/json
     "messageId": "r-001",
     "contextId": "f0c12e6b-231e-4d92-a610-2518a0f27d20",
     "role": "ROLE_AGENT",
-    "parts": [{ "text": "Sure — what is the order number?" }]
+    "parts": [{ "text": "Sure, what is the order number?" }]
   }
 }
 ```
@@ -260,7 +260,7 @@ In OAuth 2.0 terms:
 | Client                | Personal agent. `client_id` is its issuer URL.                                         |
 | Client registration   | Registration (§3.1): `issuer`, `jwksUri`, assigned `audience`.                         |
 | Client authentication | Personal-agent JWT as `Authorization: Bearer`, on every call including the token call. |
-| Resource owner        | User — `sub` in the personal-agent JWT; the Brand's own user id in a delegation token. |
+| Resource owner        | User: `sub` in the personal-agent JWT; the Brand's own user id in a delegation token.  |
 | Authorization server  | Provider, per Brand. The login step is the Brand's own login.                          |
 | Server metadata       | Agent Card, which links RFC 8414 metadata when the Brand offers delegation.            |
 | Scopes                | Defined by each Brand and listed on its card.                                          |
@@ -328,8 +328,8 @@ schemes:
 
 ### 5.2 Scopes
 
-A scope is `{ id, description }`. Each Brand defines its own — `orders:read`,
-`booking:change`, whatever its agent does — and PACT reserves no ids. The
+A scope is `{ id, description }`. Each Brand defines its own (`orders:read`,
+`booking:change`, whatever its agent does) and PACT reserves no ids. The
 Brand maps its agent's capabilities to scopes; unmapped capabilities stay
 available under §3. Personal agents pick scopes by reading the descriptions and MUST
 request only ids on the card. Providers show descriptions to the User
@@ -366,7 +366,7 @@ client_id=https://pa.example.com&scope=orders:read%20orders:cancel
   or observe the login.
 - The link opens the Brand's login. The Brand authenticates the User and
   returns the User to the Provider with a single-use assertion bound to the
-  `user_code`, sent by `POST` — not a credential from another channel. The
+  `user_code`, sent by `POST`, not a credential from another channel. The
   Provider then shows consent as the logged-in User: the personal agent's
   issuer origin, the Brand, and each scope as a checkbox the User MAY uncheck.
   Login comes first so the grant is bound to a verified account.
@@ -408,7 +408,7 @@ MUST read it.
 | ------------ | --------------------------------------------------------------------------------------------- |
 | `iss`        | The Brand's authorization server (as in its RFC 8414 metadata).                               |
 | `aud`        | The Brand's interface URL. One Brand per token.                                               |
-| `sub`        | The User's id at the Brand — the same id the Brand's other channels use.                      |
+| `sub`        | The User's id at the Brand, the same id the Brand's other channels use.                       |
 | `client_id`  | The personal agent's issuer URL. MUST equal the `iss` of the personal-agent JWT sent with it. |
 | `scope`      | Space-separated granted scope ids.                                                            |
 | `grant_id`   | Opaque id of the grant. Appears in receipts.                                                  |
