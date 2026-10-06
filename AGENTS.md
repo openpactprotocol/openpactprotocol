@@ -1,0 +1,31 @@
+# AGENTS.md
+
+This repository is the PACT protocol: specification, integration guides, a
+reference Provider, a demo PA, a TypeScript PA client, and a conformance suite.
+Terms: **Provider** hosts Brands' support agents; **Brand** is a business;
+**PA** is a personal-agent platform; **User** is the PA's user.
+
+## If you are integrating another codebase
+
+- Making a personal-agent platform speak PACT → follow `docs/personal-agent.md`
+  step by step. The client to import or copy is
+  `packages/client/src/index.ts`.
+- Making a platform that hosts support agents speak PACT → follow
+  `docs/provider.md`. Prove it with `E2E_PROVIDER=any pnpm e2e` (10 tests).
+- Exact rules and wire formats → `docs/spec.md`. It is the only normative
+  document; guides restate it.
+
+## If you are changing this repository
+
+- Setup: `pnpm install && pnpm gen-keys`. Local stack: `docs/running.md`.
+- Checks: `pnpm lint && pnpm typecheck && pnpm test && pnpm format:check`.
+- Changing normative text in `docs/spec.md`: in the same PR, update the
+  guides that restate it and, where the conformance suite can exercise the
+  rule, add or adjust a case in `e2e/pact.test.ts`.
+- Docs live in `docs/` and are published by Mintlify using `docs/docs.json`.
+  Use root-relative links without extensions and preserve explicit heading IDs.
+  Keep diagram SVGs in `docs/images/`.
+- The code calls Brands `customers` (`CUSTOMER_ID`, `customers` table). Docs
+  say Brand.
+- Never commit `reference/personal-agent/server/public/.well-known/jwks.json`
+  changes or any `.env.local`.

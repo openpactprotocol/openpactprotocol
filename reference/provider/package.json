@@ -1,0 +1,37 @@
+{
+  "name": "@openpactprotocol/provider",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev -p 3000",
+    "build": "next build",
+    "vercel-build": "pnpm db:migrate && next build",
+    "start": "next start -p 3000",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:pglite": "tsx src/db/pglite-server.ts",
+    "db:migrate": "tsx src/db/migrate.ts",
+    "db:seed": "tsx src/db/seed.ts"
+  },
+  "dependencies": {
+    "@openpactprotocol/protocol": "workspace:*",
+    "drizzle-orm": "0.44.7",
+    "jose": "6.1.0",
+    "next": "15.5.26",
+    "postgres": "3.4.9",
+    "react": "19.1.1",
+    "react-dom": "19.1.1",
+    "ulid": "3.0.2",
+    "zod": "4.1.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@electric-sql/pglite-socket": "0.2.11",
+    "@types/react": "19.1.16",
+    "@types/react-dom": "19.1.9",
+    "drizzle-kit": "0.31.4"
+  }
+}
