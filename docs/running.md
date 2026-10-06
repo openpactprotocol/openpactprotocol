@@ -9,6 +9,11 @@ Everything outside `docs/` implements the [specification](/spec)'s
 and seed data are provided as reference. The code calls Brands **customers**
 (`CUSTOMER_ID`, the `customers` table).
 
+These apps are local demos, not production-ready services. The Brand app uses
+fixed demo credentials and in-memory account data. Before deploying publicly,
+replace demo authentication, add rate limits, and restrict outbound JWKS requests
+to public IP addresses after DNS resolution.
+
 | Path                              | What it is                                                            | Port |
 | --------------------------------- | --------------------------------------------------------------------- | ---: |
 | `reference/provider`              | Reference **Provider** (Next.js + PostgreSQL/PGlite)                  | 3000 |
