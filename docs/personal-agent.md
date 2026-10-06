@@ -5,8 +5,8 @@ description: Make a personal-agent platform speak PACT.
 
 For engineers adding PACT to a personal agent. This is the happy path; the
 rules are in the [specification](./spec.md). Any language works. In TypeScript,
-the reference client `@openpactprotocol/client` (`packages/client/src/index.ts`
-in this repository) does steps 3–5.
+the reference client `@openpactprotocol/client` does steps 3–5. It is not on
+npm yet; copy `packages/client/src/` from this repository.
 
 > Covers the **PACT Identity** profile only. Delegated authority is in
 > [spec §5](./spec.md#5-delegated-authority).
@@ -133,7 +133,7 @@ to that Provider.
 `POST {interfaceUrl}/message:send` with `Authorization: Bearer <token>` and
 `A2A-Version: 1.0` ([spec §4](./spec.md#4-messages)). The reply carries a
 `contextId`; send it with every later message for the same User and Brand.
-Use a fresh `messageId` per message — resending one is a safe retry.
+Use a fresh `messageId` per message; resending one is a safe retry.
 
 ```sh
 curl -X POST "$INTERFACE_URL/message:send" \
@@ -183,7 +183,7 @@ demo key from `pnpm gen-keys`.
 ```sh
 export AGENT_CARD_URL="http://localhost:3000/a2a/01M3R53Q5WKZ7A0GY4PZ8Y39TB/.well-known/agent-card.json"
 export PA_ISSUER="http://localhost:3002"
-export AUDIENCE="http://localhost:3000/a2a"
+export PA_AUDIENCE="http://localhost:3000/a2a"
 ```
 
 **Done when** steps 4–5 return a reply from Loom & Co. with a `contextId`.

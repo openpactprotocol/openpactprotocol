@@ -47,7 +47,7 @@ here), or from a link or registry entry.
 Match the route first (unknown path → `404`/`405`), then
 ([spec §3.2](./spec.md#32-personal-agent-jwt)):
 
-1. `alg` is `ES256` or `RS256` — reject anything else.
+1. `alg` is `ES256` or `RS256`; reject anything else.
 2. `iss` is a known, enabled personal agent.
 3. Signature verifies against that personal agent's JWKS (cache; refetch on unknown `kid`).
 4. `aud` is your audience; `exp` is in the future; `iat` ≤ 30 s in the future.
@@ -81,7 +81,7 @@ and a disabled personal agent all get that `401`, and a good token passes.
 
 Reply synchronously with a `ROLE_AGENT` message carrying the `contextId`,
 `Content-Type: application/a2a+json`. The token says which personal agent is calling for
-`sub`, not who the User is — the agent verifies the User as it would in a chat
+`sub`, not who the User is. The agent verifies the User as it would in a chat
 widget.
 
 **Done when** two messages with one `contextId` continue one conversation,

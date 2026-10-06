@@ -23,7 +23,8 @@ Terms: **Provider** hosts Brands' support agents; **Brand** is a business;
   guides that restate it and, where the conformance suite can exercise the
   rule, add or adjust a case in `e2e/pact.test.ts`.
 - Docs live in `docs/` and are published by Mintlify using `docs/docs.json`.
-  Use root-relative links without extensions and preserve explicit heading IDs.
+  Link between pages with relative `.md` links (`./spec.md#32-personal-agent-jwt`);
+  Mintlify rewrites them. Preserve explicit heading IDs.
   Keep diagram SVGs in `docs/images/`.
 - The code calls Brands `customers` (`CUSTOMER_ID`, `customers` table). Docs
   say Brand.
