@@ -18,9 +18,9 @@
   },
   "dependencies": {
     "@openpactprotocol/protocol": "workspace:*",
-    "drizzle-orm": "0.44.7",
+    "drizzle-orm": "0.45.3",
     "jose": "6.1.0",
-    "next": "15.5.26",
+    "next": "15.5.27",
     "postgres": "3.4.9",
     "react": "19.1.1",
     "react-dom": "19.1.1",
