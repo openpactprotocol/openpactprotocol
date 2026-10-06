@@ -4,12 +4,6 @@ packages:
   - packages/*
   - e2e
 
-overrides:
-  tinypool: ">=2.1.2"
-  source-map-js: ">=1.2.2"
-  postcss: ">=8.5.23"
-  sharp: ">=0.35.4"
-
 onlyBuiltDependencies:
   - esbuild
   - sharp

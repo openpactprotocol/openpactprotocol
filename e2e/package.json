@@ -12,9 +12,7 @@
   "dependencies": {
     "@openpactprotocol/client": "workspace:*",
     "@openpactprotocol/protocol": "workspace:*",
-    "jose": "6.1.0"
-  },
-  "devDependencies": {
-    "vitest": "3.2.7"
+    "jose": "6.1.0",
+    "vitest": "3.2.4"
   }
 }
