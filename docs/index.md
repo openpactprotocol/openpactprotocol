@@ -32,7 +32,7 @@ Provider hosts.
 
 ## How it works {#how-it-works}
 
-![PACT at a glance](/images/protocol-overview.svg)
+![PACT at a glance](https://openpactprotocol.org/images/protocol-overview.svg)
 
 Before the first conversation, the personal agent **registers** once per
 Provider: it gives the Provider its issuer URL and public keys (JWKS); the
@@ -65,7 +65,7 @@ not _who the User is_, and asks in the conversation (order number, email).
 
 ## Start here {#start-here}
 
-- Building a personal agent → [Build a personal agent integration](/personal-agent)
-- Building a Provider → [Build a Provider](/provider)
-- The rules → [Specification](/spec) (the only normative document)
-- Try it → [Run the reference stack](/running)
+- Building a personal agent → [Build a personal agent integration](https://openpactprotocol.org/personal-agent)
+- Building a Provider → [Build a Provider](https://openpactprotocol.org/provider)
+- The rules → [Specification](https://openpactprotocol.org/spec) (the only normative document)
+- Try it → [Run the reference stack](https://openpactprotocol.org/running)

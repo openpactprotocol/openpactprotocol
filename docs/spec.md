@@ -5,8 +5,8 @@ description: The normative PACT rules for personal-agent identity and delegated 
 
 PACT builds on [A2A 1.0](https://a2a-protocol.org), defining a verifiable
 identity for the personal agent sending each request
-([§3](#3-personal-agent-identity)) and, optionally, the permissions the User
-grants it on their Brand account ([§5](#5-delegated-authority)). Transport,
+([§3](https://openpactprotocol.org/spec#3-personal-agent-identity)) and, optionally, the permissions the User
+grants it on their Brand account ([§5](https://openpactprotocol.org/spec#5-delegated-authority)). Transport,
 messages and errors follow A2A.
 
 The key words MUST, MUST NOT, SHOULD and MAY are to be interpreted as described
@@ -215,7 +215,7 @@ without re-running the agent. If there is no stored reply yet, return
 
 ## 5 · Delegated authority {#5-delegated-authority}
 
-> **Optional.** This is the **PACT Delegated** profile ([§7](#7-conformance)).
+> **Optional.** This is the **PACT Delegated** profile ([§7](https://openpactprotocol.org/spec#7-conformance)).
 > Identity (§2–4) works without it; Providers that don't offer it omit §5.1
 > from their cards.
 
@@ -239,22 +239,22 @@ In OAuth 2.0 terms:
 | Access token          | Delegation token, sent in `X-A2A-User-Delegation` next to the personal-agent JWT.      |
 | Resource server       | The Brand's agent, behind the interface URL.                                           |
 
-![Delegated authority](/images/delegated-authority.svg)
+![Delegated authority](https://openpactprotocol.org/images/delegated-authority.svg)
 
 1. **Request scopes.** The personal agent asks the Provider for the scopes it
    needs, sending its §3 JWT as the client credential
-   ([§5.3](#53-getting-a-token)).
+   ([§5.3](https://openpactprotocol.org/spec#53-getting-a-token)).
 2. **Login link.** The Provider returns a link to the Brand's own login. The
    personal agent shows it to the User and never handles the login itself.
 3. **Sign in and approve.** The User logs in with the Brand and approves scopes
    on the Provider's consent page. The personal agent never sees the login.
 4. **Delegation token.** The Provider signs a delegation token listing the
-   approved scopes ([§5.4](#54-delegation-token)). The personal agent carries
+   approved scopes ([§5.4](https://openpactprotocol.org/spec#54-delegation-token)). The personal agent carries
    it but cannot change it.
 5. **Send and receipt.** The personal agent sends the token with each message.
    The Provider checks it, and the Brand's agent acts as the User only within
-   those scopes ([§5.5](#55-sending-with-it)). Every reply carries a signed
-   receipt ([§5.6](#56-receipts)).
+   those scopes ([§5.5](https://openpactprotocol.org/spec#55-sending-with-it)). Every reply carries a signed
+   receipt ([§5.6](https://openpactprotocol.org/spec#56-receipts)).
 
 ### 5.1 Card {#51-card}
 
@@ -514,6 +514,6 @@ This is PACT **1.0**. Breaking changes to either profile bump that number.
 
 ### 7.1 Implementing {#71-implementing}
 
-Step-by-step guides with a check per step: [Build a Provider](/provider)
+Step-by-step guides with a check per step: [Build a Provider](https://openpactprotocol.org/provider)
 (ends with running `e2e/` against yourself with `E2E_PROVIDER=any`) and
-[Build a personal agent integration](/personal-agent).
+[Build a personal agent integration](https://openpactprotocol.org/personal-agent).

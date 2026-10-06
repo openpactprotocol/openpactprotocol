@@ -3,9 +3,9 @@ title: Run the reference stack
 description: Run the reference Provider, demo personal agent and conformance tests on your machine.
 ---
 
-Everything outside `docs/` implements the [specification](/spec)'s
+Everything outside `docs/` implements the [specification](https://openpactprotocol.org/spec)'s
 **Identity** profile. Delegated authority (§5) is opt-in: see
-[Delegated authority](#delegated-authority-optional). Example implementations
+[Delegated authority](https://openpactprotocol.org/running#delegated-authority-optional). Example implementations
 and seed data are provided as reference. The code calls Brands **customers**
 (`CUSTOMER_ID`, the `customers` table).
 
@@ -119,7 +119,7 @@ CONSENT_ORIGIN=http://auth.skyline.localhost:3000 pnpm --filter @openpactprotoco
 ```
 
 Then open `http://agent.localhost:3001`. This mirrors production, where consent
-is served by the Provider on a Brand subdomain ([Provider guide](/provider)).
+is served by the Provider on a Brand subdomain ([Provider guide](https://openpactprotocol.org/provider)).
 
 In the demo personal agent, ask "Can you check my upcoming Skyline flight?".
 Skyline replies `TASK_STATE_AUTH_REQUIRED`, and the agent shows a **Sign in with Skyline Airways** card that opens the Brand login in a new tab (demo account

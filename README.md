@@ -22,13 +22,13 @@ interactions. Personal agents identify themselves with signed requests
 
 Read the documentation at [openpactprotocol.org](https://openpactprotocol.org/).
 
-| You are                   | Read                                                         |
-| ------------------------- | ------------------------------------------------------------ |
-| New to PACT               | [Introduction](docs/index.md) — what it is and how it works  |
-| Building a personal agent | [Build a personal agent integration](docs/personal-agent.md) |
-| Building a Provider       | [Build a Provider](docs/provider.md)                         |
-| Checking the rules        | [Specification](docs/spec.md) — the normative text           |
-| Trying it on your machine | [Run the reference stack](docs/running.md)                   |
+| You are                   | Read                                                                              |
+| ------------------------- | --------------------------------------------------------------------------------- |
+| New to PACT               | [Introduction](https://openpactprotocol.org) — what it is and how it works        |
+| Building a personal agent | [Build a personal agent integration](https://openpactprotocol.org/personal-agent) |
+| Building a Provider       | [Build a Provider](https://openpactprotocol.org/provider)                         |
+| Checking the rules        | [Specification](https://openpactprotocol.org/spec) — the normative text           |
+| Trying it on your machine | [Run the reference stack](https://openpactprotocol.org/running)                   |
 
 [AGENTS.md](AGENTS.md) points coding agents at the right guide.
 
@@ -49,7 +49,7 @@ e2e/                       conformance tests — run against any Provider with E
 pnpm install && pnpm gen-keys
 ```
 
-then follow [Run the reference stack](docs/running.md#run-it-locally).
+then follow [Run the reference stack](https://openpactprotocol.org/running#run-it-locally).
 
 ## License
 
