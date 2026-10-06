@@ -15,6 +15,8 @@ identity (**Trust**) and, optionally, only the permissions the User granted
 
 ## Start here
 
+Read the documentation at [openpactprotocol.org](https://openpactprotocol.org/).
+
 | You are                   | Read                                                         |
 | ------------------------- | ------------------------------------------------------------ |
 | New to PACT               | [Introduction](docs/index.md) — what it is and how it works  |
