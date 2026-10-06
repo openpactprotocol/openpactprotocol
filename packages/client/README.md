@@ -13,12 +13,12 @@ const client = new A2AClient({
 const reply = await client.sendMessage("Where is my order?");
 ```
 
-How to use it: [Build a personal agent integration](https://openpactprotocol.org/personal-agent).
+How to use it: [Build a personal agent integration](../../docs/personal-agent.md).
 
 ## Delegated authority (optional)
 
 `@openpactprotocol/client/delegation` adds the personal-agent side of
-[spec §5](https://openpactprotocol.org/spec#5-delegated-authority): `delegationScheme(card)`,
+[spec §5](../../docs/spec.md#5-delegated-authority): `delegationScheme(card)`,
 `DeviceCodeClient` (device code, polling, refresh), `DelegatedA2AClient`
 (sends `X-A2A-User-Delegation`, returns replies with receipts or step-up tasks), and
 `verifyReceipt`. Identity-only integrations don't need it.

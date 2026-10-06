@@ -4,12 +4,12 @@ description: Make a personal-agent platform speak PACT.
 ---
 
 For engineers adding PACT to a personal agent. This is the happy path; the
-rules are in the [specification](https://openpactprotocol.org/spec). Any language works. In TypeScript,
+rules are in the [specification](./spec.md). Any language works. In TypeScript,
 the reference client `@openpactprotocol/client` (`packages/client/src/index.ts`
 in this repository) does steps 3–5.
 
 > Covers the **PACT Identity** profile only. Delegated authority is in
-> [spec §5](https://openpactprotocol.org/spec#5-delegated-authority).
+> [spec §5](./spec.md#5-delegated-authority).
 
 ## Values you need {#values-you-need}
 
@@ -59,17 +59,17 @@ copy it into `aud` (step 3). Do not derive it from the Agent Card URL.
 Registration depends on the Provider's policy. If required, send your issuer
 and JWKS URL once per Provider, not per User or Brand. Open Providers may accept
 agents without prior registration and discover their keys instead. Both verify
-personal-agent JWTs in full ([spec §3.1](https://openpactprotocol.org/spec#31-registration)).
+personal-agent JWTs in full ([spec §3.1](./spec.md#31-registration)).
 
 The reference Provider requires registration and offers a
-[self-service endpoint](https://openpactprotocol.org/running#register-a-personal-agent).
+[self-service endpoint](./running.md#register-a-personal-agent).
 
 **Done when** you have the Provider's audience and have completed any required
 registration.
 
 ## 3 · Sign a personal-agent JWT {#3-sign-a-personal-agent-jwt}
 
-One per request, valid ≤ 300 s ([spec §3.2](https://openpactprotocol.org/spec#32-personal-agent-jwt)): header
+One per request, valid ≤ 300 s ([spec §3.2](./spec.md#32-personal-agent-jwt)): header
 `kid`; `iss` = `PA_ISSUER`; `sub` = your stable, opaque id for the User;
 `aud` = the Provider's audience; `iat`, `exp`.
 
@@ -86,7 +86,7 @@ const token = await signer.sign({ sub: "user-7f3a", aud: audience });
 
 No token. The **interface URL** is the `url` of the `supportedInterfaces`
 entry with `protocolBinding: "HTTP+JSON"` and `protocolVersion: "1.0"`. A
-trimmed card (full example in [spec §2.1](https://openpactprotocol.org/spec#21-agent-card)):
+trimmed card (full example in [spec §2.1](./spec.md#21-agent-card)):
 
 ```json
 {
@@ -119,7 +119,7 @@ to that Provider.
 ## 5 · Send messages {#5-send-messages}
 
 `POST {interfaceUrl}/message:send` with `Authorization: Bearer <token>` and
-`A2A-Version: 1.0` ([spec §4](https://openpactprotocol.org/spec#4-messages)). The reply carries a
+`A2A-Version: 1.0` ([spec §4](./spec.md#4-messages)). The reply carries a
 `contextId`; send it with every later message for the same User and Brand.
 Use a fresh `messageId` per message — resending one is a safe retry.
 
@@ -156,12 +156,12 @@ second message with that `contextId` continues the conversation.
 | Envelope, reason `INVALID_PARAMS`        | Bad request, or a `contextId` that isn't yours             | Fix the request / start a new context |
 | Envelope, reason `UNSUPPORTED_OPERATION` | Conversation closed, or an unsupported route               | Omit `contextId` to start a new one   |
 
-The reason is `error.details[0].reason` ([spec §6](https://openpactprotocol.org/spec#6-errors)).
+The reason is `error.details[0].reason` ([spec §6](./spec.md#6-errors)).
 `A2AClient` throws `A2AError` for envelopes and `A2AHttpError` for the rest.
 
 ## Test locally {#test-locally}
 
-Start the [reference stack](https://openpactprotocol.org/running#run-it-locally); it already trusts the
+Start the [reference stack](./running.md#run-it-locally); it already trusts the
 demo key from `pnpm gen-keys`.
 
 ```sh
@@ -174,5 +174,5 @@ export AUDIENCE="http://localhost:3000/a2a"
 
 Delegated authority is optional: the User logs in with the Brand and approves
 scopes, so the Brand's agent can act on their account. Brands advertise it on
-their card; [spec §5](https://openpactprotocol.org/spec#5-delegated-authority) defines it. Nothing above
+their card; [spec §5](./spec.md#5-delegated-authority) defines it. Nothing above
 changes.
