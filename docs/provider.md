@@ -10,7 +10,9 @@ For engineers adding PACT to a platform that hosts support agents for Brands
 > Covers the **PACT Identity** profile only. Delegated authority is in
 > [spec §5](./spec.md#5-delegated-authority).
 
-## 1 · Register personal agents {#1-register-personal-agents}
+<a name="1-register-personal-agents"></a>
+
+## 1 · Register personal agents
 
 Keep a record per personal agent: `issuer` (the exact `iss` string), `jwksUri`, `enabled`.
 Pick one **audience** string and give it to every personal agent. Allowlisting personal agents or
@@ -20,7 +22,9 @@ accepting any `iss` that serves a JWKS is your policy
 **Done when** you can look up a personal agent by `iss` and get its JWKS URL and enabled
 state.
 
-## 2 · Serve one Agent Card per Brand {#2-serve-one-agent-card-per-brand}
+<a name="2-serve-one-agent-card-per-brand"></a>
+
+## 2 · Serve one Agent Card per Brand
 
 ```http
 GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
@@ -36,7 +40,9 @@ here), or from a link or registry entry.
 
 **Done when** a Brand's card is served and an unknown id returns `404`.
 
-## 3 · Verify the personal-agent JWT on every other route {#3-verify-the-personal-agent-jwt-on-every-other-route}
+<a name="3-verify-the-personal-agent-jwt-on-every-other-route"></a>
+
+## 3 · Verify the personal-agent JWT on every other route
 
 Match the route first (unknown path → `404`/`405`), then
 ([spec §3.2](./spec.md#32-personal-agent-jwt)):
@@ -57,7 +63,9 @@ WWW-Authenticate: Bearer realm="a2a"
 **Done when** missing token, bad signature, wrong `aud`, expired, `HS256`,
 and a disabled personal agent all get that `401`, and a good token passes.
 
-## 4 · Answer `message:send` {#4-answer-messagesend}
+<a name="4-answer-messagesend"></a>
+
+## 4 · Answer `message:send`
 
 `POST {interfaceUrl}/message:send` ([spec §4](./spec.md#4-messages)). Require
 `role: "ROLE_USER"` and a non-blank `text` part. Key conversations by
@@ -79,7 +87,9 @@ widget.
 **Done when** two messages with one `contextId` continue one conversation,
 and that `contextId` from another `sub` or Brand gets `INVALID_PARAMS`.
 
-## 5 · Other routes, errors, limits {#5-other-routes-errors-limits}
+<a name="5-other-routes-errors-limits"></a>
+
+## 5 · Other routes, errors, limits
 
 Generic A2A clients will call other operations; return the result listed in
 [spec §2.2](./spec.md#22-operations) (`TASK_NOT_FOUND`; `GET tasks` → an empty
@@ -90,7 +100,9 @@ envelope in [spec §6](./spec.md#6-errors) with the reason in
 
 **Done when** each operation returns its listed error after a valid token.
 
-## 6 · Run the conformance suite {#6-run-the-conformance-suite}
+<a name="6-run-the-conformance-suite"></a>
+
+## 6 · Run the conformance suite
 
 You need two Brand IDs and a personal agent you trust; `pnpm gen-keys` makes
 one (see [conformance tests](./running.md#conformance-tests)). `PA_*` variables
