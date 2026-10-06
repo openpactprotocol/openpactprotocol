@@ -18,7 +18,9 @@ without their password.
 PACT is a new protocol built on [A2A 1.0](https://a2a-protocol.org).
 Everything A2A defines works unchanged.
 
-## Terms {#terms}
+<a name="terms"></a>
+
+## Terms
 
 | Term               | Meaning                                                                    | Example                        |
 | ------------------ | -------------------------------------------------------------------------- | ------------------------------ |
@@ -30,9 +32,11 @@ Everything A2A defines works unchanged.
 A personal agent registers with each Provider once, then can talk to every Brand that
 Provider hosts.
 
-## How it works {#how-it-works}
+<a name="how-it-works"></a>
 
-![PACT at a glance](/images/protocol-overview.svg)
+## How it works
+
+![PACT at a glance](./images/protocol-overview.svg)
 
 Before the first conversation, the personal agent **registers** once per
 Provider: it gives the Provider its issuer URL and public keys (JWKS); the
@@ -63,9 +67,11 @@ Provider gives it an `audience` string.
 Without steps 3–5, the Brand's agent knows _which personal agent_ is calling,
 not _who the User is_, and asks in the conversation (order number, email).
 
-## Start here {#start-here}
+<a name="start-here"></a>
 
-- Building a personal agent → [Build a personal agent integration](/personal-agent)
-- Building a Provider → [Build a Provider](/provider)
-- The rules → [Specification](/spec) (the only normative document)
-- Try it → [Run the reference stack](/running)
+## Start here
+
+- Building a personal agent → [Build a personal agent integration](./personal-agent.md)
+- Building a Provider → [Build a Provider](./provider.md)
+- The rules → [Specification](./spec.md) (the only normative document)
+- Try it → [Run the reference stack](./running.md)

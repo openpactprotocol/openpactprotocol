@@ -4,14 +4,16 @@ description: Make a personal-agent platform speak PACT.
 ---
 
 For engineers adding PACT to a personal agent. This is the happy path; the
-rules are in the [specification](/spec). Any language works. In TypeScript,
+rules are in the [specification](./spec.md). Any language works. In TypeScript,
 the reference client `@openpactprotocol/client` (`packages/client/src/index.ts`
 in this repository) does steps 3–5.
 
 > Covers the **PACT Identity** profile only. Delegated authority is in
-> [spec §5](/spec#5-delegated-authority).
+> [spec §5](./spec.md#5-delegated-authority).
 
-## Values you need {#values-you-need}
+<a name="values-you-need"></a>
+
+## Values you need
 
 | Value          | Who provides it                                                                                      | Used for                                                     |
 | -------------- | ---------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
@@ -21,7 +23,9 @@ in this repository) does steps 3–5.
 | Audience       | Each Provider, through its documentation or onboarding (step 2)                                      | The JWT's `aud` (step 3)                                     |
 | Agent Card URL | Each Brand: usually `https://{brandDomain}/.well-known/agent-card.json`, or a link or registry entry | Finding the Brand's interface URL (step 4)                   |
 
-## 1 · Publish a signing key {#1-publish-a-signing-key}
+<a name="1-publish-a-signing-key"></a>
+
+## 1 · Publish a signing key
 
 Generate an ES256 key with a `kid`. Serve the public JWK as a JWKS at
 `{PA_ISSUER}/.well-known/jwks.json`. `PA_ISSUER` is your platform's URL and
@@ -51,7 +55,9 @@ secret and use it to sign tokens (step 3).
 
 **Done when** `curl $PA_ISSUER/.well-known/jwks.json` returns `{ "keys": [ … ] }`.
 
-## 2 · Get the Provider's audience and register if required {#2-register-with-each-provider}
+<a name="2-register-with-each-provider"></a>
+
+## 2 · Get the Provider's audience and register if required
 
 Get the Provider's audience from its documentation or onboarding process and
 copy it into `aud` (step 3). Do not derive it from the Agent Card URL.
@@ -59,17 +65,19 @@ copy it into `aud` (step 3). Do not derive it from the Agent Card URL.
 Registration depends on the Provider's policy. If required, send your issuer
 and JWKS URL once per Provider, not per User or Brand. Open Providers may accept
 agents without prior registration and discover their keys instead. Both verify
-personal-agent JWTs in full ([spec §3.1](/spec#31-registration)).
+personal-agent JWTs in full ([spec §3.1](./spec.md#31-registration)).
 
 The reference Provider requires registration and offers a
-[self-service endpoint](/running#register-a-personal-agent).
+[self-service endpoint](./running.md#register-a-personal-agent).
 
 **Done when** you have the Provider's audience and have completed any required
 registration.
 
-## 3 · Sign a personal-agent JWT {#3-sign-a-personal-agent-jwt}
+<a name="3-sign-a-personal-agent-jwt"></a>
 
-One per request, valid ≤ 300 s ([spec §3.2](/spec#32-personal-agent-jwt)): header
+## 3 · Sign a personal-agent JWT
+
+One per request, valid ≤ 300 s ([spec §3.2](./spec.md#32-personal-agent-jwt)): header
 `kid`; `iss` = `PA_ISSUER`; `sub` = your stable, opaque id for the User;
 `aud` = the Provider's audience; `iat`, `exp`.
 
@@ -82,11 +90,13 @@ const token = await signer.sign({ sub: "user-7f3a", aud: audience });
 
 **Done when** `jwtVerify(token, yourJwks, { issuer: PA_ISSUER, audience })` succeeds.
 
-## 4 · Fetch the Brand's Agent Card {#4-fetch-the-brands-agent-card}
+<a name="4-fetch-the-brands-agent-card"></a>
+
+## 4 · Fetch the Brand's Agent Card
 
 No token. The **interface URL** is the `url` of the `supportedInterfaces`
 entry with `protocolBinding: "HTTP+JSON"` and `protocolVersion: "1.0"`. A
-trimmed card (full example in [spec §2.1](/spec#21-agent-card)):
+trimmed card (full example in [spec §2.1](./spec.md#21-agent-card)):
 
 ```json
 {
@@ -116,10 +126,12 @@ const url = interfaceUrl(await fetchAgentCard(AGENT_CARD_URL));
 **Done when** you have the interface URL. `404` means the Brand is unknown
 to that Provider.
 
-## 5 · Send messages {#5-send-messages}
+<a name="5-send-messages"></a>
+
+## 5 · Send messages
 
 `POST {interfaceUrl}/message:send` with `Authorization: Bearer <token>` and
-`A2A-Version: 1.0` ([spec §4](/spec#4-messages)). The reply carries a
+`A2A-Version: 1.0` ([spec §4](./spec.md#4-messages)). The reply carries a
 `contextId`; send it with every later message for the same User and Brand.
 Use a fresh `messageId` per message — resending one is a safe retry.
 
@@ -146,7 +158,9 @@ the question and answer.
 **Done when** the reply has `role: "ROLE_AGENT"` and a `contextId`, and a
 second message with that `contextId` continues the conversation.
 
-## 6 · Handle errors {#6-handle-errors}
+<a name="6-handle-errors"></a>
+
+## 6 · Handle errors
 
 | Response                                 | Meaning                                                    | Do                                    |
 | ---------------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
@@ -156,12 +170,14 @@ second message with that `contextId` continues the conversation.
 | Envelope, reason `INVALID_PARAMS`        | Bad request, or a `contextId` that isn't yours             | Fix the request / start a new context |
 | Envelope, reason `UNSUPPORTED_OPERATION` | Conversation closed, or an unsupported route               | Omit `contextId` to start a new one   |
 
-The reason is `error.details[0].reason` ([spec §6](/spec#6-errors)).
+The reason is `error.details[0].reason` ([spec §6](./spec.md#6-errors)).
 `A2AClient` throws `A2AError` for envelopes and `A2AHttpError` for the rest.
 
-## Test locally {#test-locally}
+<a name="test-locally"></a>
 
-Start the [reference stack](/running#run-it-locally); it already trusts the
+## Test locally
+
+Start the [reference stack](./running.md#run-it-locally); it already trusts the
 demo key from `pnpm gen-keys`.
 
 ```sh
@@ -174,5 +190,5 @@ export AUDIENCE="http://localhost:3000/a2a"
 
 Delegated authority is optional: the User logs in with the Brand and approves
 scopes, so the Brand's agent can act on their account. Brands advertise it on
-their card; [spec §5](/spec#5-delegated-authority) defines it. Nothing above
+their card; [spec §5](./spec.md#5-delegated-authority) defines it. Nothing above
 changes.

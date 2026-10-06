@@ -3,7 +3,7 @@ title: Run the reference stack
 description: Run the reference Provider, demo personal agent and conformance tests on your machine.
 ---
 
-Everything outside `docs/` implements the [specification](/spec)'s
+Everything outside `docs/` implements the [specification](./spec.md)'s
 **Identity** profile. Delegated authority (§5) is opt-in: see
 [Delegated authority](#delegated-authority-optional). Example implementations
 and seed data are provided as reference. The code calls Brands **customers**
@@ -24,7 +24,9 @@ to public IP addresses after DNS resolution.
 | `packages/protocol`               | `@openpactprotocol/protocol` — Zod schemas                            |      |
 | `e2e/`                            | Conformance suite                                                     |      |
 
-## Run it locally {#run-it-locally}
+<a name="run-it-locally"></a>
+
+## Run it locally
 
 Node 20+ and pnpm 11.21.0.
 
@@ -72,7 +74,9 @@ PA_PRIVATE_JWK=<written by pnpm gen-keys>
 Chat at `http://localhost:3001`. With `OPENAI_API_KEY` set on either side the
 agents use OpenAI; without it they use scripted replies.
 
-## Delegated authority (optional) {#delegated-authority-optional}
+<a name="delegated-authority-optional"></a>
+
+## Delegated authority (optional)
 
 With `DELEGATION_ENABLED=1` on the Provider, Skyline Airways' card also offers
 OAuth 2.0 device-code delegation (§5) with three scopes:
@@ -102,7 +106,9 @@ DELEGATION_ENABLED=1 A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openp
 | `PROVIDER_PRIVATE_JWK` | Provider         | generated into `.data/` |
 | `BRAND_PRIVATE_JWK`    | Brand            | generated into `.data/` |
 
-### Demo hostnames {#demo-hostnames}
+<a name="demo-hostnames"></a>
+
+### Demo hostnames
 
 For browser-facing demo URLs that look like a production deployment, start the
 Provider with:
@@ -119,7 +125,7 @@ CONSENT_ORIGIN=http://auth.skyline.localhost:3000 pnpm --filter @openpactprotoco
 ```
 
 Then open `http://agent.localhost:3001`. This mirrors production, where consent
-is served by the Provider on a Brand subdomain ([Provider guide](/provider)).
+is served by the Provider on a Brand subdomain ([Provider guide](./provider.md)).
 
 In the demo personal agent, ask "Can you check my upcoming Skyline flight?".
 Skyline replies `TASK_STATE_AUTH_REQUIRED`, and the agent shows a **Sign in with Skyline Airways** card that opens the Brand login in a new tab (demo account
@@ -134,7 +140,9 @@ Delegated conformance tests (skipped when the card has no delegation):
 pnpm --filter @openpactprotocol/e2e test:delegated
 ```
 
-## Register a personal agent {#register-a-personal-agent}
+<a name="register-a-personal-agent"></a>
+
+## Register a personal agent
 
 The reference Provider registers personal agents at `POST {PROVIDER_URL}/api/platforms`
 (the spec leaves registration to each Provider):
@@ -150,7 +158,9 @@ curl -X POST "$PROVIDER_URL/api/platforms" \
 the issuer's origin. `201` registers (audience = `A2A_AUDIENCE`), `409` means
 the name or issuer is taken. The demo personal agent's **Register** button makes this call.
 
-## Conformance tests {#conformance-tests}
+<a name="conformance-tests"></a>
+
+## Conformance tests
 
 ```sh
 PROVIDER_URL=http://localhost:3000 \
