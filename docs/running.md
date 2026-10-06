@@ -45,8 +45,8 @@ A2A_AUDIENCE=http://localhost:3000/a2a pnpm --filter @openpactprotocol/provider 
 pnpm --filter @openpactprotocol/personal-agent-client dev                                                 # demo personal agent, :3001
 ```
 
-`DATABASE_POOL_MAX=1` matters: PGlite accepts one connection, and with the
-default pool of 5 the Provider fails with
+`DATABASE_POOL_MAX=1` matters: PGlite is a single-session database, so with
+the default pool of 5 the Provider's connections interleave and it fails with
 `prepared statement "" requires N parameters`.
 
 Once the database is up, migrate and seed it. Any PostgreSQL works; point
