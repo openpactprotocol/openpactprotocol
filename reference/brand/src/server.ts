@@ -14,6 +14,7 @@ import {
   type CryptoKey,
   type JWK,
 } from "jose";
+import { permitsRebooking } from "./authorization.js";
 import { findUser, pastTrips, rebook, SCOPE_LABELS, upcomingTrips } from "./data.js";
 import { ConnectedPage } from "./views/ConnectedPage.js";
 import { ContinuePage } from "./views/ContinuePage.js";
@@ -225,6 +226,7 @@ async function handleApi(
   const token = request.headers.authorization?.match(/^Bearer\s+(\S+)$/i)?.[1];
   let sub: string;
   let scopes: Set<string>;
+  let authorizationDetails: unknown;
   try {
     const { payload } = await jwtVerify(token ?? "", providerJwks, {
       issuer: ISSUER,
@@ -233,6 +235,7 @@ async function handleApi(
       algorithms: ["ES256", "RS256"],
     });
     sub = String(payload.sub);
+    authorizationDetails = payload.authorization_details;
     scopes = new Set(String(payload.scope ?? "").split(" "));
   } catch (error) {
     console.warn("Rejected API token:", error instanceof Error ? error.message : error);
@@ -255,7 +258,12 @@ async function handleApi(
   if (request.method === "POST" && rebookPath) {
     if (!need("flights:rebook")) return;
     const body = JSON.parse((await readBody(request)) || "{}") as { flight?: unknown };
-    const trip = rebook(sub, decodeURIComponent(rebookPath[1]!), String(body.flight ?? ""));
+    const confirmation = decodeURIComponent(rebookPath[1]!);
+    const flight = String(body.flight ?? "");
+    if (!permitsRebooking(authorizationDetails, confirmation, flight)) {
+      return json(response, 403, { error: "authorization_details_mismatch" });
+    }
+    const trip = rebook(sub, confirmation, flight);
     if (!trip) return json(response, 404, { error: "not_found" });
     console.log(`Rebooked ${trip.confirmation} onto ${trip.flight} for ${sub}`);
     return json(response, 200, { trip });

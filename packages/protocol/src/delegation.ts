@@ -23,6 +23,11 @@ export function formatScope(scopes: readonly string[]): string {
 
 const ScopeIdSchema = z.string().regex(/^[\x21\x23-\x5B\x5D-\x7E]+$/);
 
+// Each Brand defines the fields and enforcement rules for its own types.
+export const AuthorizationDetailSchema = z.object({ type: z.string().min(1) }).passthrough();
+export const AuthorizationDetailsSchema = z.array(AuthorizationDetailSchema).min(1);
+export type AuthorizationDetails = z.infer<typeof AuthorizationDetailsSchema>;
+
 export const DeviceCodeFlowSchema = z.object({
   deviceAuthorizationUrl: z.string().url(),
   tokenUrl: z.string().url(),
@@ -46,6 +51,7 @@ export const AuthorizationServerMetadataSchema = z
     device_authorization_endpoint: z.string().url(),
     token_endpoint: z.string().url(),
     jwks_uri: z.string().url(),
+    authorization_details_types_supported: z.array(z.string().min(1)).optional(),
     scopes_supported: z.array(ScopeIdSchema).optional(),
     grant_types_supported: z.array(z.string()).optional(),
   })
@@ -66,6 +72,7 @@ export const TokenResponseSchema = z.object({
   refresh_token: z.string().min(1).optional(),
   expires_in: z.number().int().positive(),
   scope: z.string(),
+  authorization_details: AuthorizationDetailsSchema.optional(),
 });
 
 export const OAuthErrorCodeSchema = z.enum([
@@ -75,6 +82,7 @@ export const OAuthErrorCodeSchema = z.enum([
   "unauthorized_client",
   "unsupported_grant_type",
   "invalid_scope",
+  "invalid_authorization_details",
   "authorization_pending",
   "slow_down",
   "access_denied",
@@ -93,6 +101,7 @@ export const DelegationTokenClaimsSchema = z.object({
   sub: z.string().min(1),
   client_id: z.string().url(),
   scope: z.string(),
+  authorization_details: AuthorizationDetailsSchema.optional(),
   grant_id: z.string().min(1),
   iat: z.number().int(),
   exp: z.number().int(),

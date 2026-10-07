@@ -1,3 +1,4 @@
+import type { AuthorizationDetails } from "@openpactprotocol/protocol/delegation";
 import { createElement, type ReactNode } from "react";
 import type { ScopeDefinition } from "./config.js";
 import { ConsentPage } from "./views/ConsentPage.js";
@@ -67,6 +68,7 @@ export async function consentPage(input: {
   platformOrigin: string;
   email: string;
   scopes: (ScopeDefinition & { requested: boolean })[];
+  authorizationDetails?: AuthorizationDetails | undefined;
   action: string;
   session: string;
   publicHost?: string;
@@ -81,6 +83,7 @@ export async function consentPage(input: {
       platformOrigin: input.platformOrigin,
       email: input.email,
       scopes: input.scopes,
+      authorizationDetails: input.authorizationDetails,
       action: input.action,
       session: input.session,
     }),

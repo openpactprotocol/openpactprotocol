@@ -1,3 +1,4 @@
+import type { AuthorizationDetails } from "@openpactprotocol/protocol/delegation";
 import {
   boolean,
   index,
@@ -82,6 +83,7 @@ export const deviceAuthorizations = pgTable("device_authorizations", {
   deviceCodeHash: text("device_code_hash").notNull().unique(),
   userCode: text("user_code").notNull().unique(),
   requestedScope: text("requested_scope").notNull(),
+  authorizationDetails: jsonb("authorization_details").$type<AuthorizationDetails>(),
   status: text("status").$type<DeviceAuthorizationStatus>().notNull().default("pending"),
   brandUserId: text("brand_user_id"),
   grantId: text("grant_id"),
@@ -104,6 +106,7 @@ export const delegationGrants = pgTable(
     clientId: text("client_id").notNull(),
     brandUserId: text("brand_user_id").notNull(),
     scope: text("scope").notNull(),
+    authorizationDetails: jsonb("authorization_details").$type<AuthorizationDetails>(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

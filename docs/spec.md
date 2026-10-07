@@ -371,7 +371,8 @@ client_id=https://pa.example.com&scope=orders:read%20orders:cancel
   issuer origin, the Brand, and each scope as a checkbox the User MAY uncheck.
   Login comes first so the grant is bound to a verified account.
 - Consent MAY be skipped when an unexpired grant for `(User, personal agent)` already
-  covers the request.
+  covers the scopes and authorization details of the request (§5.7). Matching
+  scopes alone is not sufficient when the request includes authorization details.
 
 ```http
 POST {tokenUrl}
@@ -500,6 +501,64 @@ reply's `metadata` a receipt signed with the same keys as the token:
 ```
 
 `jws` is the compact JWS of `claims`. Personal agents SHOULD verify and keep receipts.
+
+<a name="57-resource-bound-delegation"></a>
+
+### 5.7 Resource-bound delegation (optional)
+
+A Brand MAY support OAuth Rich Authorization Requests
+([RFC 9396](https://www.rfc-editor.org/rfc/rfc9396)) to restrict delegated
+operations to particular resources or parameters. Scope-only grants remain
+valid; this section applies when a grant contains `authorization_details`.
+
+- The Brand's RFC 8414 metadata MUST list supported types in
+  `authorization_details_types_supported`. Each type MUST define its fields,
+  associated scopes, how permissions from multiple entries combine, and the
+  checks required before an operation. Types are defined by Brands; PACT
+  reserves no type names.
+- A personal agent MUST check that each requested type is advertised before
+  including the JSON array `authorization_details` in the device authorization
+  request (§5.3). A Provider MUST reject malformed details, unsupported types
+  or fields, and unsupported combinations with scopes using
+  `invalid_authorization_details`. It MUST NOT silently discard restrictions.
+- The Provider MUST present the requested resources and conditions on its
+  consent page using the type's defined semantics. An agent-supplied description
+  is not a substitute for these conditions. Approved details MUST be stored
+  with the grant. If the User declines an associated scope, its details MUST
+  NOT grant that scope independently.
+- Both the token response and delegation JWT MUST contain the approved
+  `authorization_details`. Before using a token, the personal agent MUST verify
+  that the response grants no more authority than it requested and retains
+  every condition it requires. Missing or unacceptable details MUST stop the
+  operation; the personal agent MUST NOT fall back to a scope-only token.
+- Refresh MUST preserve the grant's approved details. Changing or removing a
+  restriction requires new consent. A Provider MAY skip consent only when it
+  can establish that an existing grant covers the requested details according
+  to the type's semantics.
+- For operations governed by a granted detail type, the associated scope is
+  necessary but not sufficient. The resource server MUST also enforce the
+  approved details against the actual resource and parameters before performing
+  the operation. This applies to the Brand API when the Provider calls one.
+  Checking only the conversation text does not satisfy this rule. An operation
+  outside the approved details MUST NOT execute; it requires new authorization.
+
+For example, a Brand-defined flight-rebooking type could authorize only one
+reservation and target flight:
+
+```json
+{
+  "type": "https://skyline.example/authorization/flight-rebook/v1",
+  "identifier": "K7PQ2M",
+  "actions": ["rebook"],
+  "target_flight": "SK 318"
+}
+```
+
+In the reference Brand, this type requires `flights:rebook`. Multiple entries
+allow the union of the listed reservation/flight pairs; that scope does not
+permit any other pair while these details are present. The type does not
+specify a price limit or limit the number of calls. It is an example, not a
+PACT-wide flight vocabulary.
 
 <a name="6-errors"></a>
 

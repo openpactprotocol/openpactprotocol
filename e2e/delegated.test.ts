@@ -63,6 +63,7 @@ async function approveInBrowser(
   verificationUriComplete: string,
   scopes: string[],
   decision: "allow" | "deny" = "allow",
+  expectedText?: string,
 ): Promise<string> {
   const loginUrl = new URL(verificationUriComplete);
   const returnTo = loginUrl.searchParams.get("return_to") ?? "";
@@ -80,6 +81,7 @@ async function approveInBrowser(
   });
   const consentHtml = await consent.text();
   expect(consent.status).toBe(200);
+  if (expectedText) expect(consentHtml).toContain(expectedText);
   const decisionAction = consentHtml.match(/<form[^>]*\baction="([^"]+)"/)?.[1] ?? "";
   const body = new URLSearchParams({ session: field(consentHtml, "session"), decision });
   for (const scope of scopes) body.append("scope", scope);
@@ -209,3 +211,155 @@ describe.skipIf(!scheme)("PACT Delegated", () => {
     );
   });
 });
+
+const rebookType = "https://skyline.example/authorization/flight-rebook/v1";
+const binding = [
+  { type: rebookType, identifier: "K7PQ2M", actions: ["rebook"], target_flight: "SK 318" },
+];
+// The resource semantics and account fixtures below belong to the reference Brand.
+describe.skipIf(!scheme || process.env.E2E_PROVIDER === "any")(
+  "reference resource-bound delegation",
+  () => {
+    const signer = createPlatformSigner({ issuer, privateJwk });
+    const getToken = () => signer.sign({ sub: "e2e-bound", aud: audience });
+    let oauth: DeviceCodeClient;
+    let bound: DelegationToken;
+    let brandUrl: string;
+    beforeAll(() => {
+      oauth = new DeviceCodeClient({ scheme: scheme!, clientId: issuer, getToken });
+    });
+    it("shows conditions on consent and puts the approved details in the response and JWT", async () => {
+      const authorization = await oauth.start(["flights:upcoming:read", "flights:rebook"], {
+        authorizationDetails: binding,
+      });
+      brandUrl = new URL(authorization.verificationUriComplete).origin;
+      await approveInBrowser(
+        authorization.verificationUriComplete,
+        ["flights:upcoming:read", "flights:rebook"],
+        "allow",
+        "Only reservation K7PQ2M, to flight SK 318",
+      );
+      bound = await oauth.waitForToken(authorization);
+      expect(bound.authorizationDetails).toEqual(binding);
+      const { decodeJwt } = await import("jose");
+      expect(decodeJwt(bound.accessToken).authorization_details).toEqual(binding);
+    });
+    it("rejects unsupported types, fields, malformed arrays and missing associated scopes", async () => {
+      for (const [scope, details] of [
+        ["flights:rebook", [{ ...binding[0], type: "unsupported" }]],
+        ["flights:rebook", [{ ...binding[0], max_fee: 0 }]],
+        ["flights:rebook", []],
+        ["flights:upcoming:read", binding],
+      ] as const) {
+        const response = await fetch(scheme!.deviceAuthorizationUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${await getToken()}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            client_id: issuer,
+            scope,
+            authorization_details: JSON.stringify(details),
+          }),
+        });
+        expect(response.status).toBe(400);
+        expect((await response.json()).error).toBe("invalid_authorization_details");
+      }
+    });
+    it("enforces the pair at the Brand API and leaves the booking unchanged on rejection", async () => {
+      const read = async () =>
+        (
+          await (
+            await fetch(`${brandUrl}/api/trips/upcoming`, {
+              headers: { Authorization: `Bearer ${bound.accessToken}` },
+            })
+          ).json()
+        ).trips;
+      const before = await read();
+      const otherAuthorization = await oauth.start(["flights:rebook"], {
+        authorizationDetails: [{ ...binding[0]!, target_flight: "SK 999" }],
+      });
+      await approveInBrowser(otherAuthorization.verificationUriComplete, ["flights:rebook"]);
+      const otherToken = await oauth.waitForToken(otherAuthorization);
+      const availableButNotGranted = await fetch(`${brandUrl}/api/trips/K7PQ2M/rebook`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${otherToken.accessToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ flight: "SK 318" }),
+      });
+      expect(availableButNotGranted.status).toBe(403);
+      expect(await read()).toEqual(before);
+      for (const [reservation, flight] of [
+        ["OTHER", "SK 318"],
+        ["K7PQ2M", "SK 999"],
+      ]) {
+        const response = await fetch(`${brandUrl}/api/trips/${reservation}/rebook`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${bound.accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ flight }),
+        });
+        expect(response.status).toBe(403);
+        expect((await response.json()).error).toBe("authorization_details_mismatch");
+        expect(await read()).toEqual(before);
+      }
+    });
+    it("preserves the details on refresh, including in the signed token", async () => {
+      const { decodeJwt } = await import("jose");
+      bound = await oauth.refresh(bound.refreshToken!, { authorizationDetails: binding });
+      expect(bound.authorizationDetails).toEqual(binding);
+      expect(decodeJwt(bound.accessToken).authorization_details).toEqual(binding);
+    });
+    it("does not grant details when the User declines the associated scope", async () => {
+      const authorization = await oauth.start(["flights:upcoming:read", "flights:rebook"], {
+        authorizationDetails: binding,
+      });
+      await approveInBrowser(authorization.verificationUriComplete, ["flights:upcoming:read"]);
+      // Inspect the response without the client check to verify the server's partial approval.
+      const response = await fetch(scheme!.tokenUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${await getToken()}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          client_id: issuer,
+          grant_type: "urn:ietf:params:oauth:grant-type:device_code",
+          device_code: authorization.deviceCode,
+        }),
+      });
+      const token = await response.json();
+      expect(response.status).toBe(200);
+      expect(token.scope).toBe("flights:upcoming:read");
+      expect(token.authorization_details).toBeUndefined();
+      const { decodeJwt } = await import("jose");
+      expect(decodeJwt(token.access_token).authorization_details).toBeUndefined();
+    });
+    it("executes the approved change through the Provider and returns a receipt", async () => {
+      const client = new DelegatedA2AClient({
+        url: card!.url,
+        getToken,
+        getDelegationToken: () => bound.accessToken,
+      });
+      const result = await client.send("Rebook me on SK 318");
+      expect(result.kind).toBe("message");
+      if (result.kind !== "message") throw new Error("Expected message");
+      expect(JSON.stringify(result.message.parts)).toContain("now on SK 318");
+      const metadata = await fetchAuthorizationServerMetadata(scheme!.metadataUrl);
+      const receipt = await verifyReceipt(result.receipt!, {
+        jwks: metadata.jwks_uri,
+        expected: { pa: issuer, brand: card!.url },
+      });
+      expect(receipt.actions.some((action) => action.tool === "rebook_trip")).toBe(true);
+      const response = await fetch(`${brandUrl}/api/trips/upcoming`, {
+        headers: { Authorization: `Bearer ${bound.accessToken}` },
+      });
+      expect((await response.json()).trips[0].flight).toBe("SK 318");
+    });
+  },
+);
