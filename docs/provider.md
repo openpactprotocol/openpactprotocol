@@ -128,3 +128,27 @@ pointed at you, such as `auth.brand.example`, so the User sees the Brand's
 domain where they grant access. You can move the Brand's OAuth endpoints there
 too; its RFC 8414 issuer then uses that domain. Never let consent be framed:
 send `frame-ancestors 'none'`.
+
+<a name="resource-bound-delegation"></a>
+
+## Resource-bound delegation
+
+A Brand may opt into [spec §5.7](./spec.md#57-resource-bound-delegation) using
+RFC 9396 `authorization_details` in the existing device-code flow. Advertise
+supported types in the RFC 8414 metadata. Define each type's fields, associated
+scopes, combination rules and execution checks.
+
+Validate the request before returning a device code. Reject unsupported types,
+fields and scope combinations with `invalid_authorization_details`. Display
+the resources and conditions on your consent page, store the approved details
+with the grant, and include them in the delegation JWT and token response.
+Refresh must preserve them. Scope equality alone cannot justify reusing
+consent for different resources or conditions.
+
+For governed operations, require both the scope and the approved conditions.
+The Brand API must check the actual resource and parameters before changing
+state. Do not rely on the agent's reading of conversation text.
+
+**Done when** an approved resource/parameter pair succeeds, a different pair
+cannot change state, token refresh preserves the conditions, and unsupported
+details are rejected. Scope-only clients and grants should still work.

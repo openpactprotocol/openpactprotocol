@@ -192,3 +192,40 @@ Delegated authority is optional: the User logs in with the Brand and approves
 scopes, so the Brand's agent can act on their account. Brands advertise it on
 their card; [spec §5](./spec.md#5-delegated-authority) defines it. Nothing above
 changes.
+
+<a name="resource-bound-delegation"></a>
+
+## Resource-bound delegation
+
+[Spec §5.7](./spec.md#57-resource-bound-delegation) lets a Brand support
+RFC 9396 authorization details. Fetch its RFC 8414 metadata and check
+`authorization_details_types_supported` before requesting a type. Understand
+the type's fields and semantics; a type name alone does not describe its rights.
+
+The client checks advertised support and requires the returned details to
+match the request. A changed or missing condition stops token use.
+
+```ts
+const authorization = await oauth.start(["flights:rebook"], {
+  authorizationDetails: [
+    {
+      type: "https://skyline.example/authorization/flight-rebook/v1",
+      identifier: "K7PQ2M",
+      actions: ["rebook"],
+      target_flight: "SK 318",
+    },
+  ],
+});
+// Show the Brand's login link and wait for approval.
+const token = await oauth.waitForToken(authorization);
+const renewed = await oauth.refresh(token.refreshToken!, {
+  authorizationDetails: token.authorizationDetails,
+});
+```
+
+Persist the approved details with the token. When resuming polling or refresh
+in a new client instance, pass those expected details explicitly. Do not retry
+an operation with a broader scope-only token if the conditions are unavailable.
+
+**Done when** unsupported types stop before device authorization, returned
+conditions survive refresh, and an omitted or changed condition stops token use.

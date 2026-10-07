@@ -5,6 +5,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { A2AErrorResponseSchema } from "@openpactprotocol/protocol";
 import { A2AClient, fetchAgentCard, interfaceUrl, type AgentCard } from "@openpactprotocol/client";
 
+import {
+  delegationScheme,
+  fetchAuthorizationServerMetadata,
+} from "@openpactprotocol/client/delegation";
+
 function readLocalEnv(): void {
   const path = fileURLToPath(
     new URL("../reference/personal-agent/client/.env.local", import.meta.url),
@@ -436,6 +441,27 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
       }),
     });
     expect(hs256.status).toBe(401);
+
+    const scheme = delegationScheme(cardResult!.card);
+    if (scheme) {
+      const metadata = await fetchAuthorizationServerMetadata(scheme.metadataUrl);
+      if (metadata.authorization_details_types_supported?.length) {
+        const response = await fetch(scheme.deviceAuthorizationUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${await signedToken()}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+          body: new URLSearchParams({
+            client_id: issuer,
+            scope: scheme.scopes[0]!.id,
+            authorization_details: JSON.stringify([{ type: "urn:pact:test:unsupported" }]),
+          }),
+        });
+        expect(response.status).toBe(400);
+        expect((await response.json()).error).toBe("invalid_authorization_details");
+      }
+    }
 
     const tokenWithoutJti = await signedToken();
     expect((await rawRequest("tasks", { token: tokenWithoutJti })).status).toBe(200);

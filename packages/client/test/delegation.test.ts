@@ -343,3 +343,107 @@ describe("@openpactprotocol/client/delegation", () => {
     await expect(verifyReceipt(receipt, { jwks: otherJwks })).rejects.toThrow("signature");
   });
 });
+
+const requestedDetails = [
+  {
+    type: "https://brand.example/authorization/delivery/v1",
+    identifier: "order-1",
+    address: "address-2",
+  },
+];
+const deviceResponse = {
+  device_code: "dc_bound",
+  user_code: "BOUND",
+  verification_uri: "https://brand.example/login",
+  verification_uri_complete: "https://brand.example/login?code=BOUND",
+  expires_in: 600,
+};
+const metadataResponse = {
+  issuer: `${brandUrl}/oauth`,
+  device_authorization_endpoint: `${brandUrl}/oauth/device_authorization`,
+  token_endpoint: `${brandUrl}/oauth/token`,
+  jwks_uri: `${brandUrl}/oauth/jwks.json`,
+  authorization_details_types_supported: [requestedDetails[0]!.type],
+};
+
+describe("resource-bound device grants", () => {
+  it("checks support, sends details, and preserves them across refresh", async () => {
+    const { client, requests } = deviceClient(delegationScheme(card)!, [
+      Response.json(metadataResponse),
+      Response.json(deviceResponse),
+      Response.json({ ...tokenResponse, authorization_details: requestedDetails }),
+      Response.json({
+        ...tokenResponse,
+        refresh_token: "rt_2",
+        authorization_details: requestedDetails,
+      }),
+    ]);
+    const authorization = await client.start(["delivery:change"], {
+      authorizationDetails: requestedDetails,
+    });
+    expect(requests[0]!.url).toBe(
+      metadataResponse.issuer + "/.well-known/oauth-authorization-server",
+    );
+    expect(
+      JSON.parse(new URLSearchParams(requests[1]!.body).get("authorization_details")!),
+    ).toEqual(requestedDetails);
+    expect(authorization.authorizationDetails).toEqual(requestedDetails);
+    const result = await client.poll(authorization.deviceCode);
+    expect(result.status).toBe("granted");
+    if (result.status !== "granted") throw new Error("Expected grant");
+    expect(result.token.authorizationDetails).toEqual(requestedDetails);
+    expect((await client.refresh(result.token.refreshToken!)).authorizationDetails).toEqual(
+      requestedDetails,
+    );
+  });
+  it("does not send device authorization when support is absent", async () => {
+    const { client, requests } = deviceClient(delegationScheme(card)!, [
+      Response.json({ ...metadataResponse, authorization_details_types_supported: [] }),
+    ]);
+    await expect(
+      client.start(["delivery:change"], { authorizationDetails: requestedDetails }),
+    ).rejects.toMatchObject({ error: "invalid_authorization_details" });
+    expect(requests).toHaveLength(1);
+  });
+  it.each([
+    undefined,
+    [{ ...requestedDetails[0], identifier: "order-2" }],
+    [{ ...requestedDetails[0], address: undefined }],
+  ])("rejects omitted or changed token details: %j", async (returned) => {
+    const { client } = deviceClient(delegationScheme(card)!, [
+      Response.json(metadataResponse),
+      Response.json(deviceResponse),
+      Response.json({ ...tokenResponse, ...(returned ? { authorization_details: returned } : {}) }),
+    ]);
+    const authorization = await client.start(["delivery:change"], {
+      authorizationDetails: requestedDetails,
+    });
+    await expect(client.poll(authorization.deviceCode)).rejects.toMatchObject({
+      error: "invalid_authorization_details",
+    });
+  });
+  it("checks persisted conditions when refreshing in a new instance", async () => {
+    const { client } = deviceClient(delegationScheme(card)!, [Response.json(tokenResponse)]);
+    await expect(
+      client.refresh("persisted-token", { authorizationDetails: requestedDetails }),
+    ).rejects.toMatchObject({ error: "invalid_authorization_details" });
+  });
+  it("accepts object key reordering and protects the request from caller mutation", async () => {
+    const details = structuredClone(requestedDetails);
+    const returned = [
+      { address: "address-2", identifier: "order-1", type: requestedDetails[0]!.type },
+    ];
+    const { client } = deviceClient(delegationScheme(card)!, [
+      Response.json(metadataResponse),
+      Response.json(deviceResponse),
+      Response.json({ ...tokenResponse, authorization_details: returned }),
+    ]);
+    const authorization = await client.start(["delivery:change"], {
+      authorizationDetails: details,
+    });
+    details[0]!.address = "changed";
+    await expect(client.poll(authorization.deviceCode)).resolves.toMatchObject({
+      status: "granted",
+    });
+  });
+});
