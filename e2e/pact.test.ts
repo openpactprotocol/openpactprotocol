@@ -144,6 +144,25 @@ function textPart(referenceText: string): { text: unknown } {
   return { text: referenceProvider ? referenceText : expect.any(String) };
 }
 
+// 0.1 s of 8 kHz 16-bit mono silence as a base64 WAV file.
+function silentWav(): string {
+  const samples = 800;
+  const wav = Buffer.alloc(44 + samples * 2);
+  wav.write("RIFF", 0, "ascii");
+  wav.writeUInt32LE(36 + samples * 2, 4);
+  wav.write("WAVEfmt ", 8, "ascii");
+  wav.writeUInt32LE(16, 16);
+  wav.writeUInt16LE(1, 20);
+  wav.writeUInt16LE(1, 22);
+  wav.writeUInt32LE(8000, 24);
+  wav.writeUInt32LE(16000, 28);
+  wav.writeUInt16LE(2, 32);
+  wav.writeUInt16LE(16, 34);
+  wav.write("data", 36, "ascii");
+  wav.writeUInt32LE(samples * 2, 40);
+  return wav.toString("base64");
+}
+
 async function expectNoA2AError(response: Response): Promise<void> {
   expect(response.headers.get("content-type")).not.toBe("application/a2a+json");
   await response.arrayBuffer();
@@ -450,7 +469,7 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
     await expectNoA2AError(unknownCustomer);
   });
 
-  it("rejects taskId, malformed messages, and non-text content", async () => {
+  it("rejects taskId, malformed messages, and content the card does not list", async () => {
     await expectA2AError(
       await rawRequest("message:send", {
         method: "POST",
@@ -479,5 +498,28 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
         reason: "CONTENT_TYPE_NOT_SUPPORTED",
       },
     );
+    await expectA2AError(
+      await rawRequest("message:send", {
+        method: "POST",
+        body: messageBody("", {
+          parts: [{ raw: silentWav(), mediaType: "audio/x-pact-unlisted" }],
+        }),
+      }),
+      {
+        httpStatus: 400,
+        status: "INVALID_ARGUMENT",
+        reason: "CONTENT_TYPE_NOT_SUPPORTED",
+      },
+    );
+    if (cardResult?.card.defaultInputModes.includes("audio/wav")) {
+      const audio = await rawRequest("message:send", {
+        method: "POST",
+        body: messageBody("", { parts: [{ raw: silentWav(), mediaType: "audio/wav" }] }),
+      });
+      const error = A2AErrorResponseSchema.safeParse(await audio.json());
+      if (error.success) {
+        expect(error.data.error.details[0]?.reason).not.toBe("CONTENT_TYPE_NOT_SUPPORTED");
+      }
+    }
   });
 });

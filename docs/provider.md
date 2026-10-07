@@ -68,7 +68,9 @@ and a disabled personal agent all get that `401`, and a good token passes.
 ## 4 · Answer `message:send`
 
 `POST {interfaceUrl}/message:send` ([spec §4](./spec.md#4-messages)). Require
-`role: "ROLE_USER"` and a non-blank `text` part. Key conversations by
+`role: "ROLE_USER"` and a non-blank `text` part. If your card lists audio types
+in `defaultInputModes`, an audio part of a listed type also counts; any other
+part gets `CONTENT_TYPE_NOT_SUPPORTED`. Key conversations by
 `(iss, sub, brandId)`:
 
 | Request                                       | Do                                                |
@@ -80,8 +82,10 @@ and a disabled personal agent all get that `401`, and a good token passes.
 | Conversation closed                           | `UNSUPPORTED_OPERATION`                           |
 
 Reply synchronously with a `ROLE_AGENT` message carrying the `contextId`,
-`Content-Type: application/a2a+json`. The token says which personal agent is calling for
-`sub`, not who the User is. The agent verifies the User as it would in a chat
+`Content-Type: application/a2a+json`. Add audio parts only for a type that is in
+both your `defaultOutputModes` and the request's
+`configuration.acceptedOutputModes`, and keep the words in a `text` part. The
+token says which personal agent is calling for `sub`, not who the User is. The agent verifies the User as it would in a chat
 widget.
 
 **Done when** two messages with one `contextId` continue one conversation,
