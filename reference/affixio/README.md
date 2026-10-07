@@ -50,14 +50,14 @@ tests use transport fixtures; neither suite claims to verify remote signatures.
 
 ## Files
 
-| File | Purpose |
-| --- | --- |
+| File           | Purpose                                                               |
+| -------------- | --------------------------------------------------------------------- |
 | `src/guard.ts` | Scope checks, action binding, deadline, consent recheck and execution |
-| `src/api.ts` | Authenticated HTTPS request and strict evidence binding checks |
-| `src/sdk.ts` | Adapter for the SDK's local `evaluatePolicy` function |
-| `src/mcp.ts` | Adapter for an authenticated MCP client's `callTool` |
-| `src/demo.ts` | Runnable fixture and opt-in API demonstration |
-| `test/` | Execution, consent, isolation, transport and failure tests |
+| `src/api.ts`   | Authenticated HTTPS request and strict evidence binding checks        |
+| `src/sdk.ts`   | Adapter for the SDK's local `evaluatePolicy` function                 |
+| `src/mcp.ts`   | Adapter for an authenticated MCP client's `callTool`                  |
+| `src/demo.ts`  | Runnable fixture and opt-in API demonstration                         |
+| `test/`        | Execution, consent, isolation, transport and failure tests            |
 
 Contributed by [AffixIO](https://www.affix-io.com/). This is an optional integration
 example, not a PACT endorsement, certification or conformance claim.

@@ -2,11 +2,19 @@ import { z } from "zod";
 import { digest, type Authorize, type Json } from "./guard.js";
 
 export type SdkPolicy = {
-  id: string; version: string; mode: "all";
+  id: string;
+  version: string;
+  mode: "all";
   rules: { source: string; operator: "truthy"; maxAgeMs: number }[];
 };
 
-export type SdkObservation = { source: string; status: "ok"; value: boolean; observedAt: number; expiresAt: number };
+export type SdkObservation = {
+  source: string;
+  status: "ok";
+  value: boolean;
+  observedAt: number;
+  expiresAt: number;
+};
 
 export type SdkEvaluatePolicy = (
   policy: SdkPolicy,
@@ -14,7 +22,10 @@ export type SdkEvaluatePolicy = (
   options: { now: number; input: Json },
 ) => unknown;
 
-export function createSdkAuthorizer(evaluatePolicy: SdkEvaluatePolicy, clock: () => number = Date.now): Authorize {
+export function createSdkAuthorizer(
+  evaluatePolicy: SdkEvaluatePolicy,
+  clock: () => number = Date.now,
+): Authorize {
   return async (request, signal) => {
     signal.throwIfAborted();
     const now = clock();
@@ -29,23 +40,40 @@ export function createSdkAuthorizer(evaluatePolicy: SdkEvaluatePolicy, clock: ()
       approval: !policy.require_human_approval || policy.human_approved,
     };
     const sdkPolicy: SdkPolicy = {
-      id: policy.id, version: "1", mode: "all",
+      id: policy.id,
+      version: "1",
+      mode: "all",
       rules: Object.keys(checks).map((source) => ({ source, operator: "truthy", maxAgeMs: 5_000 })),
     };
     const observations: SdkObservation[] = Object.entries(checks).map(([source, value]) => ({
-      source, status: "ok", value, observedAt: now, expiresAt: request.context.authorization_expires_at,
+      source,
+      status: "ok",
+      value,
+      observedAt: now,
+      expiresAt: request.context.authorization_expires_at,
     }));
     const input: Json = request;
     const raw = evaluatePolicy(sdkPolicy, observations, { now, input });
-    const result = z.object({
-      schema: z.literal("affix.decision.v1"), decision: z.enum(["allow", "deny", "review"]),
-      inputDigest: z.string(), validUntil: z.number(),
-    }).passthrough().parse(raw);
-    if (result.inputDigest !== digest(input) || result.validUntil <= clock()) throw new Error("Invalid SDK decision");
+    const result = z
+      .object({
+        schema: z.literal("affix.decision.v1"),
+        decision: z.enum(["allow", "deny", "review"]),
+        inputDigest: z.string(),
+        validUntil: z.number(),
+      })
+      .passthrough()
+      .parse(raw);
+    if (result.inputDigest !== digest(input) || result.validUntil <= clock())
+      throw new Error("Invalid SDK decision");
     signal.throwIfAborted();
     return {
-      decision: result.decision, binding: request.context.binding,
-      evidence: { transport: "affixio-sdk", signatureVerified: false, response: z.json().parse(raw) as Json },
+      decision: result.decision,
+      binding: request.context.binding,
+      evidence: {
+        transport: "affixio-sdk",
+        signatureVerified: false,
+        response: z.json().parse(raw) as Json,
+      },
     };
   };
 }

@@ -10,10 +10,17 @@ for (const amountMinor of [0, 1]) {
   const definition = tool();
   definition.describe = () => ({ resource: "skyline:rebooking", amountMinor, currency: "GBP" });
   const guard = createActionGuard({
-    brand, bindingSecret: secret, tools: [definition], getAuthorization: async () => authorization(),
-    authorize: createSdkAuthorizer(sdk.evaluatePolicy, () => NOW), clock: () => NOW,
+    brand,
+    bindingSecret: secret,
+    tools: [definition],
+    getAuthorization: async () => authorization(),
+    authorize: createSdkAuthorizer(sdk.evaluatePolicy, () => NOW),
+    clock: () => NOW,
   });
-  const result = guard.execute(action(), async () => { executed += 1; return "executed"; });
+  const result = guard.execute(action(), async () => {
+    executed += 1;
+    return "executed";
+  });
   if (amountMinor === 0) assert.equal((await result).value, "executed");
   else await assert.rejects(result, { reason: "deny" });
 }

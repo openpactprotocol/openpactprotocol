@@ -69,15 +69,15 @@ checks for this request. Never pass model-supplied objects or merely decoded
 JWT claims into it. It is called again after the decision to detect a revoked,
 expired or changed grant.
 
-| Authorization field | Source |
-| --- | --- |
-| `brand` | Exact Brand interface URL for this route |
-| `pa` | Verified personal-agent issuer, bound to delegation `client_id` |
-| `paSubject` | Verified personal-agent JWT `sub` |
-| `user` | Verified delegation token `sub` |
-| `grantId` | Verified delegation token `grant_id`, checked against active grants |
-| `scopes` | Verified delegation scopes |
-| `expiresAt` | Earliest expiry of the verified credentials, in milliseconds |
+| Authorization field | Source                                                              |
+| ------------------- | ------------------------------------------------------------------- |
+| `brand`             | Exact Brand interface URL for this route                            |
+| `pa`                | Verified personal-agent issuer, bound to delegation `client_id`     |
+| `paSubject`         | Verified personal-agent JWT `sub`                                   |
+| `user`              | Verified delegation token `sub`                                     |
+| `grantId`           | Verified delegation token `grant_id`, checked against active grants |
+| `scopes`            | Verified delegation scopes                                          |
+| `expiresAt`         | Earliest expiry of the verified credentials, in milliseconds        |
 
 Keep the Brand's resource ownership checks as well as scope checks. A valid
 `flights:rebook` scope does not make someone else's booking accessible.
@@ -102,8 +102,7 @@ const checked = await guard.execute(
     actionId: "rebook-1",
     signal: request.signal,
   },
-  async (args, authorization) =>
-    brandApi.rebookForUser(authorization.user, args),
+  async (args, authorization) => brandApi.rebookForUser(authorization.user, args),
 );
 
 actions.push(checked.action);
@@ -132,7 +131,7 @@ X-API-Key: <server-side AffixIO key>
 Content-Type: application/json
 ```
 
-The body contains `actor`, `action`, `policy` and a bound `context`, with
+The body contains `agent`, `action`, `policy` and a bound `context`, with
 `audit: true` and `request_attestation: true`. AffixIO's `yes`, `no` and `review`
 map to the guard's `allow`, `deny` and `review`. Both the outcome and `allowed`
 flag must agree. The adapter verifies that the returned action, policy, actor,
