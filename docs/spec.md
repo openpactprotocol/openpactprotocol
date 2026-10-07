@@ -62,6 +62,9 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
   `scheme: "Bearer"`, `bearerFormat: "JWT"`, listed alone in one
   `securityRequirements` entry.
 - MAY declare delegated authority (§5.1).
+- MAY list audio media types in `defaultInputModes` and `defaultOutputModes`;
+  only those types are accepted in requests (§4.1) or sent in replies (§4.2).
+  Text is always accepted.
 - `name`, `description`, `skills` are informational.
 
 ```json
@@ -211,7 +214,10 @@ Content-Type: application/json
 
 - An A2A `SendMessageRequest`. `configuration` and `metadata` MAY be ignored.
 - `role` MUST be `ROLE_USER`. `parts` MUST have at least one non-blank `text`
-  part. Other part kinds get `CONTENT_TYPE_NOT_SUPPORTED`.
+  part or one audio part. An audio part is a `raw` or `url` part whose
+  `mediaType` is an audio type the card lists in `defaultInputModes` (§2.1).
+  Any other part, including audio of a type the card does not list, gets
+  `CONTENT_TYPE_NOT_SUPPORTED`.
 - `taskId` MUST be absent; otherwise `TASK_NOT_FOUND`.
 - `messageId` MUST be unique within the context.
 
@@ -221,6 +227,11 @@ Content-Type: application/json
 
 - The reply is synchronous: `{ "message": Message }` with `role: ROLE_AGENT`
   and `contextId` set (or a task, §5.5).
+- The reply MAY include `raw` or `url` parts of an audio type only when the
+  card lists it in `defaultOutputModes` and the request lists it in
+  `configuration.acceptedOutputModes`. Such a reply SHOULD also carry the
+  agent's words in a `text` part. A Provider that ignores `configuration`
+  replies without audio.
 - Without `contextId`, the message starts a new conversation and the Provider
   mints an opaque `contextId`.
 - With `contextId`, the message continues that conversation. The context MUST
@@ -529,14 +540,14 @@ the status alone.
 | Reason                            | HTTP | `status`              | When                                              |
 | --------------------------------- | ---: | --------------------- | ------------------------------------------------- |
 | `INVALID_PARAMS`                  |  400 | `INVALID_ARGUMENT`    | Invalid request (see below)                       |
-| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | Non-text part                                     |
+| `CONTENT_TYPE_NOT_SUPPORTED`      |  400 | `INVALID_ARGUMENT`    | A part that is neither text nor listed audio      |
 | `UNSUPPORTED_OPERATION`           |  400 | `FAILED_PRECONDITION` | Unsupported operation, closed context             |
 | `PUSH_NOTIFICATION_NOT_SUPPORTED` |  400 | `FAILED_PRECONDITION` | Push notifications not supported                  |
 | `TASK_NOT_FOUND`                  |  404 | `NOT_FOUND`           | Task lookup or cancel; `taskId` on `message:send` |
 | `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                  |
 
-`INVALID_PARAMS` covers: bad JSON or schema, wrong role, blank text, bad
-`pageSize`, an unknown or foreign `contextId`, a repeated `messageId` with no
+`INVALID_PARAMS` covers: bad JSON or schema, wrong role, blank text with no
+audio part, bad `pageSize`, an unknown or foreign `contextId`, a repeated `messageId` with no
 stored reply, and a `sub` mismatch (§5.5).
 
 Not A2A errors: `401` (§3.4, §5.5); `404`/`405` for unmatched routes or
