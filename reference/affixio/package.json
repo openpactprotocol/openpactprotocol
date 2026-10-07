@@ -1,0 +1,16 @@
+{
+  "name": "@openpactprotocol/affixio-example",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "demo": "tsx src/demo.ts",
+    "test:sdk": "tsx scripts/sdk-smoke.ts"
+  },
+  "dependencies": {
+    "@openpactprotocol/protocol": "workspace:*",
+    "zod": "4.1.5"
+  }
+}

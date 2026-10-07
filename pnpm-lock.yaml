@@ -69,6 +69,15 @@ importers:
         specifier: 4.1.5
         version: 4.1.5
 
+  reference/affixio:
+    dependencies:
+      "@openpactprotocol/protocol":
+        specifier: workspace:*
+        version: link:../../packages/protocol
+      zod:
+        specifier: 4.1.5
+        version: 4.1.5
+
   reference/brand:
     dependencies:
       jose:

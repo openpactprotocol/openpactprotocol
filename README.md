@@ -51,6 +51,13 @@ pnpm install && pnpm gen-keys
 
 then follow [Run the reference stack](docs/running.md#run-it-locally).
 
+## Optional integrations
+
+[Action checks with AffixIO](./docs/affixio.md) demonstrates a Provider-side
+guard for delegated tool execution, with API, local SDK and MCP adapters.
+The runnable example and tests are in `reference/affixio`; it does not change
+the protocol or require AffixIO in the existing reference stack.
+
 ## License
 
 [Apache-2.0](LICENSE).

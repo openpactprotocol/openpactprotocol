@@ -128,3 +128,8 @@ pointed at you, such as `auth.brand.example`, so the User sees the Brand's
 domain where they grant access. You can move the Brand's OAuth endpoints there
 too; its RFC 8414 issuer then uses that domain. Never let consent be framed:
 send `frame-ancestors 'none'`.
+
+For an optional check at the tool execution boundary, see
+[Action checks with AffixIO](./affixio.md). The example preserves PACT's scope
+step-up and signed receipts while checking a Brand-controlled action policy
+through an API, local SDK or MCP connection.
