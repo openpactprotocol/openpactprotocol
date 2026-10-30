@@ -1,16 +1,33 @@
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import { importJWK, SignJWT, type JWK, type JWTPayload } from "jose";
 import {
   A2A_VERSION,
   A2AErrorResponseSchema,
   AgentCardSchema,
+  ContextCallbackSchema,
+  ListContextMessagesResponseSchema,
+  ListContextsResponseSchema,
   SendMessageResponseSchema,
   type A2AErrorResponse,
   type AgentCard,
+  type ContextCallback,
+  type ListContextMessagesResponse,
+  type ListContextsResponse,
   type Message,
 } from "@openpactprotocol/protocol";
 
-export type { AgentCard, Message };
+export type {
+  AgentCard,
+  ContextCallback,
+  ListContextMessagesResponse,
+  ListContextsResponse,
+  Message,
+};
+
+export interface PageOptions {
+  pageSize?: number;
+  pageToken?: string;
+}
 
 type A2AStatus = A2AErrorResponse["error"]["status"];
 type A2AErrorDetails = A2AErrorResponse["error"]["details"];
@@ -98,19 +115,27 @@ export class A2AClient {
     },
   ) {}
 
-  private async request(path: string, body: unknown): Promise<Message> {
+  private async request(path: string, body?: unknown): Promise<unknown> {
     const baseUrl = this.options.url.replace(/\/+$/, "");
     const url = new URL(`${baseUrl}${path}`);
     const token = await this.options.getToken();
-    const response = await (this.options.fetchImpl ?? fetch)(url, {
-      method: "POST",
-      headers: {
-        "A2A-Version": A2A_VERSION,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const response = await (this.options.fetchImpl ?? fetch)(
+      url,
+      body === undefined
+        ? {
+            method: "GET",
+            headers: { "A2A-Version": A2A_VERSION, Authorization: `Bearer ${token}` },
+          }
+        : {
+            method: "POST",
+            headers: {
+              "A2A-Version": A2A_VERSION,
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+          },
+    );
     const text = await response.text();
     let responseBody: unknown = text;
     if (text) {
@@ -134,11 +159,11 @@ export class A2AClient {
       }
       throw new A2AHttpError(response.status, responseBody);
     }
-    return SendMessageResponseSchema.parse(responseBody).message;
+    return responseBody;
   }
 
   async sendMessage(text: string, options: { contextId?: string } = {}): Promise<Message> {
-    return this.request("/message:send", {
+    const response = await this.request("/message:send", {
       message: {
         messageId: randomUUID(),
         ...(options.contextId === undefined ? {} : { contextId: options.contextId }),
@@ -146,5 +171,42 @@ export class A2AClient {
         parts: [{ text, mediaType: "text/plain" }],
       },
     });
+    return SendMessageResponseSchema.parse(response).message;
   }
+
+  async listContexts(options: PageOptions = {}): Promise<ListContextsResponse> {
+    return ListContextsResponseSchema.parse(await this.request(`/contexts${pageQuery(options)}`));
+  }
+
+  async listContextMessages(
+    contextId: string,
+    options: PageOptions = {},
+  ): Promise<ListContextMessagesResponse> {
+    const path = `/contexts/${encodeURIComponent(contextId)}/messages${pageQuery(options)}`;
+    return ListContextMessagesResponseSchema.parse(await this.request(path));
+  }
+}
+
+function pageQuery({ pageSize, pageToken }: PageOptions): string {
+  const query = new URLSearchParams();
+  if (pageSize !== undefined) query.set("pageSize", String(pageSize));
+  if (pageToken) query.set("pageToken", pageToken);
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
+}
+
+export function verifyContextCallback(input: {
+  body: string | Uint8Array;
+  signature: string | null;
+  secret: string;
+}): ContextCallback {
+  const expected = Buffer.from(
+    `sha256=${createHmac("sha256", input.secret).update(input.body).digest("hex")}`,
+  );
+  const received = Buffer.from(input.signature ?? "");
+  if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
+    throw new Error("Invalid X-A2A-Signature");
+  }
+  const text = typeof input.body === "string" ? input.body : new TextDecoder().decode(input.body);
+  return ContextCallbackSchema.parse(JSON.parse(text));
 }

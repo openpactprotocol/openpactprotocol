@@ -98,6 +98,10 @@ envelope in [spec §6](./spec.md#6-errors) with the reason in
 `error.details[0].reason`. Plain HTTP for `401`, `404`/`405`, and `429` +
 `Retry-After` when you rate-limit.
 
+Extensions are optional. If you advertise one on a card, such as
+[contexts v1](./extensions/contexts/v1.md) for conversation history, serve its
+routes instead of `404` ([spec §2.3](./spec.md#23-extensions)).
+
 **Done when** each operation returns its listed error after a valid token.
 
 <a name="6-run-the-conformance-suite"></a>

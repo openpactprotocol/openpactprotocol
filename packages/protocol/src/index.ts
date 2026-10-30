@@ -186,6 +186,44 @@ export const PlatformJwtClaimsSchema = z.object({
   jti: z.string().min(1).optional(),
 });
 
+export const CONTEXTS_EXTENSION_URI = "https://openpactprotocol.org/extensions/contexts/v1";
+
+export const ContextStatusSchema = z.enum(["open", "escalated", "closed"]);
+
+export const ContextsMessageMetadataSchema = z.object({
+  createdAt: z.iso.datetime({ offset: true }).optional(),
+  author: z.enum(["ai", "human"]).optional(),
+  status: ContextStatusSchema.optional(),
+});
+
+export const ContextSchema = z.object({
+  contextId: z.string().min(1),
+  status: ContextStatusSchema,
+  createdAt: z.iso.datetime({ offset: true }),
+  lastMessageAt: z.iso.datetime({ offset: true }).optional(),
+});
+
+export const ListContextsResponseSchema = z
+  .object({
+    contexts: z.array(ContextSchema),
+    nextPageToken: z.string(),
+    pageSize: z.number().int().min(1).max(100),
+  })
+  .strict();
+
+export const ListContextMessagesResponseSchema = z
+  .object({
+    messages: z.array(MessageSchema),
+    nextPageToken: z.string(),
+    pageSize: z.number().int().min(1).max(100),
+  })
+  .strict();
+
+export const ContextCallbackSchema = z.union([
+  z.object({ contextId: z.string().min(1), message: MessageSchema }).strict(),
+  z.object({ contextId: z.string().min(1), status: ContextStatusSchema }).strict(),
+]);
+
 export type Role = z.infer<typeof RoleSchema>;
 export type Part = z.infer<typeof PartSchema>;
 export type Message = z.infer<typeof MessageSchema>;
@@ -202,6 +240,12 @@ export type AgentExtension = z.infer<typeof AgentExtensionSchema>;
 export type AgentSkill = z.infer<typeof AgentSkillSchema>;
 export type AgentCard = z.infer<typeof AgentCardSchema>;
 export type A2AErrorResponse = z.infer<typeof A2AErrorResponseSchema>;
+export type ContextStatus = z.infer<typeof ContextStatusSchema>;
+export type ContextsMessageMetadata = z.infer<typeof ContextsMessageMetadataSchema>;
+export type Context = z.infer<typeof ContextSchema>;
+export type ListContextsResponse = z.infer<typeof ListContextsResponseSchema>;
+export type ListContextMessagesResponse = z.infer<typeof ListContextMessagesResponseSchema>;
+export type ContextCallback = z.infer<typeof ContextCallbackSchema>;
 export type PlatformJwtClaims = z.infer<typeof PlatformJwtClaimsSchema>;
 
 // Platform registration is a Provider-specific API, separate from A2A messages.
