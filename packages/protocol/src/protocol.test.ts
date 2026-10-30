@@ -3,6 +3,11 @@ import {
   A2A_ERRORS,
   A2AErrorResponseSchema,
   AgentCardSchema,
+  CONTEXTS_EXTENSION_URI,
+  ContextCallbackSchema,
+  ContextsMessageMetadataSchema,
+  ListContextMessagesResponseSchema,
+  ListContextsResponseSchema,
   ListTasksResponseSchema,
   MessageSchema,
   PartSchema,
@@ -156,5 +161,60 @@ describe("protocol schemas", () => {
         },
       }).platform.enabled,
     ).toBe(true);
+  });
+});
+
+describe("contexts/v1 schemas", () => {
+  const contextId = "f0c12e6b-231e-4d92-a610-2518a0f27d20";
+  const humanReply = {
+    messageId: "r-007",
+    contextId,
+    role: "ROLE_AGENT",
+    parts: [{ text: "I've issued the refund." }],
+    metadata: {
+      [CONTEXTS_EXTENSION_URI]: { createdAt: "2026-09-30T12:20:00Z", author: "human" },
+    },
+  };
+
+  it("parses context and message pages", () => {
+    expect(
+      ListContextsResponseSchema.parse({
+        contexts: [
+          {
+            contextId,
+            status: "escalated",
+            createdAt: "2026-09-30T12:00:00Z",
+            lastMessageAt: "2026-09-30T12:04:10Z",
+          },
+        ],
+        nextPageToken: "",
+        pageSize: 20,
+      }).contexts[0]?.status,
+    ).toBe("escalated");
+    expect(
+      ListContextsResponseSchema.safeParse({
+        contexts: [{ contextId, status: "pending", createdAt: "2026-09-30T12:00:00Z" }],
+        nextPageToken: "",
+        pageSize: 20,
+      }).success,
+    ).toBe(false);
+    expect(
+      ListContextMessagesResponseSchema.safeParse({
+        messages: [humanReply],
+        nextPageToken: "",
+        pageSize: 101,
+      }).success,
+    ).toBe(false);
+    expect(
+      ContextsMessageMetadataSchema.parse(humanReply.metadata[CONTEXTS_EXTENSION_URI]).author,
+    ).toBe("human");
+  });
+
+  it("parses message and status callbacks and rejects empty parts", () => {
+    expect(ContextCallbackSchema.safeParse({ contextId, message: humanReply }).success).toBe(true);
+    expect(ContextCallbackSchema.safeParse({ contextId, status: "closed" }).success).toBe(true);
+    expect(
+      ContextCallbackSchema.safeParse({ contextId, message: { ...humanReply, parts: [] } }).success,
+    ).toBe(false);
   });
 });

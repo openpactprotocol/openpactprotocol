@@ -4,6 +4,9 @@ Live HTTP tests for the [specification](../docs/spec.md)'s Identity profile:
 Agent Card discovery, `contextId` continuation, duplicate `messageId`,
 cross-User / cross-Brand isolation, task routes, error envelopes, content
 types, unmatched routes, authentication negatives.
+`contexts.test.ts` covers the optional
+[contexts v1 extension](../docs/extensions/contexts/v1.md) and skips unless the
+card lists it.
 
 ```sh
 PROVIDER_URL=… CUSTOMER_ID=… OTHER_CUSTOMER_ID=… PA_ISSUER=… PA_AUDIENCE=… pnpm e2e
