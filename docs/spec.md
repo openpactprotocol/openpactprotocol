@@ -285,6 +285,8 @@ A2A-Version: 1.0
 - `pageSize` is 1–100, default 50; the response repeats the size used.
   `pageToken` is opaque: send a `nextPageToken` back unchanged. `""` means the
   last page. A bad `pageSize` or `pageToken` gets `INVALID_PARAMS`.
+- History needs only §3. It includes turns served under delegation (§5),
+  with their receipts, even after the grant ends.
 - A closed context's history stays readable until the Provider deletes it;
   after that the context is unknown (`INVALID_PARAMS`).
 
