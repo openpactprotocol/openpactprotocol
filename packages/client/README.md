@@ -1,7 +1,7 @@
 # @openpactprotocol/client
 
 Personal-agent-side client: `createPlatformSigner`, `fetchAgentCard`, `interfaceUrl`,
-`A2AClient`, typed errors.
+`A2AClient` (`sendMessage`, `listContextMessages`), typed errors.
 
 ```ts
 const signer = createPlatformSigner({ issuer, privateJwk });

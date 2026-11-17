@@ -596,7 +596,13 @@ describe("A2A handler", () => {
     ).json();
     expect(lastPage).toMatchObject({ messages: page.messages.slice(3), nextPageToken: "" });
 
-    for (const query of ["?pageSize=0", "?pageSize=101", "?pageToken=not-a-token"]) {
+    for (const query of [
+      "?pageSize=0",
+      "?pageSize=101",
+      "?pageToken=not-a-token",
+      "?pageToken=03",
+      "?pageToken=4",
+    ]) {
       await expectA2AError(await history(query), "INVALID_PARAMS");
     }
     for (const response of [

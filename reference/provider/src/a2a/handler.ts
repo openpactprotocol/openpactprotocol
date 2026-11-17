@@ -179,7 +179,7 @@ function pageOffset(url: URL): number {
   if (values.length > 1) throw invalidParams("Invalid pageToken");
   const value = values[0];
   if (!value) return 0;
-  if (!/^\d+$/.test(value) || !Number.isSafeInteger(Number(value))) {
+  if (!/^(0|[1-9]\d*)$/.test(value) || !Number.isSafeInteger(Number(value))) {
     throw invalidParams("Invalid pageToken");
   }
   return Number(value);
@@ -376,6 +376,7 @@ export function createA2AHandler(options: HandlerOptions): A2AHandler {
           .orderBy(asc(messages.createdAt), asc(messages.id))
           .limit(size + 1)
           .offset(offset);
+        if (offset > 0 && rows.length === 0) throw invalidParams("Invalid pageToken");
         return response(
           ListContextMessagesResponseSchema.parse({
             messages: rows.slice(0, size).map((row) => ({

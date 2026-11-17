@@ -99,7 +99,9 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 ### 2.2 Operations
 
 Relative to the interface URL. `message:send` and `contexts/{contextId}/messages`
-are required. Other A2A operations behave as A2A defines.
+are required. `contexts/{contextId}/messages` is a PACT route, not an A2A
+operation; it takes the same headers and authentication and returns the same
+content type and error envelope. Other A2A operations behave as A2A defines.
 
 | Method | Path                            | Result                                                           |
 | ------ | ------------------------------- | ---------------------------------------------------------------- |
@@ -109,7 +111,7 @@ are required. Other A2A operations behave as A2A defines.
 | `POST` | `tasks/{id}:cancel`             | `TASK_NOT_FOUND`                                                 |
 | `GET`  | `contexts/{contextId}/messages` | `200` `{ messages, nextPageToken, pageSize }` (§4.4)             |
 
-Any route that isn't an A2A operation gets `404` or `405` with no A2A body.
+Any other route gets `404` or `405` with no A2A body.
 Routing happens before authentication; an unknown Brand is `404` even with a
 valid token.
 
@@ -277,12 +279,14 @@ A2A-Version: 1.0
 
 - The context MUST belong to this Brand and this `(personal agent, sub)`, as in
   §4.2; otherwise `INVALID_PARAMS`, without saying whether it exists.
-- Every message has `metadata["pact.createdAt"]`, an RFC 3339 UTC timestamp.
-  Every `ROLE_AGENT` message has `metadata["pact.author"]`: `"ai"` or
+- Every message MUST have `metadata["pact.createdAt"]`, an RFC 3339 UTC
+  timestamp. Every `ROLE_AGENT` message MUST have `metadata["pact.author"]`: `"ai"` or
   `"human"`. Other metadata MAY appear.
 - `pageSize` is 1–100, default 50; the response repeats the size used.
   `pageToken` is opaque: send a `nextPageToken` back unchanged. `""` means the
   last page. A bad `pageSize` or `pageToken` gets `INVALID_PARAMS`.
+- A closed context's history stays readable until the Provider deletes it;
+  after that the context is unknown (`INVALID_PARAMS`).
 
 <a name="5-delegated-authority"></a>
 
@@ -581,7 +585,7 @@ the status alone.
 | `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                  |
 
 `INVALID_PARAMS` covers: bad JSON or schema, wrong role, blank text, bad
-`pageSize`, an unknown or foreign `contextId`, a repeated `messageId` with no
+`pageSize` or `pageToken`, an unknown or foreign `contextId`, a repeated `messageId` with no
 stored reply, and a `sub` mismatch (§5.5).
 
 Not A2A errors: `401` (§3.4, §5.5); `404`/`405` for unmatched routes or

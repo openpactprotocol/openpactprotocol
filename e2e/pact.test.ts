@@ -255,6 +255,9 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
     expect(page.messages[0]?.parts).toMatchObject([{ text: "Is my Friday flight on time?" }]);
     expect(page.messages[1]?.messageId).toBe(first.messageId);
     const times = page.messages.map(({ metadata }) => String(metadata?.["pact.createdAt"]));
+    expect(times.every((time) => /^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(\.\d+)?Z$/.test(time))).toBe(
+      true,
+    );
     expect(times.map(Date.parse).every((time, i, all) => time >= (all[i - 1] ?? 0))).toBe(true);
     for (const { role, metadata } of page.messages) {
       if (role === "ROLE_AGENT") expect(metadata?.["pact.author"]).toMatch(/^(ai|human)$/);
