@@ -152,6 +152,9 @@ const first = await client.sendMessage("Where is my order?");
 const next = await client.sendMessage("Order 4471", { contextId: first.contextId });
 ```
 
+Read a conversation back, oldest first, with
+`client.listContextMessages(contextId)` ([spec §4.4](./spec.md#44-history)).
+
 The agent may ask the User to prove who they are (order number, email); relay
 the question and answer.
 
@@ -192,7 +195,3 @@ Delegated authority is optional: the User logs in with the Brand and approves
 scopes, so the Brand's agent can act on their account. Brands advertise it on
 their card; [spec §5](./spec.md#5-delegated-authority) defines it. Nothing above
 changes.
-
-Reading a conversation's message history, including late replies from a human
-agent, is the optional [contexts v1 extension](./extensions/contexts/v1.md).
-Use it only with Brands whose card lists it in `capabilities.extensions`.

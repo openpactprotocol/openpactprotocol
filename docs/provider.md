@@ -84,8 +84,13 @@ Reply synchronously with a `ROLE_AGENT` message carrying the `contextId`,
 `sub`, not who the User is. The agent verifies the User as it would in a chat
 widget.
 
+Serve the conversation back at `GET {interfaceUrl}/contexts/{contextId}/messages`
+([spec §4.4](./spec.md#44-history)): oldest first, `pact.createdAt` on every
+message, `pact.author` on agent ones, same ownership rule.
+
 **Done when** two messages with one `contextId` continue one conversation,
-and that `contextId` from another `sub` or Brand gets `INVALID_PARAMS`.
+that `contextId` from another `sub` or Brand gets `INVALID_PARAMS`, and its
+history lists both turns in order.
 
 <a name="5-other-routes-errors-limits"></a>
 
@@ -97,10 +102,6 @@ list), and A2A's errors for operations you don't support. A2A errors use the
 envelope in [spec §6](./spec.md#6-errors) with the reason in
 `error.details[0].reason`. Plain HTTP for `401`, `404`/`405`, and `429` +
 `Retry-After` when you rate-limit.
-
-Extensions are optional. If you advertise one on a card, such as
-[contexts v1](./extensions/contexts/v1.md) for message history, serve its
-routes instead of `404` ([spec §2.3](./spec.md#23-extensions)).
 
 **Done when** each operation returns its listed error after a valid token.
 
@@ -120,7 +121,7 @@ PA_ISSUER=<test personal agent's iss> PA_AUDIENCE=<your audience> PA_PRIVATE_JWK
 pnpm e2e
 ```
 
-**Done when** all 10 tests pass. That is PACT Identity conformance.
+**Done when** all 11 tests pass. That is PACT Identity conformance.
 
 Delegated authority ([spec §5](./spec.md#5-delegated-authority)) is optional
 and advertised on the card. It adds per-Brand scopes and login, device-code

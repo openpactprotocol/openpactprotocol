@@ -237,6 +237,59 @@ describe.sequential("PACT A2A HTTP+JSON E2E", () => {
     ]);
   });
 
+  it("lists a context's messages oldest first and hides them from other owners", async () => {
+    const subject = `history-${crypto.randomUUID()}`;
+    const first = await client(subject).sendMessage("Is my Friday flight on time?");
+    const contextId = first.contextId;
+    if (!contextId) throw new Error("The reply did not include a contextId");
+    await client(subject).sendMessage("ABC123", { contextId });
+
+    const page = await client(subject).listContextMessages(contextId);
+    expect(page).toMatchObject({ nextPageToken: "", pageSize: 50 });
+    expect(page.messages.map(({ role }) => role)).toEqual([
+      "ROLE_USER",
+      "ROLE_AGENT",
+      "ROLE_USER",
+      "ROLE_AGENT",
+    ]);
+    expect(page.messages[0]?.parts).toMatchObject([{ text: "Is my Friday flight on time?" }]);
+    expect(page.messages[1]?.messageId).toBe(first.messageId);
+    const times = page.messages.map(({ metadata }) => String(metadata?.["pact.createdAt"]));
+    expect(times.map(Date.parse).every((time, i, all) => time >= (all[i - 1] ?? 0))).toBe(true);
+    for (const { role, metadata } of page.messages) {
+      if (role === "ROLE_AGENT") expect(metadata?.["pact.author"]).toMatch(/^(ai|human)$/);
+    }
+
+    const firstPage = await client(subject).listContextMessages(contextId, { pageSize: 3 });
+    expect(firstPage.messages).toEqual(page.messages.slice(0, 3));
+    const lastPage = await client(subject).listContextMessages(contextId, {
+      pageSize: 3,
+      pageToken: firstPage.nextPageToken,
+    });
+    expect(lastPage).toMatchObject({ messages: page.messages.slice(3), nextPageToken: "" });
+
+    const invalidParams = { httpStatus: 400, status: "INVALID_ARGUMENT", reason: "INVALID_PARAMS" };
+    for (const query of ["pageSize=0", "pageSize=101", "pageToken=not-a-token"]) {
+      await expectA2AError(
+        await rawRequest(`contexts/${contextId}/messages?${query}`, { subject }),
+        invalidParams,
+      );
+    }
+    for (const [customer, owner] of [
+      [customerId, "another-user"],
+      [otherCustomerId, subject],
+    ] as const) {
+      await expectA2AError(
+        await rawRequest(`contexts/${contextId}/messages`, { customer, subject: owner }),
+        invalidParams,
+      );
+    }
+    await expectA2AError(
+      await rawRequest(`contexts/${crypto.randomUUID()}/messages`, { subject }),
+      invalidParams,
+    );
+  });
+
   it("returns the same reply for a duplicate messageId", async () => {
     const messageId = crypto.randomUUID();
     const subject = `retry-${crypto.randomUUID()}`;

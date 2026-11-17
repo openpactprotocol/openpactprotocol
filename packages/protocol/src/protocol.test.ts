@@ -3,8 +3,6 @@ import {
   A2A_ERRORS,
   A2AErrorResponseSchema,
   AgentCardSchema,
-  CONTEXTS_EXTENSION_URI,
-  ContextsMessageMetadataSchema,
   ListContextMessagesResponseSchema,
   ListTasksResponseSchema,
   MessageSchema,
@@ -162,16 +160,14 @@ describe("protocol schemas", () => {
   });
 });
 
-describe("contexts/v1 schemas", () => {
+describe("history schemas", () => {
   const contextId = "f0c12e6b-231e-4d92-a610-2518a0f27d20";
   const humanReply = {
     messageId: "r-007",
     contextId,
     role: "ROLE_AGENT",
     parts: [{ text: "I've issued the refund." }],
-    metadata: {
-      [CONTEXTS_EXTENSION_URI]: { createdAt: "2026-09-30T12:20:00Z", author: "human" },
-    },
+    metadata: { "pact.createdAt": "2026-09-30T12:20:00Z", "pact.author": "human" },
   };
 
   it("parses message pages and rejects empty parts", () => {
@@ -196,8 +192,5 @@ describe("contexts/v1 schemas", () => {
         pageSize: 50,
       }).success,
     ).toBe(false);
-    expect(
-      ContextsMessageMetadataSchema.parse(humanReply.metadata[CONTEXTS_EXTENSION_URI]).author,
-    ).toBe("human");
   });
 });

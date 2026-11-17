@@ -23,13 +23,12 @@ in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 | **Personal agent** | An agent platform acting for the User. Has a signing key and publishes its public keys as a JWKS. Abbreviated `PA`/`pa` in identifiers (`paJwt`, `<pa-jwt>`). |
 | **User**           | The person using the personal agent.                                                                                                                          |
 
-| Section                    | Required?                               | Adds                                                                                  |
-| -------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------- |
-| §2 Transport               | yes                                     | Where a Brand's Agent Card is; which A2A operations exist.                            |
-| §3 Personal-agent identity | yes                                     | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.     |
-| §4 Messages                | yes                                     | One `contextId` per (personal agent, User, Brand); retries are idempotent.            |
-| §5 Delegated authority     | no; a Brand advertises it on its card   | The User logs in with the Brand and approves scopes; the agent acts on their account. |
-| §2.3 Extensions            | no; a Brand advertises each on its card | Optional features with their own documents, such as message history.                  |
+| Section                    | Required?                             | Adds                                                                                            |
+| -------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| §2 Transport               | yes                                   | Where a Brand's Agent Card is; which A2A operations exist.                                      |
+| §3 Personal-agent identity | yes                                   | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.               |
+| §4 Messages                | yes                                   | One `contextId` per (personal agent, User, Brand); retries are idempotent; history is readable. |
+| §5 Delegated authority     | no; a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account.           |
 
 <a name="2-transport"></a>
 
@@ -63,7 +62,6 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
   `scheme: "Bearer"`, `bearerFormat: "JWT"`, listed alone in one
   `securityRequirements` entry.
 - MAY declare delegated authority (§5.1).
-- MAY list extensions in `capabilities.extensions` (§2.3).
 - `name`, `description`, `skills` are informational.
 
 ```json
@@ -78,18 +76,7 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
   ],
   "provider": { "organization": "Example Provider", "url": "https://provider.example.com" },
   "version": "0.1.0",
-  "capabilities": {
-    "streaming": false,
-    "pushNotifications": false,
-    "extendedAgentCard": false,
-    "extensions": [
-      {
-        "uri": "https://openpactprotocol.org/extensions/contexts/v1",
-        "description": "Conversation message history.",
-        "required": false
-      }
-    ]
-  },
+  "capabilities": { "streaming": false, "pushNotifications": false, "extendedAgentCard": false },
   "securitySchemes": {
     "paJwt": { "httpAuthSecurityScheme": { "scheme": "Bearer", "bearerFormat": "JWT" } }
   },
@@ -111,36 +98,20 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 
 ### 2.2 Operations
 
-Relative to the interface URL. Only `message:send` is required. Other A2A
-operations behave as A2A defines.
+Relative to the interface URL. `message:send` and `contexts/{contextId}/messages`
+are required. Other A2A operations behave as A2A defines.
 
-| Method | Path                | Result                                                           |
-| ------ | ------------------- | ---------------------------------------------------------------- |
-| `POST` | `message:send`      | `200` `{ "message": Message }` (§4) or `{ "task": Task }` (§5.5) |
-| `GET`  | `tasks`             | `200` empty `ListTasksResponse` (`pageSize` 1–100, default 50)   |
-| `GET`  | `tasks/{id}`        | `TASK_NOT_FOUND`                                                 |
-| `POST` | `tasks/{id}:cancel` | `TASK_NOT_FOUND`                                                 |
+| Method | Path                            | Result                                                           |
+| ------ | ------------------------------- | ---------------------------------------------------------------- |
+| `POST` | `message:send`                  | `200` `{ "message": Message }` (§4) or `{ "task": Task }` (§5.5) |
+| `GET`  | `tasks`                         | `200` empty `ListTasksResponse` (`pageSize` 1–100, default 50)   |
+| `GET`  | `tasks/{id}`                    | `TASK_NOT_FOUND`                                                 |
+| `POST` | `tasks/{id}:cancel`             | `TASK_NOT_FOUND`                                                 |
+| `GET`  | `contexts/{contextId}/messages` | `200` `{ messages, nextPageToken, pageSize }` (§4.4)             |
 
-Any route that is neither an A2A operation nor a route of an extension the
-Brand's card lists (§2.3) gets `404` or `405` with no A2A body. Routing happens
-before authentication; an unknown Brand is `404` even with a valid token.
-
-<a name="23-extensions"></a>
-
-### 2.3 Extensions
-
-PACT extensions are [A2A extensions](https://a2a-protocol.org/latest/topics/extensions/).
-Each has its own normative document at its URI. A Brand advertises one by
-listing it in `capabilities.extensions` with `required: false`.
-
-| URI                                                                                  | Adds                                       |
-| ------------------------------------------------------------------------------------ | ------------------------------------------ |
-| [`https://openpactprotocol.org/extensions/contexts/v1`](./extensions/contexts/v1.md) | Message history route and message metadata |
-
-- Extensions are optional. No profile (§7) requires one, and a PACT extension
-  MUST NOT be marked `required: true`.
-- An extension's routes are relative to the interface URL and take the
-  personal-agent JWT (§3) like A2A operations.
+Any route that isn't an A2A operation gets `404` or `405` with no A2A body.
+Routing happens before authentication; an unknown Brand is `404` even with a
+valid token.
 
 <a name="3-personal-agent-identity"></a>
 
@@ -268,6 +239,50 @@ Content-Type: application/json
 A repeated `messageId` in the same `contextId` returns the stored reply
 without re-running the agent. If there is no stored reply yet, return
 `INVALID_PARAMS`.
+
+<a name="44-history"></a>
+
+### 4.4 History
+
+A conversation's messages, oldest first:
+
+```http
+GET {interfaceUrl}/contexts/f0c12e6b-231e-4d92-a610-2518a0f27d20/messages?pageSize=50
+Authorization: Bearer <pa-jwt>
+A2A-Version: 1.0
+```
+
+```json
+{
+  "messages": [
+    {
+      "messageId": "m-001",
+      "contextId": "f0c12e6b-231e-4d92-a610-2518a0f27d20",
+      "role": "ROLE_USER",
+      "parts": [{ "text": "I need help with my order." }],
+      "metadata": { "pact.createdAt": "2026-09-30T12:00:00Z" }
+    },
+    {
+      "messageId": "r-001",
+      "contextId": "f0c12e6b-231e-4d92-a610-2518a0f27d20",
+      "role": "ROLE_AGENT",
+      "parts": [{ "text": "Sure, what is the order number?" }],
+      "metadata": { "pact.createdAt": "2026-09-30T12:00:02Z", "pact.author": "ai" }
+    }
+  ],
+  "nextPageToken": "",
+  "pageSize": 50
+}
+```
+
+- The context MUST belong to this Brand and this `(personal agent, sub)`, as in
+  §4.2; otherwise `INVALID_PARAMS`, without saying whether it exists.
+- Every message has `metadata["pact.createdAt"]`, an RFC 3339 UTC timestamp.
+  Every `ROLE_AGENT` message has `metadata["pact.author"]`: `"ai"` or
+  `"human"`. Other metadata MAY appear.
+- `pageSize` is 1–100, default 50; the response repeats the size used.
+  `pageToken` is opaque: send a `nextPageToken` back unchanged. `""` means the
+  last page. A bad `pageSize` or `pageToken` gets `INVALID_PARAMS`.
 
 <a name="5-delegated-authority"></a>
 
@@ -583,8 +598,6 @@ On `429`, personal agents SHOULD wait `Retry-After` before retrying.
 | ------------------ | ---------------- |
 | **PACT Identity**  | §2, §3, §4, §6   |
 | **PACT Delegated** | Identity plus §5 |
-
-Extensions (§2.3) are optional and outside both profiles.
 
 This is PACT **1.0**. Breaking changes to either profile bump that number.
 

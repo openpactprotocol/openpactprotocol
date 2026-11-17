@@ -11,10 +11,9 @@ Terms: **Provider** hosts Brands' support agents; **Brand** is a business;
   step by step. The client to import or copy is
   `packages/client/src/index.ts`.
 - Making a platform that hosts support agents speak PACT → follow
-  `docs/provider.md`. Prove it with `E2E_PROVIDER=any pnpm e2e` (10 tests).
-- Exact rules and wire formats → `docs/spec.md`, plus one document per
-  optional extension in `docs/extensions/`. These are the normative documents;
-  guides restate them.
+  `docs/provider.md`. Prove it with `E2E_PROVIDER=any pnpm e2e` (11 tests).
+- Exact rules and wire formats → `docs/spec.md`. It is the only normative
+  document; guides restate it.
 
 ## If you are changing this repository
 

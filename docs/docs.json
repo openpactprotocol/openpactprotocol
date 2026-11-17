@@ -20,10 +20,6 @@
         "pages": ["spec"]
       },
       {
-        "group": "Extensions",
-        "pages": ["extensions/contexts/v1"]
-      },
-      {
         "group": "Reference",
         "pages": ["running"]
       }
