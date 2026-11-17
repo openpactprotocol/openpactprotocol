@@ -1,28 +1,18 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { importJWK, SignJWT, type JWK, type JWTPayload } from "jose";
 import {
   A2A_VERSION,
   A2AErrorResponseSchema,
   AgentCardSchema,
-  ContextCallbackSchema,
   ListContextMessagesResponseSchema,
-  ListContextsResponseSchema,
   SendMessageResponseSchema,
   type A2AErrorResponse,
   type AgentCard,
-  type ContextCallback,
   type ListContextMessagesResponse,
-  type ListContextsResponse,
   type Message,
 } from "@openpactprotocol/protocol";
 
-export type {
-  AgentCard,
-  ContextCallback,
-  ListContextMessagesResponse,
-  ListContextsResponse,
-  Message,
-};
+export type { AgentCard, ListContextMessagesResponse, Message };
 
 export interface PageOptions {
   pageSize?: number;
@@ -174,10 +164,6 @@ export class A2AClient {
     return SendMessageResponseSchema.parse(response).message;
   }
 
-  async listContexts(options: PageOptions = {}): Promise<ListContextsResponse> {
-    return ListContextsResponseSchema.parse(await this.request(`/contexts${pageQuery(options)}`));
-  }
-
   async listContextMessages(
     contextId: string,
     options: PageOptions = {},
@@ -193,20 +179,4 @@ function pageQuery({ pageSize, pageToken }: PageOptions): string {
   if (pageToken) query.set("pageToken", pageToken);
   const encoded = query.toString();
   return encoded ? `?${encoded}` : "";
-}
-
-export function verifyContextCallback(input: {
-  body: string | Uint8Array;
-  signature: string | null;
-  secret: string;
-}): ContextCallback {
-  const expected = Buffer.from(
-    `sha256=${createHmac("sha256", input.secret).update(input.body).digest("hex")}`,
-  );
-  const received = Buffer.from(input.signature ?? "");
-  if (received.length !== expected.length || !timingSafeEqual(received, expected)) {
-    throw new Error("Invalid X-A2A-Signature");
-  }
-  const text = typeof input.body === "string" ? input.body : new TextDecoder().decode(input.body);
-  return ContextCallbackSchema.parse(JSON.parse(text));
 }

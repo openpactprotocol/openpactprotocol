@@ -29,7 +29,7 @@ in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 | §3 Personal-agent identity | yes                                     | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.     |
 | §4 Messages                | yes                                     | One `contextId` per (personal agent, User, Brand); retries are idempotent.            |
 | §5 Delegated authority     | no; a Brand advertises it on its card   | The User logs in with the Brand and approves scopes; the agent acts on their account. |
-| §2.3 Extensions            | no; a Brand advertises each on its card | Optional features with their own documents, such as conversation history.             |
+| §2.3 Extensions            | no; a Brand advertises each on its card | Optional features with their own documents, such as message history.                  |
 
 <a name="2-transport"></a>
 
@@ -85,7 +85,7 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
     "extensions": [
       {
         "uri": "https://openpactprotocol.org/extensions/contexts/v1",
-        "description": "Conversation history and platform callbacks.",
+        "description": "Conversation message history.",
         "required": false
       }
     ]
@@ -133,9 +133,9 @@ PACT extensions are [A2A extensions](https://a2a-protocol.org/latest/topics/exte
 Each has its own normative document at its URI. A Brand advertises one by
 listing it in `capabilities.extensions` with `required: false`.
 
-| URI                                                                                  | Adds                                                     |
-| ------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| [`https://openpactprotocol.org/extensions/contexts/v1`](./extensions/contexts/v1.md) | Conversation history routes, message metadata, callbacks |
+| URI                                                                                  | Adds                                       |
+| ------------------------------------------------------------------------------------ | ------------------------------------------ |
+| [`https://openpactprotocol.org/extensions/contexts/v1`](./extensions/contexts/v1.md) | Message history route and message metadata |
 
 - Extensions are optional. No profile (§7) requires one, and a PACT extension
   MUST NOT be marked `required: true`.

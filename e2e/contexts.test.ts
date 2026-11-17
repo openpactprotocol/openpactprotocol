@@ -75,39 +75,18 @@ const invalidParams = { name: "A2AError", httpStatus: 400, reason: "INVALID_PARA
 
 describe.skipIf(!extension)("Contexts extension v1", () => {
   const sub = `contexts-${crypto.randomUUID()}`;
-  const contextIds: string[] = [];
+  let contextId = "";
 
   it("is advertised as optional", () => {
     expect(extension).toMatchObject({ uri: CONTEXTS_EXTENSION_URI, required: false });
   });
 
-  it("returns status on message:send replies", async () => {
-    for (const text of ["Is my Friday flight on time?", "I need help with my order."]) {
-      const reply = await client(sub).sendMessage(text);
-      expect(metadata(reply).status).toMatch(/^(open|escalated|closed)$/);
-      if (!reply.contextId) throw new Error("Reply has no contextId");
-      contextIds.push(reply.contextId);
-    }
-  });
-
-  it("lists the caller's contexts newest first and pages through them", async () => {
-    const all = await client(sub).listContexts();
-    expect(all.pageSize).toBe(20);
-    expect(all.contexts.map(({ contextId }) => contextId)).toEqual([...contextIds].reverse());
-
-    const first = await client(sub).listContexts({ pageSize: 1 });
-    expect(first.contexts.map(({ contextId }) => contextId)).toEqual([contextIds[1]]);
-    expect(first.nextPageToken).not.toBe("");
-    const second = await client(sub).listContexts({ pageSize: 1, pageToken: first.nextPageToken });
-    expect(second.contexts.map(({ contextId }) => contextId)).toEqual([contextIds[0]]);
-
-    const response = await get("contexts", sub);
-    expect(response.status).toBe(200);
-    expect(response.headers.get("content-type")).toBe("application/a2a+json");
-  });
-
   it("lists messages oldest first with createdAt and author", async () => {
-    const contextId = contextIds[0] ?? "";
+    for (const text of ["Is my Friday flight on time?", "Thanks."]) {
+      const reply = await client(sub).sendMessage(text, contextId ? { contextId } : {});
+      if (!reply.contextId) throw new Error("Reply has no contextId");
+      contextId = reply.contextId;
+    }
     const page = await client(sub).listContextMessages(contextId);
     expect(page.pageSize).toBe(50);
     expect(page.messages[0]).toMatchObject({
@@ -121,12 +100,23 @@ describe.skipIf(!extension)("Contexts extension v1", () => {
     for (const message of page.messages.filter(({ role }) => role === "ROLE_AGENT")) {
       expect(metadata(message).author).toMatch(/^(ai|human)$/);
     }
+
+    const first = await client(sub).listContextMessages(contextId, { pageSize: 1 });
+    expect(first.messages).toEqual(page.messages.slice(0, 1));
+    expect(first.nextPageToken).not.toBe("");
+    const second = await client(sub).listContextMessages(contextId, {
+      pageSize: 1,
+      pageToken: first.nextPageToken,
+    });
+    expect(second.messages).toEqual(page.messages.slice(1, 2));
+
+    const response = await get(`contexts/${contextId}/messages`, sub);
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/a2a+json");
   });
 
-  it("hides contexts from other users and Brands", async () => {
-    const contextId = contextIds[0] ?? "";
+  it("hides messages from other users and Brands", async () => {
     const other = client(`other-${crypto.randomUUID()}`);
-    expect((await other.listContexts()).contexts).toEqual([]);
     for (const id of [contextId, crypto.randomUUID()]) {
       await expect(other.listContextMessages(id)).rejects.toMatchObject(invalidParams);
     }
@@ -140,16 +130,15 @@ describe.skipIf(!extension)("Contexts extension v1", () => {
 
   it("rejects bad pagination and missing tokens", async () => {
     for (const pageSize of [0, 101]) {
-      await expect(client(sub).listContexts({ pageSize })).rejects.toMatchObject(invalidParams);
-      await expect(
-        client(sub).listContextMessages(contextIds[0] ?? "", { pageSize }),
-      ).rejects.toMatchObject(invalidParams);
+      await expect(client(sub).listContextMessages(contextId, { pageSize })).rejects.toMatchObject(
+        invalidParams,
+      );
     }
-    await expect(client(sub).listContexts({ pageToken: "not-a-token" })).rejects.toMatchObject(
-      invalidParams,
-    );
-    expect((await get("contexts?pageSize=abc", sub)).status).toBe(400);
-    const unauthenticated = await fetch(`${target?.url}/contexts`);
+    await expect(
+      client(sub).listContextMessages(contextId, { pageToken: "not-a-token" }),
+    ).rejects.toMatchObject(invalidParams);
+    expect((await get(`contexts/${contextId}/messages?pageSize=abc`, sub)).status).toBe(400);
+    const unauthenticated = await fetch(`${target?.url}/contexts/${contextId}/messages`);
     expect(unauthenticated.status).toBe(401);
   });
 });

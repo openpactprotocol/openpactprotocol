@@ -193,6 +193,6 @@ scopes, so the Brand's agent can act on their account. Brands advertise it on
 their card; [spec §5](./spec.md#5-delegated-authority) defines it. Nothing above
 changes.
 
-Conversation history and callbacks for late replies, for example from a human
-agent, are the optional [contexts v1 extension](./extensions/contexts/v1.md).
+Reading a conversation's message history, including late replies from a human
+agent, is the optional [contexts v1 extension](./extensions/contexts/v1.md).
 Use it only with Brands whose card lists it in `capabilities.extensions`.

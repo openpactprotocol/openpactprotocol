@@ -1,4 +1,3 @@
-import { createHmac } from "node:crypto";
 import { exportJWK, generateKeyPair, jwtVerify } from "jose";
 import { describe, expect, it } from "vitest";
 import {
@@ -8,7 +7,6 @@ import {
   createPlatformSigner,
   fetchAgentCard,
   interfaceUrl,
-  verifyContextCallback,
 } from "../src/index.js";
 
 const skylineCustomerId = "01M3R53Q5SZQ6FQSMSDBSSREAA";
@@ -187,65 +185,32 @@ describe("@openpactprotocol/client", () => {
     });
   });
 
-  it("lists contexts and their messages with page options", async () => {
+  it("lists a context's messages with page options", async () => {
     const requests: { url: URL; init: RequestInit }[] = [];
     const contextId = "00000000-0000-4000-8000-000000000000";
     const client = new A2AClient({
       url: skylineInterfaceUrl,
       getToken: () => "token",
       fetchImpl: async (input, init) => {
-        const url = new URL(input.toString());
-        requests.push({ url, init: init ?? {} });
-        return url.pathname.endsWith("/messages")
-          ? Response.json({
-              messages: [
-                { messageId: "m-1", contextId, role: "ROLE_USER", parts: [{ text: "hi" }] },
-              ],
-              nextPageToken: "",
-              pageSize: 50,
-            })
-          : Response.json({
-              contexts: [{ contextId, status: "open", createdAt: "2026-09-30T12:00:00Z" }],
-              nextPageToken: "next",
-              pageSize: 1,
-            });
+        requests.push({ url: new URL(input.toString()), init: init ?? {} });
+        return Response.json({
+          messages: [{ messageId: "m-1", contextId, role: "ROLE_USER", parts: [{ text: "hi" }] }],
+          nextPageToken: "",
+          pageSize: 1,
+        });
       },
     });
 
-    expect((await client.listContexts({ pageSize: 1 })).nextPageToken).toBe("next");
     expect(
-      (await client.listContextMessages(contextId, { pageToken: "a b" })).messages,
+      (await client.listContextMessages(contextId, { pageSize: 1, pageToken: "a b" })).messages,
     ).toHaveLength(1);
     expect(requests.map(({ url }) => `${url.pathname}${url.search}`)).toEqual([
-      `/a2a/${skylineCustomerId}/contexts?pageSize=1`,
-      `/a2a/${skylineCustomerId}/contexts/${contextId}/messages?pageToken=a+b`,
+      `/a2a/${skylineCustomerId}/contexts/${contextId}/messages?pageSize=1&pageToken=a+b`,
     ]);
     expect(requests[0]?.init).toMatchObject({
       method: "GET",
       headers: { "A2A-Version": "1.0", Authorization: "Bearer token" },
     });
     expect(requests[0]?.init.body).toBeUndefined();
-  });
-
-  it("verifies callback signatures over the raw body", () => {
-    const secret = "callback-secret";
-    const body = JSON.stringify({ contextId: "ctx-1", status: "closed" });
-    const signature = `sha256=${createHmac("sha256", secret).update(body).digest("hex")}`;
-    expect(verifyContextCallback({ body, signature, secret })).toEqual({
-      contextId: "ctx-1",
-      status: "closed",
-    });
-    expect(
-      verifyContextCallback({ body: new TextEncoder().encode(body), signature, secret }),
-    ).toEqual({ contextId: "ctx-1", status: "closed" });
-    for (const [tamperedBody, tamperedSignature] of [
-      [body.replace("closed", "open"), signature],
-      [body, signature.toUpperCase()],
-      [body, null],
-    ] as const) {
-      expect(() =>
-        verifyContextCallback({ body: tamperedBody, signature: tamperedSignature, secret }),
-      ).toThrow("X-A2A-Signature");
-    }
   });
 });

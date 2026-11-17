@@ -4,10 +4,8 @@ import {
   A2AErrorResponseSchema,
   AgentCardSchema,
   CONTEXTS_EXTENSION_URI,
-  ContextCallbackSchema,
   ContextsMessageMetadataSchema,
   ListContextMessagesResponseSchema,
-  ListContextsResponseSchema,
   ListTasksResponseSchema,
   MessageSchema,
   PartSchema,
@@ -176,28 +174,14 @@ describe("contexts/v1 schemas", () => {
     },
   };
 
-  it("parses context and message pages", () => {
+  it("parses message pages and rejects empty parts", () => {
     expect(
-      ListContextsResponseSchema.parse({
-        contexts: [
-          {
-            contextId,
-            status: "escalated",
-            createdAt: "2026-09-30T12:00:00Z",
-            lastMessageAt: "2026-09-30T12:04:10Z",
-          },
-        ],
+      ListContextMessagesResponseSchema.parse({
+        messages: [humanReply],
         nextPageToken: "",
-        pageSize: 20,
-      }).contexts[0]?.status,
-    ).toBe("escalated");
-    expect(
-      ListContextsResponseSchema.safeParse({
-        contexts: [{ contextId, status: "pending", createdAt: "2026-09-30T12:00:00Z" }],
-        nextPageToken: "",
-        pageSize: 20,
-      }).success,
-    ).toBe(false);
+        pageSize: 50,
+      }).messages,
+    ).toHaveLength(1);
     expect(
       ListContextMessagesResponseSchema.safeParse({
         messages: [humanReply],
@@ -206,15 +190,14 @@ describe("contexts/v1 schemas", () => {
       }).success,
     ).toBe(false);
     expect(
+      ListContextMessagesResponseSchema.safeParse({
+        messages: [{ ...humanReply, parts: [] }],
+        nextPageToken: "",
+        pageSize: 50,
+      }).success,
+    ).toBe(false);
+    expect(
       ContextsMessageMetadataSchema.parse(humanReply.metadata[CONTEXTS_EXTENSION_URI]).author,
     ).toBe("human");
-  });
-
-  it("parses message and status callbacks and rejects empty parts", () => {
-    expect(ContextCallbackSchema.safeParse({ contextId, message: humanReply }).success).toBe(true);
-    expect(ContextCallbackSchema.safeParse({ contextId, status: "closed" }).success).toBe(true);
-    expect(
-      ContextCallbackSchema.safeParse({ contextId, message: { ...humanReply, parts: [] } }).success,
-    ).toBe(false);
   });
 });
