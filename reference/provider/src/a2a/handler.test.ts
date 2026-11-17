@@ -555,6 +555,71 @@ describe("A2A handler", () => {
     );
   });
 
+  it("lists a context's messages oldest first, pages, and hides other owners' contexts", async () => {
+    const first = await readMessage(
+      await call(skylineId, "message:send", "POST", sendBody("Is my Friday flight on time?"), {
+        subject: "history-owner",
+      }),
+    );
+    const contextId = first.contextId ?? "";
+    await call(skylineId, "message:send", "POST", sendBody("ABC123", { contextId }), {
+      subject: "history-owner",
+    });
+    const history = (path: string, subject = "history-owner", customerId = skylineId) =>
+      call(customerId, `contexts/${contextId}/messages${path}`, "GET", undefined, { subject });
+
+    const all = await history("");
+    expect(all.status).toBe(200);
+    expect(all.headers.get("content-type")).toBe("application/a2a+json");
+    const page = await all.json();
+    expect(page).toMatchObject({ nextPageToken: "", pageSize: 50 });
+    expect(page.messages.map((message: Message) => message.role)).toEqual([
+      "ROLE_USER",
+      "ROLE_AGENT",
+      "ROLE_USER",
+      "ROLE_AGENT",
+    ]);
+    expect(page.messages[0]).toMatchObject({
+      contextId,
+      parts: [{ text: "Is my Friday flight on time?" }],
+      metadata: { "pact.createdAt": expect.any(String) },
+    });
+    expect(page.messages[1]).toMatchObject({
+      messageId: first.messageId,
+      metadata: { "pact.author": "ai" },
+    });
+
+    const firstPage = await (await history("?pageSize=3")).json();
+    expect(firstPage.messages).toEqual(page.messages.slice(0, 3));
+    const lastPage = await (
+      await history(`?pageSize=3&pageToken=${firstPage.nextPageToken}`)
+    ).json();
+    expect(lastPage).toMatchObject({ messages: page.messages.slice(3), nextPageToken: "" });
+
+    for (const query of [
+      "?pageSize=0",
+      "?pageSize=101",
+      "?pageToken=not-a-token",
+      "?pageToken=03",
+      "?pageToken=4",
+    ]) {
+      await expectA2AError(await history(query), "INVALID_PARAMS");
+    }
+    for (const response of [
+      await history("", "another-user"),
+      await history("", "history-owner", loomId),
+      await call(skylineId, `contexts/${randomUUID()}/messages`, "GET", undefined, {
+        subject: "history-owner",
+      }),
+    ]) {
+      await expectA2AError(response, "INVALID_PARAMS", "Unknown contextId");
+    }
+    expect(
+      (await call(skylineId, `contexts/${contextId}/messages`, "GET", undefined, { token: null }))
+        .status,
+    ).toBe(401);
+  });
+
   it("returns an empty task list and validates pageSize", async () => {
     const listed = await call(skylineId, "tasks?pageSize=12&status=ignored", "GET");
     expect(listed.status).toBe(200);

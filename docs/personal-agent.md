@@ -152,6 +152,9 @@ const first = await client.sendMessage("Where is my order?");
 const next = await client.sendMessage("Order 4471", { contextId: first.contextId });
 ```
 
+Read a conversation back, oldest first, with
+`client.listContextMessages(contextId)` ([spec §4.4](./spec.md#44-history)).
+
 The agent may ask the User to prove who they are (order number, email); relay
 the question and answer.
 

@@ -3,6 +3,7 @@ import {
   A2A_ERRORS,
   A2AErrorResponseSchema,
   AgentCardSchema,
+  ListContextMessagesResponseSchema,
   ListTasksResponseSchema,
   MessageSchema,
   PartSchema,
@@ -156,5 +157,40 @@ describe("protocol schemas", () => {
         },
       }).platform.enabled,
     ).toBe(true);
+  });
+});
+
+describe("history schemas", () => {
+  const contextId = "f0c12e6b-231e-4d92-a610-2518a0f27d20";
+  const humanReply = {
+    messageId: "r-007",
+    contextId,
+    role: "ROLE_AGENT",
+    parts: [{ text: "I've issued the refund." }],
+    metadata: { "pact.createdAt": "2026-09-30T12:20:00Z", "pact.author": "human" },
+  };
+
+  it("parses message pages and rejects empty parts", () => {
+    expect(
+      ListContextMessagesResponseSchema.parse({
+        messages: [humanReply],
+        nextPageToken: "",
+        pageSize: 50,
+      }).messages,
+    ).toHaveLength(1);
+    expect(
+      ListContextMessagesResponseSchema.safeParse({
+        messages: [humanReply],
+        nextPageToken: "",
+        pageSize: 101,
+      }).success,
+    ).toBe(false);
+    expect(
+      ListContextMessagesResponseSchema.safeParse({
+        messages: [{ ...humanReply, parts: [] }],
+        nextPageToken: "",
+        pageSize: 50,
+      }).success,
+    ).toBe(false);
   });
 });

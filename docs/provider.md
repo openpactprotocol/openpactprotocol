@@ -84,8 +84,13 @@ Reply synchronously with a `ROLE_AGENT` message carrying the `contextId`,
 `sub`, not who the User is. The agent verifies the User as it would in a chat
 widget.
 
+Serve the conversation back at `GET {interfaceUrl}/contexts/{contextId}/messages`
+([spec §4.4](./spec.md#44-history)): oldest first, `pact.createdAt` on every
+message, `pact.author` on agent ones, same ownership rule.
+
 **Done when** two messages with one `contextId` continue one conversation,
-and that `contextId` from another `sub` or Brand gets `INVALID_PARAMS`.
+that `contextId` from another `sub` or Brand gets `INVALID_PARAMS`, and its
+history lists both turns in order.
 
 <a name="5-other-routes-errors-limits"></a>
 
@@ -116,7 +121,7 @@ PA_ISSUER=<test personal agent's iss> PA_AUDIENCE=<your audience> PA_PRIVATE_JWK
 pnpm e2e
 ```
 
-**Done when** all 10 tests pass. That is PACT Identity conformance.
+**Done when** all 11 tests pass. That is PACT Identity conformance.
 
 Delegated authority ([spec §5](./spec.md#5-delegated-authority)) is optional
 and advertised on the card. It adds per-Brand scopes and login, device-code

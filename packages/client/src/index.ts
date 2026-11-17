@@ -4,13 +4,20 @@ import {
   A2A_VERSION,
   A2AErrorResponseSchema,
   AgentCardSchema,
+  ListContextMessagesResponseSchema,
   SendMessageResponseSchema,
   type A2AErrorResponse,
   type AgentCard,
+  type ListContextMessagesResponse,
   type Message,
 } from "@openpactprotocol/protocol";
 
-export type { AgentCard, Message };
+export type { AgentCard, ListContextMessagesResponse, Message };
+
+export interface PageOptions {
+  pageSize?: number;
+  pageToken?: string;
+}
 
 type A2AStatus = A2AErrorResponse["error"]["status"];
 type A2AErrorDetails = A2AErrorResponse["error"]["details"];
@@ -98,19 +105,27 @@ export class A2AClient {
     },
   ) {}
 
-  private async request(path: string, body: unknown): Promise<Message> {
+  private async request(path: string, body?: unknown): Promise<unknown> {
     const baseUrl = this.options.url.replace(/\/+$/, "");
     const url = new URL(`${baseUrl}${path}`);
     const token = await this.options.getToken();
-    const response = await (this.options.fetchImpl ?? fetch)(url, {
-      method: "POST",
-      headers: {
-        "A2A-Version": A2A_VERSION,
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const response = await (this.options.fetchImpl ?? fetch)(
+      url,
+      body === undefined
+        ? {
+            method: "GET",
+            headers: { "A2A-Version": A2A_VERSION, Authorization: `Bearer ${token}` },
+          }
+        : {
+            method: "POST",
+            headers: {
+              "A2A-Version": A2A_VERSION,
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+          },
+    );
     const text = await response.text();
     let responseBody: unknown = text;
     if (text) {
@@ -134,11 +149,11 @@ export class A2AClient {
       }
       throw new A2AHttpError(response.status, responseBody);
     }
-    return SendMessageResponseSchema.parse(responseBody).message;
+    return responseBody;
   }
 
   async sendMessage(text: string, options: { contextId?: string } = {}): Promise<Message> {
-    return this.request("/message:send", {
+    const response = await this.request("/message:send", {
       message: {
         messageId: randomUUID(),
         ...(options.contextId === undefined ? {} : { contextId: options.contextId }),
@@ -146,5 +161,22 @@ export class A2AClient {
         parts: [{ text, mediaType: "text/plain" }],
       },
     });
+    return SendMessageResponseSchema.parse(response).message;
   }
+
+  async listContextMessages(
+    contextId: string,
+    options: PageOptions = {},
+  ): Promise<ListContextMessagesResponse> {
+    const path = `/contexts/${encodeURIComponent(contextId)}/messages${pageQuery(options)}`;
+    return ListContextMessagesResponseSchema.parse(await this.request(path));
+  }
+}
+
+function pageQuery({ pageSize, pageToken }: PageOptions): string {
+  const query = new URLSearchParams();
+  if (pageSize !== undefined) query.set("pageSize", String(pageSize));
+  if (pageToken) query.set("pageToken", pageToken);
+  const encoded = query.toString();
+  return encoded ? `?${encoded}` : "";
 }

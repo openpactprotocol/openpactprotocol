@@ -186,6 +186,14 @@ export const PlatformJwtClaimsSchema = z.object({
   jti: z.string().min(1).optional(),
 });
 
+export const ListContextMessagesResponseSchema = z
+  .object({
+    messages: z.array(MessageSchema),
+    nextPageToken: z.string(),
+    pageSize: z.number().int().min(1).max(100),
+  })
+  .strict();
+
 export type Role = z.infer<typeof RoleSchema>;
 export type Part = z.infer<typeof PartSchema>;
 export type Message = z.infer<typeof MessageSchema>;
@@ -202,6 +210,7 @@ export type AgentExtension = z.infer<typeof AgentExtensionSchema>;
 export type AgentSkill = z.infer<typeof AgentSkillSchema>;
 export type AgentCard = z.infer<typeof AgentCardSchema>;
 export type A2AErrorResponse = z.infer<typeof A2AErrorResponseSchema>;
+export type ListContextMessagesResponse = z.infer<typeof ListContextMessagesResponseSchema>;
 export type PlatformJwtClaims = z.infer<typeof PlatformJwtClaimsSchema>;
 
 // Platform registration is a Provider-specific API, separate from A2A messages.

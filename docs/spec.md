@@ -23,12 +23,12 @@ in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119).
 | **Personal agent** | An agent platform acting for the User. Has a signing key and publishes its public keys as a JWKS. Abbreviated `PA`/`pa` in identifiers (`paJwt`, `<pa-jwt>`). |
 | **User**           | The person using the personal agent.                                                                                                                          |
 
-| Section                    | Required?                             | Adds                                                                                  |
-| -------------------------- | ------------------------------------- | ------------------------------------------------------------------------------------- |
-| §2 Transport               | yes                                   | Where a Brand's Agent Card is; which A2A operations exist.                            |
-| §3 Personal-agent identity | yes                                   | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.     |
-| §4 Messages                | yes                                   | One `contextId` per (personal agent, User, Brand); retries are idempotent.            |
-| §5 Delegated authority     | no; a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account. |
+| Section                    | Required?                             | Adds                                                                                            |
+| -------------------------- | ------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| §2 Transport               | yes                                   | Where a Brand's Agent Card is; which A2A operations exist.                                      |
+| §3 Personal-agent identity | yes                                   | The bearer token is a JWT the personal agent signs; the Provider checks its JWKS.               |
+| §4 Messages                | yes                                   | One `contextId` per (personal agent, User, Brand); retries are idempotent; history is readable. |
+| §5 Delegated authority     | no; a Brand advertises it on its card | The User logs in with the Brand and approves scopes; the agent acts on their account.           |
 
 <a name="2-transport"></a>
 
@@ -98,17 +98,20 @@ GET {PROVIDER_URL}/a2a/{brandId}/.well-known/agent-card.json
 
 ### 2.2 Operations
 
-Relative to the interface URL. Only `message:send` is required. Other A2A
-operations behave as A2A defines.
+Relative to the interface URL. `message:send` and `contexts/{contextId}/messages`
+are required. `contexts/{contextId}/messages` is a PACT route, not an A2A
+operation; it takes the same headers and authentication and returns the same
+content type and error envelope. Other A2A operations behave as A2A defines.
 
-| Method | Path                | Result                                                           |
-| ------ | ------------------- | ---------------------------------------------------------------- |
-| `POST` | `message:send`      | `200` `{ "message": Message }` (§4) or `{ "task": Task }` (§5.5) |
-| `GET`  | `tasks`             | `200` empty `ListTasksResponse` (`pageSize` 1–100, default 50)   |
-| `GET`  | `tasks/{id}`        | `TASK_NOT_FOUND`                                                 |
-| `POST` | `tasks/{id}:cancel` | `TASK_NOT_FOUND`                                                 |
+| Method | Path                            | Result                                                           |
+| ------ | ------------------------------- | ---------------------------------------------------------------- |
+| `POST` | `message:send`                  | `200` `{ "message": Message }` (§4) or `{ "task": Task }` (§5.5) |
+| `GET`  | `tasks`                         | `200` empty `ListTasksResponse` (`pageSize` 1–100, default 50)   |
+| `GET`  | `tasks/{id}`                    | `TASK_NOT_FOUND`                                                 |
+| `POST` | `tasks/{id}:cancel`             | `TASK_NOT_FOUND`                                                 |
+| `GET`  | `contexts/{contextId}/messages` | `200` `{ messages, nextPageToken, pageSize }` (§4.4)             |
 
-Any route that isn't an A2A operation gets `404` or `405` with no A2A body.
+Any other route gets `404` or `405` with no A2A body.
 Routing happens before authentication; an unknown Brand is `404` even with a
 valid token.
 
@@ -238,6 +241,54 @@ Content-Type: application/json
 A repeated `messageId` in the same `contextId` returns the stored reply
 without re-running the agent. If there is no stored reply yet, return
 `INVALID_PARAMS`.
+
+<a name="44-history"></a>
+
+### 4.4 History
+
+A conversation's messages, oldest first:
+
+```http
+GET {interfaceUrl}/contexts/f0c12e6b-231e-4d92-a610-2518a0f27d20/messages?pageSize=50
+Authorization: Bearer <pa-jwt>
+A2A-Version: 1.0
+```
+
+```json
+{
+  "messages": [
+    {
+      "messageId": "m-001",
+      "contextId": "f0c12e6b-231e-4d92-a610-2518a0f27d20",
+      "role": "ROLE_USER",
+      "parts": [{ "text": "I need help with my order." }],
+      "metadata": { "pact.createdAt": "2026-09-30T12:00:00Z" }
+    },
+    {
+      "messageId": "r-001",
+      "contextId": "f0c12e6b-231e-4d92-a610-2518a0f27d20",
+      "role": "ROLE_AGENT",
+      "parts": [{ "text": "Sure, what is the order number?" }],
+      "metadata": { "pact.createdAt": "2026-09-30T12:00:02Z", "pact.author": "ai" }
+    }
+  ],
+  "nextPageToken": "",
+  "pageSize": 50
+}
+```
+
+- The context MUST belong to this Brand and this `(personal agent, sub)`, as in
+  §4.2; otherwise `INVALID_PARAMS`, without saying whether it exists.
+- Every message MUST have `metadata["pact.createdAt"]`, an RFC 3339 UTC
+  timestamp. Every `ROLE_AGENT` message MUST have
+  `metadata["pact.author"]`: `"ai"` or `"human"`. Other metadata MAY appear.
+- `pageSize` is 1–100, default 50; the response repeats the size used.
+  `pageToken` is opaque: send a `nextPageToken` back unchanged. `""` means the
+  last page. A bad `pageSize` or `pageToken` gets `INVALID_PARAMS`.
+- History needs only §3. It includes turns served under delegation (§5),
+  with their receipts, even after the grant ends.
+- A closed context's history stays readable until the Provider deletes it;
+  after that the context is unknown (`INVALID_PARAMS`).
 
 <a name="5-delegated-authority"></a>
 
@@ -536,7 +587,7 @@ the status alone.
 | `INTERNAL`                        |  500 | `INTERNAL`            | Provider failure                                  |
 
 `INVALID_PARAMS` covers: bad JSON or schema, wrong role, blank text, bad
-`pageSize`, an unknown or foreign `contextId`, a repeated `messageId` with no
+`pageSize` or `pageToken`, an unknown or foreign `contextId`, a repeated `messageId` with no
 stored reply, and a `sub` mismatch (§5.5).
 
 Not A2A errors: `401` (§3.4, §5.5); `404`/`405` for unmatched routes or

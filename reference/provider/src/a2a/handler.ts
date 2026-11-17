@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import {
   A2A_ERRORS,
+  ListContextMessagesResponseSchema,
   ListTasksResponseSchema,
   MessageSchema,
   SendMessageRequestSchema,
@@ -32,6 +33,7 @@ type HandlerRoute =
   | { kind: "agentCard" }
   | { kind: "sendMessage" }
   | { kind: "listTasks" }
+  | { kind: "listMessages"; contextId: string }
   | { kind: "taskNotFound"; id: string }
   | { kind: "unsupported" }
   | { kind: "pushNotificationNotSupported" };
@@ -140,6 +142,15 @@ function matchRoute(method: string, segments: string[]): HandlerRoute | null {
   ) {
     return { kind: "pushNotificationNotSupported" };
   }
+  if (
+    method === "GET" &&
+    path.length === 3 &&
+    path[0] === "contexts" &&
+    path[1] &&
+    path[2] === "messages"
+  ) {
+    return { kind: "listMessages", contextId: path[1] };
+  }
   if (method === "GET" && path.length === 1 && path[0] === "extendedAgentCard") {
     return { kind: "unsupported" };
   }
@@ -161,6 +172,17 @@ function pageSize(url: URL): number {
     throw invalidParams("Invalid pageSize");
   }
   return size;
+}
+
+function pageOffset(url: URL): number {
+  const values = url.searchParams.getAll("pageToken");
+  if (values.length > 1) throw invalidParams("Invalid pageToken");
+  const value = values[0];
+  if (!value) return 0;
+  if (!/^(0|[1-9]\d*)$/.test(value) || !Number.isSafeInteger(Number(value))) {
+    throw invalidParams("Invalid pageToken");
+  }
+  return Number(value);
 }
 
 function makeAgentMessage(
@@ -327,6 +349,54 @@ export function createA2AHandler(options: HandlerOptions): A2AHandler {
       } catch (error) {
         if (error instanceof HandlerError) return a2aError(error.reason, error.message);
         console.error("A2A task list request failed", error);
+        return a2aError("INTERNAL", "Internal error");
+      }
+    }
+    if (route.kind === "listMessages") {
+      try {
+        const url = new URL(request.url);
+        const size = pageSize(url);
+        const offset = pageOffset(url);
+        if (!isUuid(route.contextId)) throw invalidParams("Unknown contextId");
+        const [conversation] = await options.db
+          .select({ id: conversations.id })
+          .from(conversations)
+          .where(
+            and(
+              eq(conversations.id, route.contextId),
+              eq(conversations.customerId, customer.id),
+              eq(conversations.userId, auth.paUserId),
+            ),
+          );
+        if (!conversation) throw invalidParams("Unknown contextId");
+        const rows = await options.db
+          .select()
+          .from(messages)
+          .where(eq(messages.conversationId, conversation.id))
+          .orderBy(asc(messages.createdAt), asc(messages.id))
+          .limit(size + 1)
+          .offset(offset);
+        if (offset > 0 && rows.length === 0) throw invalidParams("Invalid pageToken");
+        return response(
+          ListContextMessagesResponseSchema.parse({
+            messages: rows.slice(0, size).map((row) => ({
+              messageId: row.messageId,
+              contextId: conversation.id,
+              role: row.role,
+              parts: row.parts,
+              metadata: {
+                ...row.metadata,
+                "pact.createdAt": row.createdAt.toISOString(),
+                ...(row.role === "ROLE_AGENT" ? { "pact.author": "ai" } : {}),
+              },
+            })),
+            nextPageToken: rows.length > size ? String(offset + size) : "",
+            pageSize: size,
+          }),
+        );
+      } catch (error) {
+        if (error instanceof HandlerError) return a2aError(error.reason, error.message);
+        console.error("A2A message history request failed", error);
         return a2aError("INTERNAL", "Internal error");
       }
     }

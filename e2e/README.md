@@ -2,8 +2,8 @@
 
 Live HTTP tests for the [specification](../docs/spec.md)'s Identity profile:
 Agent Card discovery, `contextId` continuation, duplicate `messageId`,
-cross-User / cross-Brand isolation, task routes, error envelopes, content
-types, unmatched routes, authentication negatives.
+cross-User / cross-Brand isolation, message history, task routes, error
+envelopes, content types, unmatched routes, authentication negatives.
 
 ```sh
 PROVIDER_URL=… CUSTOMER_ID=… OTHER_CUSTOMER_ID=… PA_ISSUER=… PA_AUDIENCE=… pnpm e2e

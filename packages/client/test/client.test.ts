@@ -184,4 +184,33 @@ describe("@openpactprotocol/client", () => {
       details: [],
     });
   });
+
+  it("lists a context's messages with page options", async () => {
+    const requests: { url: URL; init: RequestInit }[] = [];
+    const contextId = "00000000-0000-4000-8000-000000000000";
+    const client = new A2AClient({
+      url: skylineInterfaceUrl,
+      getToken: () => "token",
+      fetchImpl: async (input, init) => {
+        requests.push({ url: new URL(input.toString()), init: init ?? {} });
+        return Response.json({
+          messages: [{ messageId: "m-1", contextId, role: "ROLE_USER", parts: [{ text: "hi" }] }],
+          nextPageToken: "",
+          pageSize: 1,
+        });
+      },
+    });
+
+    expect(
+      (await client.listContextMessages(contextId, { pageSize: 1, pageToken: "a b" })).messages,
+    ).toHaveLength(1);
+    expect(requests.map(({ url }) => `${url.pathname}${url.search}`)).toEqual([
+      `/a2a/${skylineCustomerId}/contexts/${contextId}/messages?pageSize=1&pageToken=a+b`,
+    ]);
+    expect(requests[0]?.init).toMatchObject({
+      method: "GET",
+      headers: { "A2A-Version": "1.0", Authorization: "Bearer token" },
+    });
+    expect(requests[0]?.init.body).toBeUndefined();
+  });
 });
