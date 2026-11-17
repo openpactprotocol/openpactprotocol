@@ -280,8 +280,8 @@ A2A-Version: 1.0
 - The context MUST belong to this Brand and this `(personal agent, sub)`, as in
   §4.2; otherwise `INVALID_PARAMS`, without saying whether it exists.
 - Every message MUST have `metadata["pact.createdAt"]`, an RFC 3339 UTC
-  timestamp. Every `ROLE_AGENT` message MUST have `metadata["pact.author"]`: `"ai"` or
-  `"human"`. Other metadata MAY appear.
+  timestamp. Every `ROLE_AGENT` message MUST have
+  `metadata["pact.author"]`: `"ai"` or `"human"`. Other metadata MAY appear.
 - `pageSize` is 1–100, default 50; the response repeats the size used.
   `pageToken` is opaque: send a `nextPageToken` back unchanged. `""` means the
   last page. A bad `pageSize` or `pageToken` gets `INVALID_PARAMS`.
