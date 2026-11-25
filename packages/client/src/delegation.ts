@@ -281,7 +281,6 @@ export type DelegatedSendResult =
       kind: "authRequired";
       task: Task;
       missingScopes: string[];
-      verificationUriComplete?: string;
     };
 
 export class DelegatedA2AClient {
@@ -347,12 +346,10 @@ export class DelegatedA2AClient {
         throw new Error(`Unexpected task state ${parsed.task.status.state}`);
       }
       const metadata = StepUpMetadataSchema.parse(parsed.task.metadata ?? {});
-      const link = metadata[PACT_METADATA.verificationUriComplete];
       return {
         kind: "authRequired",
         task: parsed.task,
         missingScopes: metadata[PACT_METADATA.missingScopes],
-        ...(link === undefined ? {} : { verificationUriComplete: link }),
       };
     }
     const rawReceipt = parsed.message.metadata?.[PACT_METADATA.receipt];

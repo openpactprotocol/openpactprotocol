@@ -114,10 +114,7 @@ describe("delegation schemas", () => {
           parts: [{ text: "I need permission to issue refunds." }],
         },
       },
-      metadata: {
-        "pact.missingScopes": ["refunds:issue"],
-        "pact.verificationUriComplete": "https://brand.example/login?return_to=x",
-      },
+      metadata: { "pact.missingScopes": ["refunds:issue"] },
     };
     const parsed = DelegatedSendMessageResponseSchema.parse({ task });
     expect("task" in parsed && StepUpMetadataSchema.parse(parsed.task.metadata)).toEqual(

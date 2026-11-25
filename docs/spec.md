@@ -446,7 +446,9 @@ Until approval: `authorization_pending`, `slow_down`, `access_denied`, or
 ```
 
 `scope` is what the User approved, which may be less than requested. The personal agent
-MUST read it.
+MUST read it. A refresh (`grant_type=refresh_token`) returns the grant's scopes
+and MUST NOT add to them (RFC 6749 §6); more scopes need a new authorization
+(§5.5).
 
 <a name="54-delegation-token"></a>
 
@@ -490,8 +492,8 @@ continue under delegation. Once a context has run as one `sub`, a token for a
 different `sub` gets `INVALID_PARAMS`.
 
 **Step-up.** If a turn needs a scope the token lacks, the Provider MUST NOT
-fail it. It returns a task in `TASK_STATE_AUTH_REQUIRED` with the missing ids
-and a new link; the conversation stays open:
+fail it. It returns a task in `TASK_STATE_AUTH_REQUIRED` with the missing
+ids; the conversation stays open:
 
 ```json
 {
@@ -506,8 +508,7 @@ and a new link; the conversation stays open:
       }
     },
     "metadata": {
-      "pact.missingScopes": ["refunds:issue"],
-      "pact.verificationUriComplete": "https://brand.example/login?return_to=…"
+      "pact.missingScopes": ["refunds:issue"]
     }
   }
 }
@@ -515,8 +516,9 @@ and a new link; the conversation stays open:
 
 The personal agent repeats §5.3 for the missing scopes (login is skipped if the User's
 session with the Provider is still live), gets a new token, and re-sends with
-the same `contextId`. The step-up task MAY be ephemeral; `tasks/{id}` MAY
-return `TASK_NOT_FOUND` for it.
+the same `contextId`. The new token replaces the earlier one, so the request
+SHOULD include the granted scopes the personal agent still needs. The step-up
+task MAY be ephemeral; `tasks/{id}` MAY return `TASK_NOT_FOUND` for it.
 
 <a name="56-receipts"></a>
 
