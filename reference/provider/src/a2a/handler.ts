@@ -23,7 +23,6 @@ import type { Db } from "../db/client.js";
 import { conversations, customers, delegationGrants, messages } from "../db/schema.js";
 import { runDelegatedTurn, type Delegation } from "../delegation/agent.js";
 import { delegationConfig, delegationUrls } from "../delegation/config.js";
-import { createDeviceAuthorization } from "../delegation/oauth.js";
 import { signReceipt, verifyDelegationToken } from "../delegation/tokens.js";
 import { buildAgentCard } from "./agentCard.js";
 import { getProviderBaseUrl } from "./providerBaseUrl.js";
@@ -497,15 +496,7 @@ export function createA2AHandler(options: HandlerOptions): A2AHandler {
             : ({ kind: "identity" } as const);
           if (config && delegated.kind === "stepUp") {
             // Spec §5.5 step-up: the turn isn't failed or stored; the context stays open.
-            const link = await createDeviceAuthorization(transactionDb, {
-              config,
-              urls: delegationUrls(baseUrl, customer.id),
-              customerId: customer.id,
-              platformId: auth.platform.id,
-              clientId: auth.issuer,
-              scopes: delegated.missingScopes,
-              now: options.now?.() ?? new Date(),
-            });
+            // No link: the personal agent starts its own authorization (§5.3).
             return {
               task: {
                 id: `t-${randomUUID()}`,
@@ -518,7 +509,6 @@ export function createA2AHandler(options: HandlerOptions): A2AHandler {
                 },
                 metadata: {
                   [PACT_METADATA.missingScopes]: delegated.missingScopes,
-                  [PACT_METADATA.verificationUriComplete]: link.verification_uri_complete,
                 },
               },
             };

@@ -9,7 +9,6 @@ export const REFRESH_TOKEN_GRANT_TYPE = "refresh_token";
 
 export const PACT_METADATA = {
   missingScopes: "pact.missingScopes",
-  verificationUriComplete: "pact.verificationUriComplete",
   receipt: "pact.receipt",
 } as const;
 
@@ -127,7 +126,6 @@ export const TaskSchema = z.object({
 
 export const StepUpMetadataSchema = z.object({
   [PACT_METADATA.missingScopes]: z.array(ScopeIdSchema).min(1),
-  [PACT_METADATA.verificationUriComplete]: z.string().url().optional(),
 });
 
 export const DelegatedSendMessageResponseSchema = z.union([

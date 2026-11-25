@@ -122,7 +122,6 @@ describe.skipIf(!scheme)("PACT Delegated", () => {
     expect(result.kind).toBe("authRequired");
     if (result.kind !== "authRequired") return;
     expect(result.missingScopes).toEqual(["flights:upcoming:read"]);
-    expect(result.verificationUriComplete).toMatch(/\/login\?return_to=/);
     contextId = result.task.contextId;
   });
 
