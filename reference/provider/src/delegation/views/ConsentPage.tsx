@@ -1,3 +1,5 @@
+import { flightRebookAuthorizations } from "../../../../brand/src/authorization.js";
+import type { AuthorizationDetails } from "@openpactprotocol/protocol/delegation";
 import type { ScopeDefinition } from "../config.js";
 
 function scopeIcon(scope: ScopeDefinition): string {
@@ -13,6 +15,7 @@ export function ConsentPage({
   platformOrigin,
   email,
   scopes,
+  authorizationDetails,
   action,
   session,
 }: {
@@ -22,6 +25,7 @@ export function ConsentPage({
   platformOrigin: string;
   email: string;
   scopes: (ScopeDefinition & { requested: boolean })[];
+  authorizationDetails?: AuthorizationDetails | undefined;
   action: string;
   session: string;
 }) {
@@ -65,6 +69,16 @@ export function ConsentPage({
                   {scope.writes && <span className="badge">Makes changes</span>}
                 </span>
                 <span className="scope-detail">{scope.detail}</span>
+                {scope.id === "flights:rebook" &&
+                  authorizationDetails &&
+                  flightRebookAuthorizations(authorizationDetails).map((detail) => (
+                    <span
+                      className="scope-detail"
+                      key={`${detail.identifier}:${detail.target_flight}`}
+                    >
+                      Only reservation {detail.identifier}, to flight {detail.target_flight}
+                    </span>
+                  ))}
               </span>
               <span className="toggle">
                 <input

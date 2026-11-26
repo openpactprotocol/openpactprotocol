@@ -3,6 +3,8 @@ import { compactVerify, createRemoteJWKSet, type CompactVerifyGetKey } from "jos
 import { A2A_VERSION, A2AErrorResponseSchema, type AgentCard } from "@openpactprotocol/protocol";
 import {
   AuthorizationServerMetadataSchema,
+  AuthorizationDetailsSchema,
+  type AuthorizationDetails,
   DELEGATION_HEADER,
   DEVICE_CODE_GRANT_TYPE,
   DelegatedSendMessageResponseSchema,
@@ -110,12 +112,14 @@ export interface DeviceAuthorization {
   verificationUriComplete: string;
   expiresAt: number;
   intervalSeconds: number;
+  authorizationDetails?: AuthorizationDetails | undefined;
 }
 
 export interface DelegationToken {
   accessToken: string;
   refreshToken?: string;
   scopes: string[];
+  authorizationDetails?: AuthorizationDetails | undefined;
   expiresAt: number;
 }
 
@@ -151,12 +155,14 @@ const defaultSleep = (ms: number, signal?: AbortSignal): Promise<void> =>
   });
 
 export class DeviceCodeClient {
+  private readonly deviceDetails = new Map<string, AuthorizationDetails>();
+  private readonly refreshDetails = new Map<string, AuthorizationDetails>();
   constructor(
     readonly options: {
       scheme: Pick<
         DelegationScheme,
         "deviceAuthorizationUrl" | "tokenUrl" | "refreshUrl" | "scopes"
-      >;
+      > & { metadataUrl?: string };
       clientId: string;
       getToken: GetToken;
       fetchImpl?: typeof fetch;
@@ -193,16 +199,58 @@ export class DeviceCodeClient {
     throw new A2AHttpError(response.status, body);
   }
 
-  private toToken(response: TokenResponse): DelegationToken {
+  private toToken(response: TokenResponse, expected?: AuthorizationDetails): DelegationToken {
+    if (expected && canonicalJson(response.authorization_details) !== canonicalJson(expected)) {
+      throw new OAuthError(
+        400,
+        "invalid_authorization_details",
+        "The token response changed or omitted the requested authorization details",
+      );
+    }
+    if (response.refresh_token && response.authorization_details) {
+      this.refreshDetails.set(
+        response.refresh_token,
+        structuredClone(response.authorization_details),
+      );
+    }
     return {
       accessToken: response.access_token,
+      ...(response.authorization_details
+        ? { authorizationDetails: response.authorization_details }
+        : {}),
       ...(response.refresh_token === undefined ? {} : { refreshToken: response.refresh_token }),
       scopes: parseScope(response.scope),
       expiresAt: this.now() + response.expires_in * 1000,
     };
   }
 
-  async start(scopes: readonly string[]): Promise<DeviceAuthorization> {
+  async start(
+    scopes: readonly string[],
+    options: { authorizationDetails?: AuthorizationDetails | undefined } = {},
+  ): Promise<DeviceAuthorization> {
+    const details =
+      options.authorizationDetails === undefined
+        ? undefined
+        : AuthorizationDetailsSchema.parse(structuredClone(options.authorizationDetails));
+    if (details) {
+      if (!this.options.scheme.metadataUrl)
+        throw new Error("Authorization server metadata is required for authorization details");
+      const metadata = await fetchAuthorizationServerMetadata(
+        this.options.scheme.metadataUrl,
+        this.options.fetchImpl,
+      );
+      if (
+        details.some(
+          (detail) => !metadata.authorization_details_types_supported?.includes(detail.type),
+        )
+      ) {
+        throw new OAuthError(
+          400,
+          "invalid_authorization_details",
+          "The authorization server does not support the requested types",
+        );
+      }
+    }
     const known = new Set(this.options.scheme.scopes.map((scope) => scope.id));
     const unknown = scopes.filter((scope) => !known.has(scope));
     if (scopes.length === 0) throw new Error("Request at least one scope");
@@ -210,9 +258,12 @@ export class DeviceCodeClient {
     const response = DeviceAuthorizationResponseSchema.parse(
       await this.postForm(this.options.scheme.deviceAuthorizationUrl, {
         scope: formatScope(scopes),
+        ...(details ? { authorization_details: JSON.stringify(details) } : {}),
       }),
     );
+    if (details) this.deviceDetails.set(response.device_code, structuredClone(details));
     return {
+      ...(details ? { authorizationDetails: details } : {}),
       deviceCode: response.device_code,
       userCode: response.user_code,
       verificationUri: response.verification_uri,
@@ -222,7 +273,10 @@ export class DeviceCodeClient {
     };
   }
 
-  async poll(deviceCode: string): Promise<DevicePollResult> {
+  async poll(
+    deviceCode: string,
+    options: { authorizationDetails?: AuthorizationDetails | undefined } = {},
+  ): Promise<DevicePollResult> {
     try {
       const response = TokenResponseSchema.parse(
         await this.postForm(this.options.scheme.tokenUrl, {
@@ -230,7 +284,12 @@ export class DeviceCodeClient {
           device_code: deviceCode,
         }),
       );
-      return { status: "granted", token: this.toToken(response) };
+      const token = this.toToken(
+        response,
+        options.authorizationDetails ?? this.deviceDetails.get(deviceCode),
+      );
+      this.deviceDetails.delete(deviceCode);
+      return { status: "granted", token };
     } catch (error) {
       if (error instanceof OAuthError && error.error === "authorization_pending") {
         return { status: "pending" };
@@ -249,7 +308,9 @@ export class DeviceCodeClient {
     let intervalSeconds = authorization.intervalSeconds;
     while (this.now() + intervalSeconds * 1000 <= authorization.expiresAt) {
       await sleep(intervalSeconds * 1000, options.signal);
-      const result = await this.poll(authorization.deviceCode);
+      const result = await this.poll(authorization.deviceCode, {
+        authorizationDetails: authorization.authorizationDetails,
+      });
       if (result.status === "granted") return result.token;
       // RFC 8628 §3.5: add 5 seconds on slow_down.
       if (result.status === "slow_down") intervalSeconds += 5;
@@ -257,14 +318,22 @@ export class DeviceCodeClient {
     throw new OAuthError(400, "expired_token", "The device code expired before approval");
   }
 
-  async refresh(refreshToken: string): Promise<DelegationToken> {
+  async refresh(
+    refreshToken: string,
+    options: { authorizationDetails?: AuthorizationDetails | undefined } = {},
+  ): Promise<DelegationToken> {
     const response = TokenResponseSchema.parse(
       await this.postForm(this.options.scheme.refreshUrl, {
         grant_type: REFRESH_TOKEN_GRANT_TYPE,
         refresh_token: refreshToken,
       }),
     );
-    return this.toToken(response);
+    const token = this.toToken(
+      response,
+      options.authorizationDetails ?? this.refreshDetails.get(refreshToken),
+    );
+    this.refreshDetails.delete(refreshToken);
+    return token;
   }
 }
 

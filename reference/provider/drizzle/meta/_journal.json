@@ -15,6 +15,13 @@
       "when": 1790974142362,
       "tag": "0001_delegation",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791357056579,
+      "tag": "0002_authorization_details",
+      "breakpoints": true
     }
   ]
 }

@@ -4,6 +4,7 @@ import { jwtVerify, type JWTVerifyGetKey } from "jose";
 import { ulid } from "ulid";
 import {
   DEVICE_CODE_GRANT_TYPE,
+  type AuthorizationDetails,
   REFRESH_TOKEN_GRANT_TYPE,
   formatScope,
   parseScope,
@@ -36,6 +37,11 @@ import {
   signDelegationToken,
   verifyConsentSession,
 } from "./tokens.js";
+
+import {
+  FLIGHT_REBOOK_TYPE,
+  flightRebookAuthorizations,
+} from "../../../brand/src/authorization.js";
 
 const DEVICE_CODE_TTL_SECONDS = 600;
 const POLL_INTERVAL_SECONDS = 3;
@@ -90,6 +96,7 @@ export async function createDeviceAuthorization(
     platformId: string;
     clientId: string;
     scopes: string[];
+    authorizationDetails?: AuthorizationDetails | undefined;
     now: Date;
   },
 ): Promise<DeviceAuthorizationResponse> {
@@ -102,6 +109,7 @@ export async function createDeviceAuthorization(
     deviceCodeHash: sha256(deviceCode),
     userCode: code,
     requestedScope: formatScope(input.scopes),
+    authorizationDetails: input.authorizationDetails ?? null,
     intervalSeconds: POLL_INTERVAL_SECONDS,
     expiresAt: new Date(input.now.getTime() + DEVICE_CODE_TTL_SECONDS * 1000),
   });
@@ -127,6 +135,7 @@ async function issueTokens(
       sub: grant.brandUserId,
       client_id: grant.clientId,
       scope: grant.scope,
+      ...(grant.authorizationDetails ? { authorization_details: grant.authorizationDetails } : {}),
       grant_id: grant.id,
     },
     { now, ttlSeconds: ACCESS_TOKEN_TTL_SECONDS },
@@ -143,6 +152,7 @@ async function issueTokens(
     refresh_token: refreshToken,
     expires_in: ACCESS_TOKEN_TTL_SECONDS,
     scope: grant.scope,
+    ...(grant.authorizationDetails ? { authorization_details: grant.authorizationDetails } : {}),
   };
 }
 
@@ -177,6 +187,7 @@ export function createOAuthHandler(options: OAuthOptions) {
           device_authorization_endpoint: urls.deviceAuthorization,
           token_endpoint: urls.token,
           jwks_uri: urls.jwks,
+          authorization_details_types_supported: [FLIGHT_REBOOK_TYPE],
           scopes_supported: config.scopes.map((scope) => scope.id),
           grant_types_supported: [DEVICE_CODE_GRANT_TYPE, REFRESH_TOKEN_GRANT_TYPE],
           token_endpoint_auth_methods_supported: ["private_key_jwt"],
@@ -227,6 +238,20 @@ export function createOAuthHandler(options: OAuthOptions) {
       if (scopes.length === 0 || scopes.some((scope) => !known.has(scope))) {
         return oauthError("invalid_scope", "Request scope ids listed on the Agent Card");
       }
+      let authorizationDetails: AuthorizationDetails | undefined;
+      if (form.has("authorization_details")) {
+        try {
+          authorizationDetails = flightRebookAuthorizations(
+            JSON.parse(form.get("authorization_details")!),
+          );
+          if (!scopes.includes("flights:rebook")) throw new Error("Rebooking scope required");
+        } catch {
+          return oauthError(
+            "invalid_authorization_details",
+            "Provide supported flight details and flights:rebook",
+          );
+        }
+      }
       return json(
         await createDeviceAuthorization(options.db, {
           config,
@@ -235,6 +260,7 @@ export function createOAuthHandler(options: OAuthOptions) {
           platformId: auth.platform.id,
           clientId: auth.issuer,
           scopes,
+          authorizationDetails,
           now: at,
         }),
       );
@@ -396,6 +422,7 @@ export function createOAuthHandler(options: OAuthOptions) {
       platformOrigin: new URL(pending.row.clientId).host,
       email: claims.email,
       scopes: config.scopes.map((scope) => ({ ...scope, requested: requested.has(scope.id) })),
+      authorizationDetails: pending.row.authorizationDetails ?? undefined,
       action: urls.consentDecision,
       session: await signConsentSession(claims, { audience: urls.consentDecision, now: now() }),
     });
@@ -472,6 +499,9 @@ export function createOAuthHandler(options: OAuthOptions) {
         clientId: pending.row.clientId,
         brandUserId: session.sub,
         scope: formatScope(granted),
+        authorizationDetails: granted.includes("flights:rebook")
+          ? pending.row.authorizationDetails
+          : null,
         expiresAt: new Date(at.getTime() + GRANT_TTL_MS),
       });
     });

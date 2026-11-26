@@ -141,6 +141,14 @@ agent polls the token endpoint, re-sends the message with
 `X-A2A-User-Delegation`, and shows the signed receipt on the Skyline thread.
 Asking to rebook without `flights:rebook` triggers step-up.
 
+Skyline also advertises the example resource-bound rebooking type from
+[spec §5.7](./spec.md#57-resource-bound-delegation). Request it with
+`DeviceCodeClient.start` as shown in the
+[personal-agent guide](./personal-agent.md#resource-bound-delegation). Consent
+shows the reservation and target flight, refresh preserves those conditions,
+and the Brand API rejects rebooking requests for any other pair. The chat UI
+continues to request scope-only grants.
+
 Delegated conformance tests (skipped when the card has no delegation):
 
 ```sh

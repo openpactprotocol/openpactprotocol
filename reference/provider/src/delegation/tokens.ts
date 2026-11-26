@@ -31,6 +31,9 @@ export async function signDelegationToken(
   const key = await getSigningKey();
   const iat = seconds(options.now);
   return new SignJWT({
+    ...(claims.authorization_details
+      ? { authorization_details: claims.authorization_details }
+      : {}),
     client_id: claims.client_id,
     scope: claims.scope,
     grant_id: claims.grant_id,
